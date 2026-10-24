@@ -14,9 +14,6 @@ public struct DynamicIslandView: View {
         if state.isShowingVolumeHUD {
             return 250
         }
-        if state.isDodging {
-            return 110 // Menyusut ramping saat menghindar
-        }
         switch state.mode {
         case .compact:
             return state.isPlaying ? 200 : (state.isTimerRunning ? 180 : 155)
@@ -29,9 +26,6 @@ public struct DynamicIslandView: View {
         if state.isShowingVolumeHUD {
             return 36
         }
-        if state.isDodging {
-            return 4 // Menyusut ke atas (4pt) agar tab browser di belakangnya bisa diklik!
-        }
         switch state.mode {
         case .compact:
             return 34
@@ -43,9 +37,6 @@ public struct DynamicIslandView: View {
     private var cornerRadius: CGFloat {
         if state.isShowingVolumeHUD {
             return 18
-        }
-        if state.isDodging {
-            return 2
         }
         switch state.mode {
         case .compact:
@@ -65,7 +56,7 @@ public struct DynamicIslandView: View {
                         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                             .stroke(Color.white.opacity(0.14), lineWidth: 1)
                     )
-                    .shadow(color: Color.black.opacity(state.isDodging ? 0.05 : 0.42), radius: 14, x: 0, y: 7)
+                    .shadow(color: Color.black.opacity(0.42), radius: 14, x: 0, y: 7)
                     .overlay(
                         // Konten dinamis
                         Group {
@@ -83,7 +74,6 @@ public struct DynamicIslandView: View {
                                 }
                             }
                         }
-                        .opacity(state.isDodging ? 0 : 1)
                     )
                     .frame(width: islandWidth, height: islandHeight)
                     .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
@@ -92,7 +82,6 @@ public struct DynamicIslandView: View {
                     }
             }
             .animation(.spring(response: 0.32, dampingFraction: 0.74), value: state.mode)
-            .animation(.spring(response: 0.20, dampingFraction: 0.70), value: state.isDodging)
             .animation(.spring(response: 0.30, dampingFraction: 0.78), value: state.isShowingVolumeHUD)
             .animation(.easeInOut(duration: 0.2), value: state.activeTab)
             
@@ -503,20 +492,35 @@ public struct DynamicIslandView: View {
     private var notesTabView: some View {
         VStack(spacing: 8) {
             // Input field
-            HStack {
-                Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                    .foregroundColor(.white.opacity(0.7))
-                
-                TextField("Tulis catatan / to-do, lalu tekan Enter...", text: $state.newTodoText, onCommit: {
+            HStack(spacing: 8) {
+                TextField("Tulis catatan / to-do...", text: $state.newTodoText, onCommit: {
                     state.addTodo()
                 })
                 .textFieldStyle(.plain)
                 .font(.system(size: 12, weight: .medium, design: .rounded))
                 .foregroundColor(.white)
+                
+                Button(action: {
+                    state.addTodo()
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                        Text("Tambah")
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.white.opacity(0.25))
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(state.newTodoText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .opacity(state.newTodoText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1.0)
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .padding(.vertical, 5)
             .background(Color.white.opacity(0.18))
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             

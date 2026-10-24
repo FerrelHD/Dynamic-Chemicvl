@@ -1,19 +1,64 @@
 import AppKit
 import SwiftUI
 
+// MARK: - Hosting View Cerdas: Klik di luar kapsul tembus ke tab browser / desktop
+public class IslandHostingView<Content: View>: NSHostingView<Content> {
+    private let state: IslandState
+    
+    public init(rootView: Content, state: IslandState = .shared) {
+        self.state = state
+        super.init(rootView: rootView)
+    }
+    
+    @MainActor required public init(rootView: Content) {
+        self.state = IslandState.shared
+        super.init(rootView: rootView)
+    }
+    
+    @MainActor required dynamic init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    public override func hitTest(_ point: NSPoint) -> NSView? {
+        let bounds = self.bounds
+        
+        // Ukuran aktif kapsul melayang
+        let capsuleWidth: CGFloat = {
+            if state.isShowingVolumeHUD { return 250 }
+            if state.mode == .expanded { return 390 }
+            return state.isPlaying ? 200 : (state.isTimerRunning ? 180 : 155)
+        }()
+        
+        let capsuleHeight: CGFloat = {
+            if state.isShowingVolumeHUD { return 36 }
+            if state.mode == .expanded { return 205 }
+            return 34
+        }()
+        
+        let capsuleX = (bounds.width - capsuleWidth) / 2
+        let capsuleY = bounds.height - 4 - capsuleHeight
+        let activeRect = NSRect(x: capsuleX - 4, y: capsuleY - 4, width: capsuleWidth + 8, height: capsuleHeight + 8)
+        
+        if activeRect.contains(point) {
+            return super.hitTest(point)
+        }
+        
+        // Jika kursor berada di area transparan, kembalikan nil agar klik tembus
+        // dan tidak menghalangi tab browser/tombol apa pun di belakangnya!
+        return nil
+    }
+}
+
 public class DynamicIslandPanel: NSPanel {
-    private var clickMonitor: Any?
-    private var mouseMonitor: Any?
-    private var lastMouseTime: Date = Date()
-    private var lastMousePos: CGPoint = .zero
-    private var dwellTimer: Timer?
+    private var globalClickMonitor: Any?
+    private var localClickMonitor: Any?
     
     public init() {
         let initialRect = NSRect(x: 0, y: 0, width: 460, height: 260)
         
         super.init(
             contentRect: initialRect,
-            styleMask: [.borderless, .nonactivatingPanel],
+            styleMask: [.borderless],
             backing: .buffered,
             defer: false
         )
@@ -33,10 +78,18 @@ public class DynamicIslandPanel: NSPanel {
         repositionToTopCenter()
     }
     
-    // MARK: - Solusi 1: Smart Velocity Dodge & Dwell Tracker
-    public func startSmartVelocityTracking(state: IslandState) {
-        // 1. Deteksi Klik di Luar untuk Menutup saat Expanded
-        clickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+    // MARK: - Izinkan Panel Menerima Fokus Keyboard (PENTING untuk Mengetik di Kolom Notes!)
+    public override var canBecomeKey: Bool {
+        return true
+    }
+    
+    public override var canBecomeMain: Bool {
+        return true
+    }
+    
+    // MARK: - Saran 1: Deteksi Klik di Luar untuk Menutup saat Menu Terbuka
+    public func startClickOutsideMonitoring(state: IslandState) {
+        let checkClickOutside: (NSEvent) -> Void = { [weak self] _ in
             guard state.mode == .expanded else { return }
             let mouseLoc = NSEvent.mouseLocation
             
@@ -47,68 +100,18 @@ public class DynamicIslandPanel: NSPanel {
             let capsuleY = screen.frame.maxY - capsuleHeight - 8
             let capsuleRect = CGRect(x: capsuleX, y: capsuleY, width: capsuleWidth, height: capsuleHeight)
             
+            // Jika klik berada di luar kartu, langsung minimize
             if !capsuleRect.contains(mouseLoc) {
                 DispatchQueue.main.async {
                     state.minimize()
-                    self?.ignoresMouseEvents = false
                 }
             }
         }
         
-        // 2. Monitor Kecepatan Kursor (Smart Velocity Dodge)
-        mouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved]) { [weak self] _ in
-            guard let self = self else { return }
-            let now = Date()
-            let pos = NSEvent.mouseLocation
-            let dt = now.timeIntervalSince(self.lastMouseTime)
-            
-            guard dt > 0.005 else { return }
-            let dy = pos.y - self.lastMousePos.y
-            let speedY = dy / CGFloat(dt) // Kecepatan vertikal ke atas (px/detik)
-            
-            self.lastMouseTime = now
-            self.lastMousePos = pos
-            
-            guard let screen = self.screen ?? NSScreen.main else { return }
-            let islandX = screen.frame.midX
-            let islandTop = screen.frame.maxY
-            
-            // Zona pendekatan: 170 pt kiri-kanan, dan 100 pt di bawah puncak layar
-            let isInApproachZone = abs(pos.x - islandX) < 170 && pos.y > (islandTop - 100) && pos.y <= islandTop
-            
-            if isInApproachZone {
-                if state.mode != .expanded {
-                    // Kursor melesat cepat ke atas (> 400 px/detik) -> Mau klik tab browser!
-                    if speedY > 400 {
-                        self.dwellTimer?.invalidate()
-                        self.dwellTimer = nil
-                        DispatchQueue.main.async {
-                            state.triggerDodge()
-                            self.ignoresMouseEvents = true // Clicks tembus ke tab browser!
-                        }
-                    } else if !state.isDodging {
-                        // Gerakan santai/berhenti di pulau -> Buka jika bertahan > 150ms
-                        if self.dwellTimer == nil {
-                            self.dwellTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: false) { _ in
-                                DispatchQueue.main.async {
-                                    self.ignoresMouseEvents = false
-                                    state.expandFromDwell()
-                                }
-                            }
-                        }
-                    }
-                }
-            } else {
-                // Keluar dari zona pendekatan
-                self.dwellTimer?.invalidate()
-                self.dwellTimer = nil
-                if state.isDodging {
-                    DispatchQueue.main.async {
-                        state.recoverFromDodge()
-                        self.ignoresMouseEvents = false
-                    }
-                }
-            }
+        globalClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: checkClickOutside)
+        localClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { event in
+            checkClickOutside(event)
+            return event
         }
     }
     
@@ -120,6 +123,7 @@ public class DynamicIslandPanel: NSPanel {
         let panelHeight: CGFloat = 260
         
         let xPos = screenRect.midX - (panelWidth / 2)
+        // Menggantung dengan margin ~8pt di bawah menu bar (Floating Pill)
         let yPos = screenRect.maxY - panelHeight - 8
         
         self.setFrame(NSRect(x: xPos, y: yPos, width: panelWidth, height: panelHeight), display: true)

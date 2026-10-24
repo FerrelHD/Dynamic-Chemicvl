@@ -32,10 +32,9 @@ public struct TodoItem: Identifiable, Codable, Equatable {
 public class IslandState: ObservableObject {
     public static let shared = IslandState()
     
-    // UI State
+    // UI State: Saran 1 (Klik untuk Buka, Klik di Luar untuk Tutup)
     @Published public var mode: IslandMode = .compact
     @Published public var activeTab: IslandTab = .control
-    @Published public var isDodging: Bool = false
     
     // Volume HUD overlay
     @Published public var isShowingVolumeHUD: Bool = false
@@ -68,16 +67,13 @@ public class IslandState: ObservableObject {
     @Published public var isTimerRunning: Bool = false
     private var timerCancellable: AnyCancellable?
     
-    // Quick Notes & To-Do List
+    // Quick Notes & To-Do List (Persistent)
     @Published public var todos: [TodoItem] = []
     @Published public var newTodoText: String = ""
     private let todosStorageKey = "DynamicIsland_SavedTodos"
     
     // File Shelf
     @Published public var shelfFiles: [URL] = []
-    
-    // Hover Debounce Timer (Nusa style hover in/out)
-    private var hoverWorkItem: DispatchWorkItem?
     
     public init() {
         loadTodos()
@@ -142,43 +138,27 @@ public class IslandState: ObservableObject {
             }
     }
     
-    // MARK: - Solusi 1: Smart Velocity Dodge & Dwell Actions
-    public func triggerDodge() {
-        guard mode != .expanded else { return }
-        withAnimation(.spring(response: 0.22, dampingFraction: 0.72)) {
-            isDodging = true
+    // MARK: - Saran 1: Toggle Expand & Minimize
+    public func toggleExpand() {
+        if isShowingVolumeHUD {
+            isShowingVolumeHUD = false
         }
-    }
-    
-    public func recoverFromDodge() {
-        guard isDodging else { return }
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.76)) {
-            isDodging = false
-        }
-    }
-    
-    public func expandFromDwell() {
-        isDodging = false
         refreshControlStatus()
+        
+        let willExpand = (mode == .compact)
+        if willExpand {
+            // Aktifkan aplikasi agar keyboard bisa mengetik di Notes!
+            NSApp.activate(ignoringOtherApps: true)
+        }
+        
         withAnimation(.spring(response: 0.34, dampingFraction: 0.74)) {
-            mode = .expanded
+            mode = willExpand ? .expanded : .compact
         }
     }
     
     public func minimize() {
         withAnimation(.spring(response: 0.32, dampingFraction: 0.76)) {
             self.mode = .compact
-            self.isDodging = false
-        }
-    }
-    
-    public func toggleExpand() {
-        if isShowingVolumeHUD {
-            isShowingVolumeHUD = false
-        }
-        refreshControlStatus()
-        withAnimation(.spring(response: 0.34, dampingFraction: 0.74)) {
-            mode = (mode == .expanded) ? .compact : .expanded
         }
     }
     
@@ -254,7 +234,7 @@ public class IslandState: ObservableObject {
         } else {
             self.todos = [
                 TodoItem(text: "Coba fitur Dynamic Island di Mac", isDone: true),
-                TodoItem(text: "Putar lagu favorit di Spotify / YouTube", isDone: false)
+                TodoItem(text: "Tulis to-do baru dan tekan Enter", isDone: false)
             ]
         }
     }

@@ -22,7 +22,8 @@ Aplikasi Dynamic Island / living notch native untuk macOS yang ringan, hemat bat
    - Slider volume suara interaktif.
 
 4. **📝 Quick Notes & To-Do List:**
-   - Input catatan dan to-do instan (cukup ketik dan tekan Enter).
+   - Input catatan dan to-do instan dengan tombol **"+" (Tambah)** atau tekan `Enter`.
+   - Dukungan fokus keyboard penuh di panel melayang.
    - Checklist interaktif dengan pencoretan tugas selesai.
    - Penyimpanan otomatis dan permanen via `UserDefaults`.
 
@@ -34,11 +35,13 @@ Aplikasi Dynamic Island / living notch native untuk macOS yang ringan, hemat bat
    - Drop zone sementara untuk menampung file dari Desktop/Finder.
    - Menampilkan ikon asli macOS dan mendukung drag-out ke aplikasi lain.
 
-7. **⚡ Smart Velocity Dodge (Solusi 1):**
-   - Kapsul melayang empuk (*floating pill*) berwarna *Solid Jet-Black* dengan jam digital di tengah.
-   - Saat kursor digerakkan cepat ke atas (kecepatan tinggi), kapsul otomatis **menghindar / menyusut ke atas** dan mengaktifkan mode *click-through*, sehingga tab browser di belakangnya 100% bisa diklik bebas tanpa terhalang.
-   - Saat kursor digerakkan santai di atas kapsul (>150ms dwell), kapsul membuka menu penuh.
-   - Klik di mana saja di luar pulau untuk menutup kembali.
+7. **🏝️ Praktis & Ramah Pengguna (Kombinasi Saran 1 & 2):**
+   - **Solid Jet-Black Floating Pill**: Jam digital dan ikon jam berada tepat di tengah-tengah kapsul secara simetris saat idle.
+   - **Klik untuk Buka (Saran 1)**: Tidak lagi memakai hover liar yang mengagetkan saat kursor melintas. Cukup klik kapsul untuk membuka menu, dan klik di mana saja di luar kartu untuk menutupnya.
+   - **Click-Through Cerdas**: Seluruh area di sekitar kapsul 100% tembus klik (*pass-through*), sehingga tombol dan tab browser di belakangnya tidak akan pernah terhalang.
+   - **Menu Bar Tray Icon (Saran 2)**: Terdapat ikon `🏝️` di Menu Bar kanan atas macOS:
+     - **Klik Kiri**: Buka / Tutup Dynamic Island seketika.
+     - **Klik Kanan**: Menu cepat untuk Buka/Tutup, Sembunyikan/Tampilkan Kapsul, dan **Keluar / Quit**.
 
 ---
 
