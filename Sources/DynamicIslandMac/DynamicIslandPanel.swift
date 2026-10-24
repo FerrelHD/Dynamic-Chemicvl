@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-// MARK: - Hosting View Cerdas: Klik di luar kapsul tembus ke tab browser / desktop
+// MARK: - Responsive Hosting View: Click pass-through for transparent areas
 public class IslandHostingView<Content: View>: NSHostingView<Content> {
     private let state: IslandState
     
@@ -22,16 +22,28 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
     public override func hitTest(_ point: NSPoint) -> NSView? {
         let bounds = self.bounds
         
-        // Active pill & card dimensions
+        // Dynamic adaptive dimensions matching DynamicIslandView
         let capsuleWidth: CGFloat = {
             if state.isShowingVolumeHUD { return 250 }
-            if state.mode == .expanded { return 395 }
-            return state.isPlaying ? 205 : (state.isTimerRunning ? 180 : 160)
+            if state.mode == .expanded { return 385 }
+            if state.isTimerRunning { return 175 }
+            if state.isPlaying {
+                let titleLen = CGFloat(state.trackTitle.count)
+                return max(195, min(235, 165 + titleLen * 3.0))
+            }
+            return 150
         }()
         
         let capsuleHeight: CGFloat = {
             if state.isShowingVolumeHUD { return 36 }
-            if state.mode == .expanded { return 215 }
+            if state.mode == .expanded {
+                switch state.activeTab {
+                case .music: return 172
+                case .control: return 192
+                case .notes: return 196
+                case .shelf: return state.shelfFiles.isEmpty ? 148 : 156
+                }
+            }
             return 34
         }()
         
@@ -43,8 +55,7 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
             return super.hitTest(point)
         }
         
-        // Jika kursor berada di area transparan, kembalikan nil agar klik tembus
-        // dan tidak menghalangi tab browser/tombol apa pun di belakangnya!
+        // Pass clicks through transparent bounds to background windows (Safari, Chrome, Desktop)
         return nil
     }
 }
@@ -52,6 +63,7 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
 public class DynamicIslandPanel: NSPanel {
     private var globalClickMonitor: Any?
     private var localClickMonitor: Any?
+    private var screenChangeObserver: Any?
     
     public init() {
         let initialRect = NSRect(x: 0, y: 0, width: 460, height: 260)
@@ -76,9 +88,18 @@ public class DynamicIslandPanel: NSPanel {
         self.ignoresMouseEvents = false
         
         repositionToTopCenter()
+        
+        // Responsive screen change tracking (multi-monitor, resolution changes)
+        screenChangeObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.repositionToTopCenter()
+        }
     }
     
-    // MARK: - Izinkan Panel Menerima Fokus Keyboard (PENTING untuk Mengetik di Kolom Notes!)
+    // MARK: - Keyboard Focus Support for Reminders & Notes Input
     public override var canBecomeKey: Bool {
         return true
     }
@@ -87,20 +108,28 @@ public class DynamicIslandPanel: NSPanel {
         return true
     }
     
-    // MARK: - Saran 1: Deteksi Klik di Luar untuk Menutup saat Menu Terbuka
+    // MARK: - Click-Outside Detection to Minimize
     public func startClickOutsideMonitoring(state: IslandState) {
         let checkClickOutside: (NSEvent) -> Void = { [weak self] _ in
             guard state.mode == .expanded else { return }
             let mouseLoc = NSEvent.mouseLocation
             
             guard let screen = self?.screen ?? NSScreen.main else { return }
-            let capsuleWidth: CGFloat = 395
-            let capsuleHeight: CGFloat = 215
+            let capsuleWidth: CGFloat = 385
+            let capsuleHeight: CGFloat = {
+                switch state.activeTab {
+                case .music: return 172
+                case .control: return 192
+                case .notes: return 196
+                case .shelf: return state.shelfFiles.isEmpty ? 148 : 156
+                }
+            }()
+            
             let capsuleX = screen.frame.midX - (capsuleWidth / 2)
             let capsuleY = screen.frame.maxY - capsuleHeight - 8
             let capsuleRect = CGRect(x: capsuleX, y: capsuleY, width: capsuleWidth, height: capsuleHeight)
             
-            // Jika klik berada di luar kartu, langsung minimize
+            // If click is outside the active card frame, minimize immediately
             if !capsuleRect.contains(mouseLoc) {
                 DispatchQueue.main.async {
                     state.minimize()
@@ -123,7 +152,7 @@ public class DynamicIslandPanel: NSPanel {
         let panelHeight: CGFloat = 260
         
         let xPos = screenRect.midX - (panelWidth / 2)
-        // Menggantung dengan margin ~8pt di bawah menu bar (Floating Pill)
+        // Suspended with ~8pt margin below macOS menu bar
         let yPos = screenRect.maxY - panelHeight - 8
         
         self.setFrame(NSRect(x: xPos, y: yPos, width: panelWidth, height: panelHeight), display: true)

@@ -9,16 +9,24 @@ public struct DynamicIslandView: View {
         self.state = state
     }
     
-    // Dynamic dimensions (iOS Floating Pill & Card)
+    // MARK: - Dynamic Adaptive Dimensions (Content-Hugging & Responsive)
     private var islandWidth: CGFloat {
         if state.isShowingVolumeHUD {
             return 250
         }
         switch state.mode {
         case .compact:
-            return state.isPlaying ? 205 : (state.isTimerRunning ? 180 : 160)
+            if state.isTimerRunning {
+                return 175
+            } else if state.isPlaying {
+                // Responsively adapt width to track title length (min 195, max 235)
+                let titleLen = CGFloat(state.trackTitle.count)
+                return max(195, min(235, 165 + titleLen * 3.0))
+            } else {
+                return 150
+            }
         case .expanded:
-            return 395
+            return 385 // Balanced proportion on 13" and larger screens
         }
     }
     
@@ -30,7 +38,17 @@ public struct DynamicIslandView: View {
         case .compact:
             return 34
         case .expanded:
-            return 215
+            // Dynamic content-aware height: eliminates dead space per tab!
+            switch state.activeTab {
+            case .music:
+                return 172 // Snugly hugs cover art, timeline, and controls
+            case .control:
+                return 192 // Fits 2x2 squircle grid and volume capsule
+            case .notes:
+                return 196 // Fits input bar, task list, and footer
+            case .shelf:
+                return state.shelfFiles.isEmpty ? 148 : 156
+            }
         }
     }
     
@@ -40,9 +58,9 @@ public struct DynamicIslandView: View {
         }
         switch state.mode {
         case .compact:
-            return islandHeight / 2 // Perfect squircle pill
+            return islandHeight / 2 // Perfect pill
         case .expanded:
-            return 28 // iOS continuous card curvature
+            return 26 // iOS continuous squircle curvature
         }
     }
     
@@ -80,9 +98,10 @@ public struct DynamicIslandView: View {
                         state.toggleExpand()
                     }
             }
-            .animation(.spring(response: 0.32, dampingFraction: 0.76), value: state.mode)
+            .animation(.spring(response: 0.34, dampingFraction: 0.78), value: state.mode)
+            .animation(.spring(response: 0.32, dampingFraction: 0.78), value: state.activeTab)
+            .animation(.spring(response: 0.30, dampingFraction: 0.76), value: state.isPlaying)
             .animation(.spring(response: 0.28, dampingFraction: 0.80), value: state.isShowingVolumeHUD)
-            .animation(.easeInOut(duration: 0.18), value: state.activeTab)
             
             Spacer()
         }
@@ -127,7 +146,7 @@ public struct DynamicIslandView: View {
         return "speaker.wave.3.fill"
     }
     
-    // MARK: - 1. Compact View (Centered Clock & Media Pill)
+    // MARK: - 1. Compact View (Centered Clock & Responsive Media Pill)
     private var compactContent: some View {
         HStack(spacing: 0) {
             Spacer()
@@ -143,7 +162,7 @@ public struct DynamicIslandView: View {
                         .foregroundColor(.white)
                 }
             } else if state.isPlaying {
-                HStack(spacing: 8) {
+                HStack(spacing: 7) {
                     if let art = state.artworkImage {
                         Image(nsImage: art)
                             .resizable()
@@ -181,24 +200,37 @@ public struct DynamicIslandView: View {
         .padding(.horizontal, 12)
     }
     
-    // MARK: - 2. Expanded View (iOS Card)
+    // MARK: - 2. Expanded View (iOS Responsive Card)
     private var expandedContent: some View {
-        VStack(spacing: 10) {
-            // iOS Segmented Tab Bar Header
-            HStack(spacing: 4) {
+        VStack(spacing: 8) {
+            // iOS Segmented Tab Bar Header (Responsive & Non-wrapping)
+            HStack(spacing: 3) {
                 ForEach(IslandTab.allCases, id: \.self) { tab in
                     Button(action: {
-                        withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
                             state.activeTab = tab
                         }
                     }) {
-                        HStack(spacing: 5) {
+                        HStack(spacing: 4) {
                             tabIcon(for: tab)
-                            Text(tabLabel(for: tab))
+                            
+                            Text(tab.rawValue)
                                 .font(.system(size: 11, weight: state.activeTab == tab ? .bold : .medium, design: .rounded))
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
+                            
+                            if let badge = tabBadgeCount(for: tab), badge > 0 {
+                                Text("\(badge)")
+                                    .font(.system(size: 8.5, weight: .bold, design: .rounded))
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 1)
+                                    .background(state.activeTab == tab ? Color.white.opacity(0.32) : Color.white.opacity(0.18))
+                                    .clipShape(Capsule())
+                            }
                         }
-                        .padding(.vertical, 5)
-                        .padding(.horizontal, 9)
+                        .padding(.vertical, 4.5)
+                        .padding(.horizontal, 7)
                         .background(
                             ZStack {
                                 if state.activeTab == tab {
@@ -222,9 +254,9 @@ public struct DynamicIslandView: View {
                     }
                 }) {
                     Image(systemName: "chevron.up")
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
                         .foregroundColor(.white.opacity(0.65))
-                        .padding(6)
+                        .padding(5.5)
                         .background(Circle().fill(Color.white.opacity(0.12)))
                 }
                 .buttonStyle(.plain)
@@ -246,14 +278,14 @@ public struct DynamicIslandView: View {
                 shelfTabView
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 14)
+        .padding(.horizontal, 15)
+        .padding(.bottom, 12)
     }
     
     // MARK: - Tab 1: Control Center (iOS Style Tiles)
     private var controlTabView: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 10) {
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
                 // Wi-Fi Tile
                 controlTile(
                     icon: "wifi",
@@ -277,7 +309,7 @@ public struct DynamicIslandView: View {
                 }
             }
             
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 // Focus / DND Tile
                 controlTile(
                     icon: "moon.fill",
@@ -341,14 +373,14 @@ public struct DynamicIslandView: View {
     
     private func controlTile(icon: String, title: String, subtitle: String, isActive: Bool, activeColor: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 ZStack {
                     Circle()
                         .fill(isActive ? activeColor : Color.white.opacity(0.18))
-                        .frame(width: 30, height: 30)
+                        .frame(width: 28, height: 28)
                     
                     Image(systemName: icon)
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                 }
                 
@@ -365,28 +397,28 @@ public struct DynamicIslandView: View {
                 
                 Spacer()
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 6)
             .background(Color.white.opacity(0.09))
             .overlay(
-                RoundedRectangle(cornerRadius: 13, style: .continuous)
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .stroke(Color.white.opacity(0.06), lineWidth: 0.75)
             )
-            .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
     }
     
     // MARK: - Tab 2: Now Playing (iOS Live Activity Style)
     private var musicTabView: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 12) {
+        VStack(spacing: 8) {
+            HStack(spacing: 11) {
                 ZStack {
                     if let art = state.artworkImage {
                         Image(nsImage: art)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
-                            .frame(width: 46, height: 46)
+                            .frame(width: 44, height: 44)
                             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     } else {
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -395,14 +427,14 @@ public struct DynamicIslandView: View {
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             ))
-                            .frame(width: 46, height: 46)
+                            .frame(width: 44, height: 44)
                         
                         Image(systemName: "music.note")
-                            .font(.system(size: 20, weight: .bold, design: .rounded))
+                            .font(.system(size: 19, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
                     }
                 }
-                .frame(width: 46, height: 46)
+                .frame(width: 44, height: 44)
                 .shadow(color: .black.opacity(0.4), radius: 4)
                 
                 VStack(alignment: .leading, spacing: 2) {
@@ -419,42 +451,42 @@ public struct DynamicIslandView: View {
                 
                 Spacer()
                 
-                waveformView(height: 20)
+                waveformView(height: 18)
             }
             
             // Progress Bar & Timestamps
-            VStack(spacing: 3) {
+            VStack(spacing: 2) {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         Capsule()
                             .fill(Color.white.opacity(0.18))
-                            .frame(height: 4)
+                            .frame(height: 3.5)
                         
                         Capsule()
                             .fill(Color.white)
-                            .frame(width: max(0, geo.size.width * CGFloat(state.playbackProgress)), height: 4)
+                            .frame(width: max(0, geo.size.width * CGFloat(state.playbackProgress)), height: 3.5)
                     }
                 }
-                .frame(height: 4)
+                .frame(height: 3.5)
                 
                 HStack {
                     Text(state.currentTime)
-                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .font(.system(size: 9.5, weight: .medium, design: .rounded))
                         .foregroundColor(.white.opacity(0.65))
                     
                     Spacer()
                     
                     Text(state.totalDuration)
-                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .font(.system(size: 9.5, weight: .medium, design: .rounded))
                         .foregroundColor(.white.opacity(0.65))
                 }
             }
             
             // iOS Media Controls
-            HStack(spacing: 28) {
+            HStack(spacing: 26) {
                 Button(action: { state.previousTrack() }) {
                     Image(systemName: "backward.fill")
-                        .font(.system(size: 17, weight: .medium, design: .rounded))
+                        .font(.system(size: 16, weight: .medium, design: .rounded))
                         .foregroundColor(.white.opacity(0.9))
                 }
                 .buttonStyle(.plain)
@@ -464,10 +496,10 @@ public struct DynamicIslandView: View {
                     ZStack {
                         Circle()
                             .fill(Color.white)
-                            .frame(width: 36, height: 36)
+                            .frame(width: 34, height: 34)
                         
                         Image(systemName: state.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
                             .foregroundColor(.black)
                     }
                 }
@@ -475,23 +507,23 @@ public struct DynamicIslandView: View {
                 
                 Button(action: { state.nextTrack() }) {
                     Image(systemName: "forward.fill")
-                        .font(.system(size: 17, weight: .medium, design: .rounded))
+                        .font(.system(size: 16, weight: .medium, design: .rounded))
                         .foregroundColor(.white.opacity(0.9))
                 }
                 .buttonStyle(.plain)
                 
                 Spacer()
                 
-                HStack(spacing: 5) {
+                HStack(spacing: 4.5) {
                     Image(systemName: volumeIcon)
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .font(.system(size: 10.5, weight: .semibold, design: .rounded))
                         .foregroundColor(.white.opacity(0.75))
                     Text("\(state.currentVolume)%")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .font(.system(size: 10.5, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
+                .padding(.horizontal, 7.5)
+                .padding(.vertical, 3.5)
                 .background(Color.white.opacity(0.10))
                 .clipShape(Capsule())
             }
@@ -500,7 +532,7 @@ public struct DynamicIslandView: View {
     
     // MARK: - Tab 3: Reminders & Notes (iOS Reminders Style)
     private var notesTabView: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 7) {
             // Input field with iOS Add button
             HStack(spacing: 8) {
                 TextField("Add a reminder or note...", text: $state.newTodoText, onCommit: {
@@ -515,13 +547,13 @@ public struct DynamicIslandView: View {
                 }) {
                     HStack(spacing: 4) {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                            .font(.system(size: 11.5, weight: .bold, design: .rounded))
                         Text("Add")
                             .font(.system(size: 11, weight: .bold, design: .rounded))
                     }
                     .foregroundColor(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 3.5)
                     .background(Color(red: 0.0, green: 0.48, blue: 1.0))
                     .clipShape(Capsule())
                 }
@@ -536,18 +568,18 @@ public struct DynamicIslandView: View {
             
             // Scrollable List
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 5) {
+                VStack(spacing: 4.5) {
                     ForEach(state.todos) { todo in
                         HStack(spacing: 8) {
                             Button(action: { state.toggleTodo(id: todo.id) }) {
                                 Image(systemName: todo.isDone ? "checkmark.circle.fill" : "circle")
-                                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                                    .font(.system(size: 13.5, weight: .bold, design: .rounded))
                                     .foregroundColor(todo.isDone ? Color.blue : Color.white.opacity(0.45))
                             }
                             .buttonStyle(.plain)
                             
                             Text(todo.text)
-                                .font(.system(size: 12, weight: .medium, design: .rounded))
+                                .font(.system(size: 11.5, weight: .medium, design: .rounded))
                                 .foregroundColor(todo.isDone ? .white.opacity(0.45) : .white)
                                 .strikethrough(todo.isDone, color: .white.opacity(0.45))
                                 .lineLimit(1)
@@ -556,25 +588,25 @@ public struct DynamicIslandView: View {
                             
                             Button(action: { state.deleteTodo(id: todo.id) }) {
                                 Image(systemName: "trash")
-                                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                                    .font(.system(size: 10.5, weight: .medium, design: .rounded))
                                     .foregroundColor(.white.opacity(0.40))
                             }
                             .buttonStyle(.plain)
                         }
                         .padding(.horizontal, 9)
-                        .padding(.vertical, 5)
+                        .padding(.vertical, 4.5)
                         .background(Color.white.opacity(0.07))
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
                 }
             }
-            .frame(height: 80)
+            .frame(height: 72)
             
             // Footer Info
             HStack {
                 let remaining = state.todos.filter { !$0.isDone }.count
                 Text("\(remaining) task\(remaining == 1 ? "" : "s") remaining")
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .font(.system(size: 9.5, weight: .medium, design: .rounded))
                     .foregroundColor(.white.opacity(0.60))
                 
                 Spacer()
@@ -582,7 +614,7 @@ public struct DynamicIslandView: View {
                 if state.todos.contains(where: { $0.isDone }) {
                     Button(action: { state.clearCompletedTodos() }) {
                         Text("Clear Completed")
-                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .font(.system(size: 9.5, weight: .bold, design: .rounded))
                             .foregroundColor(Color.orange)
                     }
                     .buttonStyle(.plain)
@@ -593,65 +625,65 @@ public struct DynamicIslandView: View {
     
     // MARK: - Tab 4: File Shelf View (Drop Zone)
     private var shelfTabView: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 7) {
             if state.shelfFiles.isEmpty {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
                         .stroke(style: StrokeStyle(lineWidth: 1.2, dash: [5]))
                         .fill(isDropTargeted ? Color.green : Color.white.opacity(0.25))
                     
-                    VStack(spacing: 4) {
+                    VStack(spacing: 3) {
                         Image(systemName: "tray.and.arrow.down")
-                            .font(.system(size: 18, weight: .medium, design: .rounded))
+                            .font(.system(size: 17, weight: .medium, design: .rounded))
                             .foregroundColor(.white.opacity(0.70))
                         Text("Drop files here for quick shelf")
-                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .font(.system(size: 10.5, weight: .semibold, design: .rounded))
                             .foregroundColor(.white.opacity(0.75))
                         Text("Drag out to any app or email anytime")
                             .font(.system(size: 9, weight: .medium, design: .rounded))
                             .foregroundColor(.white.opacity(0.50))
                     }
                 }
-                .frame(height: 82)
+                .frame(height: 72)
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
+                    HStack(spacing: 9) {
                         ForEach(Array(state.shelfFiles.enumerated()), id: \.element) { idx, url in
                             HStack(spacing: 6) {
                                 Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
                                     .resizable()
-                                    .frame(width: 22, height: 22)
+                                    .frame(width: 20, height: 20)
                                 
                                 Text(url.lastPathComponent)
-                                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                                    .font(.system(size: 10.5, weight: .medium, design: .rounded))
                                     .foregroundColor(.white)
                                     .lineLimit(1)
                                 
                                 Button(action: { state.removeFile(at: idx) }) {
                                     Image(systemName: "xmark.circle.fill")
-                                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                                        .font(.system(size: 10.5, weight: .bold, design: .rounded))
                                         .foregroundColor(.white.opacity(0.6))
                                 }
                                 .buttonStyle(.plain)
                             }
                             .padding(.horizontal, 8)
-                            .padding(.vertical, 6)
+                            .padding(.vertical, 5)
                             .background(Color.white.opacity(0.14))
                             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                             .onDrag { NSItemProvider(contentsOf: url)! }
                         }
                     }
                 }
-                .frame(height: 52)
+                .frame(height: 48)
                 
                 HStack {
                     Text("\(state.shelfFiles.count) file\(state.shelfFiles.count == 1 ? "" : "s") ready to drag out")
-                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .font(.system(size: 9.5, weight: .medium, design: .rounded))
                         .foregroundColor(.white.opacity(0.65))
                     Spacer()
                     Button(action: { state.clearShelf() }) {
                         Text("Clear All")
-                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .font(.system(size: 9.5, weight: .bold, design: .rounded))
                             .foregroundColor(.red)
                     }
                     .buttonStyle(.plain)
@@ -685,25 +717,26 @@ public struct DynamicIslandView: View {
     private func tabIcon(for tab: IslandTab) -> some View {
         switch tab {
         case .control:
-            return Image(systemName: "slider.horizontal.3").font(.system(size: 10, weight: .bold, design: .rounded))
+            return Image(systemName: "slider.horizontal.3").font(.system(size: 9.5, weight: .bold, design: .rounded))
         case .music:
-            return Image(systemName: "music.note").font(.system(size: 10, weight: .bold, design: .rounded))
+            return Image(systemName: "music.note").font(.system(size: 9.5, weight: .bold, design: .rounded))
         case .notes:
-            return Image(systemName: "checklist").font(.system(size: 10, weight: .bold, design: .rounded))
+            return Image(systemName: "checklist").font(.system(size: 9.5, weight: .bold, design: .rounded))
         case .shelf:
-            return Image(systemName: "tray.fill").font(.system(size: 10, weight: .bold, design: .rounded))
+            return Image(systemName: "tray.fill").font(.system(size: 9.5, weight: .bold, design: .rounded))
         }
     }
     
-    private func tabLabel(for tab: IslandTab) -> String {
-        if tab == .shelf && !state.shelfFiles.isEmpty {
-            return "\(tab.rawValue) (\(state.shelfFiles.count))"
+    private func tabBadgeCount(for tab: IslandTab) -> Int? {
+        switch tab {
+        case .notes:
+            let count = state.todos.filter { !$0.isDone }.count
+            return count > 0 ? count : nil
+        case .shelf:
+            return !state.shelfFiles.isEmpty ? state.shelfFiles.count : nil
+        default:
+            return nil
         }
-        if tab == .notes {
-            let activeCount = state.todos.filter { !$0.isDone }.count
-            return activeCount > 0 ? "\(tab.rawValue) (\(activeCount))" : tab.rawValue
-        }
-        return tab.rawValue
     }
     
     private func waveformView(height: CGFloat) -> some View {
