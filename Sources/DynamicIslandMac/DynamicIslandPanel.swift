@@ -26,12 +26,12 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         let capsuleWidth: CGFloat = {
             if state.isShowingVolumeHUD { return 250 }
             if state.mode == .expanded { return 385 }
-            if state.isTimerRunning { return 175 }
+            if state.isTimerRunning { return 165 }
             if state.isPlaying {
                 let titleLen = CGFloat(state.trackTitle.count)
                 return max(195, min(235, 165 + titleLen * 3.0))
             }
-            return 150
+            return 126
         }()
         
         let capsuleHeight: CGFloat = {
@@ -151,7 +151,7 @@ public class DynamicIslandPanel: NSPanel {
         let panelWidth: CGFloat = 460
         let panelHeight: CGFloat = 260
         
-        let xPos = screenRect.midX - (panelWidth / 2)
+        let xPos = floor(screenRect.midX - (panelWidth / 2))
         // Suspended with ~8pt margin below macOS menu bar
         let yPos = screenRect.maxY - panelHeight - 8
         

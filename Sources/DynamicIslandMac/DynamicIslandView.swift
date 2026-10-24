@@ -17,13 +17,13 @@ public struct DynamicIslandView: View {
         switch state.mode {
         case .compact:
             if state.isTimerRunning {
-                return 175
+                return 165
             } else if state.isPlaying {
                 // Responsively adapt width to track title length (min 195, max 235)
                 let titleLen = CGFloat(state.trackTitle.count)
                 return max(195, min(235, 165 + titleLen * 3.0))
             } else {
-                return 150
+                return 126 // Perfectly proportioned for centered clock
             }
         case .expanded:
             return 385 // Balanced proportion on 13" and larger screens
@@ -160,6 +160,10 @@ public struct DynamicIslandView: View {
                     Text(state.timerFormattedString)
                         .font(.system(size: 12, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
+                    
+                    Image(systemName: "timer")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundColor(.clear)
                 }
             } else if state.isPlaying {
                 HStack(spacing: 7) {
@@ -183,7 +187,7 @@ public struct DynamicIslandView: View {
                     waveformView(height: 12)
                 }
             } else {
-                // Centered Clock & Icon
+                // Symmetrically Balanced: Numbers are DEAD-CENTER in the capsule
                 HStack(spacing: 6) {
                     Image(systemName: "clock.fill")
                         .font(.system(size: 11, weight: .medium, design: .rounded))
@@ -192,6 +196,11 @@ public struct DynamicIslandView: View {
                     Text(currentShortTime)
                         .font(.system(size: 13, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
+                    
+                    // Invisible mirror icon so the clock digits sit at the exact dead center
+                    Image(systemName: "clock.fill")
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundColor(.clear)
                 }
             }
             
