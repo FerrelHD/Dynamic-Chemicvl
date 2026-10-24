@@ -1,0 +1,338 @@
+import Foundation
+import Combine
+import SwiftUI
+import AppKit
+
+public enum IslandMode: Equatable {
+    case compact
+    case expanded
+}
+
+public enum IslandTab: String, CaseIterable {
+    case control = "Control"
+    case music = "Musik"
+    case notes = "Notes"
+    case shelf = "Shelf"
+}
+
+public struct TodoItem: Identifiable, Codable, Equatable {
+    public var id = UUID()
+    public var text: String
+    public var isDone: Bool = false
+    public var createdAt: Date = Date()
+    
+    public init(id: UUID = UUID(), text: String, isDone: Bool = false, createdAt: Date = Date()) {
+        self.id = id
+        self.text = text
+        self.isDone = isDone
+        self.createdAt = createdAt
+    }
+}
+
+public class IslandState: ObservableObject {
+    public static let shared = IslandState()
+    
+    // UI State
+    @Published public var mode: IslandMode = .compact
+    @Published public var activeTab: IslandTab = .control
+    @Published public var isDodging: Bool = false
+    
+    // Volume HUD overlay
+    @Published public var isShowingVolumeHUD: Bool = false
+    @Published public var currentVolume: Int = 50
+    private var volumeHUDWorkItem: DispatchWorkItem?
+    
+    // Control Center Status
+    @Published public var isWifiOn: Bool = true
+    @Published public var wifiSSID: String = "Wi-Fi"
+    @Published public var isBluetoothOn: Bool = true
+    @Published public var isDNDOn: Bool = false
+    
+    // Media / Universal Now Playing
+    @Published public var trackTitle: String = "Tidak Ada Media"
+    @Published public var artistName: String = "Putar lagu / video / browser apa saja"
+    @Published public var albumName: String = ""
+    @Published public var isPlaying: Bool = false
+    @Published public var playbackProgress: Double = 0.0
+    @Published public var currentTime: String = "0:00"
+    @Published public var totalDuration: String = "0:00"
+    @Published public var artworkImage: NSImage? = nil
+    
+    // Waveform simulation
+    @Published public var waveHeights: [CGFloat] = [0.2, 0.5, 0.3, 0.7, 0.4, 0.6, 0.3]
+    private var waveformCancellable: AnyCancellable?
+    
+    // Focus / Pomodoro Timer
+    @Published public var timerRemainingSeconds: Int = 25 * 60
+    @Published public var timerTotalSeconds: Int = 25 * 60
+    @Published public var isTimerRunning: Bool = false
+    private var timerCancellable: AnyCancellable?
+    
+    // Quick Notes & To-Do List
+    @Published public var todos: [TodoItem] = []
+    @Published public var newTodoText: String = ""
+    private let todosStorageKey = "DynamicIsland_SavedTodos"
+    
+    // File Shelf
+    @Published public var shelfFiles: [URL] = []
+    
+    // Hover Debounce Timer (Nusa style hover in/out)
+    private var hoverWorkItem: DispatchWorkItem?
+    
+    public init() {
+        loadTodos()
+        
+        if let vol = AudioService.shared.getSystemVolume() {
+            self.currentVolume = vol
+        }
+        
+        refreshControlStatus()
+        
+        // Monitoring Media Universal otomatis
+        MediaService.shared.startMonitoring { [weak self] info in
+            guard let self = self else { return }
+            self.isPlaying = info.isPlaying
+            self.trackTitle = info.title
+            self.artistName = info.artist
+            self.albumName = info.album
+            
+            if let artData = info.artworkData {
+                self.artworkImage = NSImage(data: artData)
+            } else {
+                self.artworkImage = nil
+            }
+            
+            if info.duration > 0 {
+                self.playbackProgress = max(0, min(1.0, info.position / info.duration))
+                self.currentTime = self.formatTime(Int(info.position))
+                self.totalDuration = self.formatTime(Int(info.duration))
+            } else {
+                self.playbackProgress = 0
+                self.currentTime = "0:00"
+                self.totalDuration = "0:00"
+            }
+        }
+        
+        // Monitoring Volume HUD otomatis
+        AudioService.shared.startMonitoring { [weak self] newVolume in
+            self?.triggerVolumeHUD(newVolume)
+        }
+        
+        // Waveform audio ringan
+        waveformCancellable = Timer.publish(every: 0.14, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                guard let self = self, self.isPlaying else { return }
+                withAnimation(.easeInOut(duration: 0.13)) {
+                    self.waveHeights = (0..<7).map { _ in CGFloat.random(in: 0.25...1.0) }
+                }
+            }
+            
+        // Timer countdown runner
+        timerCancellable = Timer.publish(every: 1.0, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                guard let self = self, self.isTimerRunning else { return }
+                if self.timerRemainingSeconds > 0 {
+                    self.timerRemainingSeconds -= 1
+                } else {
+                    self.isTimerRunning = false
+                    NSSound.beep()
+                }
+            }
+    }
+    
+    // MARK: - Solusi 1: Smart Velocity Dodge & Dwell Actions
+    public func triggerDodge() {
+        guard mode != .expanded else { return }
+        withAnimation(.spring(response: 0.22, dampingFraction: 0.72)) {
+            isDodging = true
+        }
+    }
+    
+    public func recoverFromDodge() {
+        guard isDodging else { return }
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.76)) {
+            isDodging = false
+        }
+    }
+    
+    public func expandFromDwell() {
+        isDodging = false
+        refreshControlStatus()
+        withAnimation(.spring(response: 0.34, dampingFraction: 0.74)) {
+            mode = .expanded
+        }
+    }
+    
+    public func minimize() {
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.76)) {
+            self.mode = .compact
+            self.isDodging = false
+        }
+    }
+    
+    public func toggleExpand() {
+        if isShowingVolumeHUD {
+            isShowingVolumeHUD = false
+        }
+        refreshControlStatus()
+        withAnimation(.spring(response: 0.34, dampingFraction: 0.74)) {
+            mode = (mode == .expanded) ? .compact : .expanded
+        }
+    }
+    
+    // MARK: - Control Center Actions
+    public func refreshControlStatus() {
+        SystemControlService.shared.getWifiStatus { [weak self] isEnabled, ssid in
+            self?.isWifiOn = isEnabled
+            self?.wifiSSID = ssid
+        }
+    }
+    
+    public func toggleWifi() {
+        SystemControlService.shared.toggleWifi(currentlyEnabled: isWifiOn) { [weak self] newState in
+            self?.isWifiOn = newState
+            self?.refreshControlStatus()
+        }
+    }
+    
+    public func toggleBluetooth() {
+        SystemControlService.shared.toggleBluetooth(currentlyEnabled: isBluetoothOn) { [weak self] newState in
+            self?.isBluetoothOn = newState
+        }
+    }
+    
+    public func toggleDND() {
+        SystemControlService.shared.toggleDoNotDisturb(currentlyEnabled: isDNDOn) { [weak self] newState in
+            self?.isDNDOn = newState
+        }
+    }
+    
+    public func updateVolume(_ newVol: Int) {
+        currentVolume = newVol
+        AudioService.shared.setSystemVolume(newVol)
+    }
+    
+    // MARK: - To-Do & Notes Actions
+    public func addTodo() {
+        let trimmed = newTodoText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let item = TodoItem(text: trimmed)
+        todos.insert(item, at: 0)
+        newTodoText = ""
+        saveTodos()
+    }
+    
+    public func toggleTodo(id: UUID) {
+        if let idx = todos.firstIndex(where: { $0.id == id }) {
+            todos[idx].isDone.toggle()
+            saveTodos()
+        }
+    }
+    
+    public func deleteTodo(id: UUID) {
+        todos.removeAll { $0.id == id }
+        saveTodos()
+    }
+    
+    public func clearCompletedTodos() {
+        todos.removeAll { $0.isDone }
+        saveTodos()
+    }
+    
+    private func saveTodos() {
+        if let encoded = try? JSONEncoder().encode(todos) {
+            UserDefaults.standard.set(encoded, forKey: todosStorageKey)
+        }
+    }
+    
+    private func loadTodos() {
+        if let data = UserDefaults.standard.data(forKey: todosStorageKey),
+           let decoded = try? JSONDecoder().decode([TodoItem].self, from: data) {
+            self.todos = decoded
+        } else {
+            self.todos = [
+                TodoItem(text: "Coba fitur Dynamic Island di Mac", isDone: true),
+                TodoItem(text: "Putar lagu favorit di Spotify / YouTube", isDone: false)
+            ]
+        }
+    }
+    
+    // MARK: - Volume HUD Trigger
+    public func triggerVolumeHUD(_ level: Int) {
+        currentVolume = level
+        volumeHUDWorkItem?.cancel()
+        
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+            isShowingVolumeHUD = true
+        }
+        
+        let work = DispatchWorkItem { [weak self] in
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.78)) {
+                self?.isShowingVolumeHUD = false
+            }
+        }
+        volumeHUDWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8, execute: work)
+    }
+    
+    // MARK: - Media Controls Universal
+    public func togglePlayPause() {
+        MediaService.shared.togglePlayPause()
+    }
+    
+    public func nextTrack() {
+        MediaService.shared.nextTrack()
+    }
+    
+    public func previousTrack() {
+        MediaService.shared.previousTrack()
+    }
+    
+    // MARK: - Timer Controls
+    public var timerFormattedString: String {
+        let mins = timerRemainingSeconds / 60
+        let secs = timerRemainingSeconds % 60
+        return String(format: "%02d:%02d", mins, secs)
+    }
+    
+    public var timerProgress: Double {
+        guard timerTotalSeconds > 0 else { return 0 }
+        return Double(timerRemainingSeconds) / Double(timerTotalSeconds)
+    }
+    
+    public func toggleTimer() {
+        isTimerRunning.toggle()
+    }
+    
+    public func setTimerPreset(minutes: Int) {
+        isTimerRunning = false
+        timerTotalSeconds = minutes * 60
+        timerRemainingSeconds = minutes * 60
+    }
+    
+    // MARK: - File Shelf Controls
+    public func addFiles(_ urls: [URL]) {
+        for url in urls {
+            if !shelfFiles.contains(url) {
+                shelfFiles.append(url)
+            }
+        }
+    }
+    
+    public func removeFile(at index: Int) {
+        guard shelfFiles.indices.contains(index) else { return }
+        shelfFiles.remove(at: index)
+    }
+    
+    public func clearShelf() {
+        shelfFiles.removeAll()
+    }
+    
+    private func formatTime(_ seconds: Int) -> String {
+        let m = seconds / 60
+        let s = seconds % 60
+        return String(format: "%d:%02d", m, s)
+    }
+}

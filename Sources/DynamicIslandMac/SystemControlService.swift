@@ -1,0 +1,101 @@
+import Foundation
+import AppKit
+
+public class SystemControlService {
+    public static let shared = SystemControlService()
+    
+    private let queue = DispatchQueue(label: "com.dynamicisland.controlservice", qos: .utility)
+    
+    public func getWifiStatus(completion: @escaping (Bool, String) -> Void) {
+        queue.async {
+            let powerOut = self.runShell("networksetup -getairportpower en0")
+            let isEnabled = powerOut.contains(": On")
+            
+            var ssid = "Tidak Terhubung"
+            if isEnabled {
+                let airportCmd = "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I"
+                let airportOut = self.runShell("\(airportCmd) | grep -w SSID")
+                let parts = airportOut.components(separatedBy: ":")
+                if parts.count >= 2 {
+                    let extracted = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !extracted.isEmpty {
+                        ssid = extracted
+                    }
+                }
+            }
+            
+            DispatchQueue.main.async {
+                completion(isEnabled, isEnabled ? ssid : "Mati")
+            }
+        }
+    }
+    
+    public func toggleWifi(currentlyEnabled: Bool, completion: @escaping (Bool) -> Void) {
+        let newState = !currentlyEnabled
+        queue.async {
+            let cmd = "networksetup -setairportpower en0 \(newState ? "on" : "off")"
+            _ = self.runShell(cmd)
+            DispatchQueue.main.async {
+                completion(newState)
+            }
+        }
+    }
+    
+    public func toggleBluetooth(currentlyEnabled: Bool, completion: @escaping (Bool) -> Void) {
+        let newState = !currentlyEnabled
+        queue.async {
+            // Membuka panel preferensi Bluetooth atau toggle cepat
+            let script = "tell application \"System Preferences\" to reveal pane id \"com.apple.preferences.Bluetooth\""
+            _ = self.executeScript(script)
+            DispatchQueue.main.async {
+                completion(newState)
+            }
+        }
+    }
+    
+    public func toggleDoNotDisturb(currentlyEnabled: Bool, completion: @escaping (Bool) -> Void) {
+        let newState = !currentlyEnabled
+        // Focus / DND shortcut di macOS Monterey via Shortcuts CLI atau notification
+        queue.async {
+            let script = """
+            tell application "System Events"
+                key code 122 using {control down}
+            end tell
+            """
+            _ = self.executeScript(script)
+            DispatchQueue.main.async {
+                completion(newState)
+            }
+        }
+    }
+    
+    private func runShell(_ command: String) -> String {
+        let task = Process()
+        let pipe = Pipe()
+        
+        task.standardOutput = pipe
+        task.standardError = pipe
+        task.arguments = ["-c", command]
+        task.launchPath = "/bin/bash"
+        
+        do {
+            try task.run()
+            task.waitUntilExit()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            return String(data: data, encoding: .utf8) ?? ""
+        } catch {
+            return ""
+        }
+    }
+    
+    private func executeScript(_ source: String) -> String? {
+        var error: NSDictionary?
+        if let scriptObject = NSAppleScript(source: source) {
+            let output = scriptObject.executeAndReturnError(&error)
+            if error == nil {
+                return output.stringValue
+            }
+        }
+        return nil
+    }
+}
