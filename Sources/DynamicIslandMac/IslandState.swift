@@ -9,9 +9,9 @@ public enum IslandMode: Equatable {
 }
 
 public enum IslandTab: String, CaseIterable {
-    case control = "Control"
-    case music = "Musik"
-    case notes = "Notes"
+    case control = "Controls"
+    case music = "Music"
+    case notes = "Reminders"
     case shelf = "Shelf"
 }
 
@@ -48,8 +48,8 @@ public class IslandState: ObservableObject {
     @Published public var isDNDOn: Bool = false
     
     // Media / Universal Now Playing
-    @Published public var trackTitle: String = "Tidak Ada Media"
-    @Published public var artistName: String = "Putar lagu / video / browser apa saja"
+    @Published public var trackTitle: String = "No Media Playing"
+    @Published public var artistName: String = "Play music or video from any app"
     @Published public var albumName: String = ""
     @Published public var isPlaying: Bool = false
     @Published public var playbackProgress: Double = 0.0
@@ -233,8 +233,8 @@ public class IslandState: ObservableObject {
             self.todos = decoded
         } else {
             self.todos = [
-                TodoItem(text: "Coba fitur Dynamic Island di Mac", isDone: true),
-                TodoItem(text: "Tulis to-do baru dan tekan Enter", isDone: false)
+                TodoItem(text: "Explore Dynamic Island on Mac", isDone: true),
+                TodoItem(text: "Play a song on Spotify or YouTube", isDone: false)
             ]
         }
     }

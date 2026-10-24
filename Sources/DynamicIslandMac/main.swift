@@ -18,7 +18,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         
         setupStatusItem()
         
-        print("🏝️ Dynamic Island Native Aktif (Saran 1: Klik untuk Buka & Saran 2: Menu Bar Tray)")
+        print("🏝️ Native Dynamic Island Active (iOS Design & Full English)")
     }
     
     private func setupStatusItem() {
@@ -35,10 +35,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let event = NSApp.currentEvent else { return }
         
         if event.type == .rightMouseUp {
-            // Klik kanan: Tampilkan Menu Pengaturan & Opsi Keluar
+            // Right Click: Context Menu
             showStatusContextMenu()
         } else {
-            // Klik kiri: Toggle Dynamic Island (Buka / Tutup)
+            // Left Click: Toggle Island
             IslandState.shared.toggleExpand()
         }
     }
@@ -49,7 +49,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         
         let isExpanded = IslandState.shared.mode == .expanded
         let toggleItem = NSMenuItem(
-            title: isExpanded ? "Tutup Dynamic Island" : "Buka Dynamic Island",
+            title: isExpanded ? "Collapse Dynamic Island" : "Expand Dynamic Island",
             action: #selector(toggleIslandAction),
             keyEquivalent: "d"
         )
@@ -58,7 +58,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         
         let isVisible = panel?.isVisible == true
         let visibilityItem = NSMenuItem(
-            title: isVisible ? "Sembunyikan Kapsul" : "Tampilkan Kapsul",
+            title: isVisible ? "Hide Island" : "Show Island",
             action: #selector(toggleVisibilityAction),
             keyEquivalent: "h"
         )
@@ -68,7 +68,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(NSMenuItem.separator())
         
         let quitItem = NSMenuItem(
-            title: "Keluar / Quit Dynamic Island",
+            title: "Quit Dynamic Island",
             action: #selector(quitAppAction),
             keyEquivalent: "q"
         )
@@ -80,7 +80,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
     
     func menuDidClose(_ menu: NSMenu) {
-        // Kembalikan ke nil agar klik kiri berikutnya tetap mengeksekusi toggleExpand secara instan
         statusItem?.menu = nil
     }
     

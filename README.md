@@ -1,76 +1,76 @@
-# 🏝️ Dynamic Island Native macOS (Monterey 12+)
+# 🏝️ Dynamic Island Native for macOS (Monterey 12+)
 
-Aplikasi Dynamic Island / living notch native untuk macOS yang ringan, hemat baterai (CPU idle ~0.0%), dan dibangun murni dengan Swift, AppKit, dan SwiftUI tanpa memerlukan instalasi Xcode penuh (~15 GB).
+A lightweight, battery-friendly (idle CPU ~0.0%) native Dynamic Island & living notch application for macOS. Built entirely with Swift, AppKit, and SwiftUI — no bloated Xcode installation required (~700 MB Command Line Tools is all you need).
 
 ---
 
-## ✨ Fitur Utama
+## ✨ Key Features
 
-1. **Universal Now Playing & Media Controller:**
-   - Terhubung langsung dengan `MediaRemote.framework` macOS.
-   - Otomatis mendeteksi pemutaran dari **Spotify, Apple Music, YouTube (Chrome, Safari, Arc, Brave, Edge), Netflix, VLC, Podcasts**, dll.
-   - Menampilkan thumbnail/cover art asli, status playback, seek bar, dan animasi gelombang suara reaktif.
-   - Tombol Play/Pause, Next, dan Previous yang mengontrol media sistem secara global.
+1. **🎵 Universal Now Playing & Media Controller:**
+   - Directly interfaces with macOS private `MediaRemote.framework`.
+   - Automatically captures playback from **Spotify, Apple Music, YouTube (Chrome, Safari, Arc, Brave, Edge), Netflix, VLC, Podcasts**, and more.
+   - Displays real-time album artwork, live playback status, seek bar, and animated reactive equalizer waveform.
+   - Global media controls: Play/Pause, Next Track, and Previous Track.
 
-2. **Pengganti System HUD (Volume Bar):**
-   - Menggantikan kotak volume default macOS dengan animasi kapsul halus persis iOS saat menekan tombol volume keyboard (F11/F12).
+2. **🔊 Modern System Volume HUD:**
+   - Replaces the legacy macOS volume bezel with a sleek, iOS-style animated volume capsule triggered by keyboard media keys (F11/F12).
 
-3. **🎛️ Control Center:**
-   - Akses cepat untuk status & toggle Wi-Fi (menampilkan nama SSID aktif).
-   - Akses cepat status & toggle Bluetooth.
-   - Heningkan notifikasi (Do Not Disturb / Focus).
-   - Slider volume suara interaktif.
+3. **🎛️ iOS-Style Control Center:**
+   - Quick toggles and status for **Wi-Fi** (with connected SSID detection).
+   - Quick toggles for **Bluetooth**.
+   - **Focus / Do Not Disturb** mode toggle.
+   - Authentic iOS Control Center capsule volume slider with embedded speaker glyph and interactive drag scrubbing.
 
-4. **📝 Quick Notes & To-Do List:**
-   - Input catatan dan to-do instan dengan tombol **"+" (Tambah)** atau tekan `Enter`.
-   - Dukungan fokus keyboard penuh di panel melayang.
-   - Checklist interaktif dengan pencoretan tugas selesai.
-   - Penyimpanan otomatis dan permanen via `UserDefaults`.
+4. **📝 Quick Notes & Reminders:**
+   - Instant task entry with a dedicated **"Add"** button or pressing `Enter`.
+   - Full keyboard focus support inside floating panels.
+   - Interactive iOS Reminders-style circular checkboxes with strikethrough animations.
+   - Persistent local storage using `UserDefaults`.
 
 5. **⏱️ Focus / Pomodoro Timer:**
-   - Hitung mundur digital dengan tipografi **SF Pro Rounded**.
-   - Preset instan: 25 menit (Pomodoro), 5 menit (Break), 15 menit (Long Break).
+   - Digital countdown with **SF Pro Rounded** typography.
+   - Instant presets: 25 minutes (Pomodoro), 5 minutes (Short Break), 15 minutes (Long Break).
 
 6. **📁 File Shelf (Drag & Drop):**
-   - Drop zone sementara untuk menampung file dari Desktop/Finder.
-   - Menampilkan ikon asli macOS dan mendukung drag-out ke aplikasi lain.
+   - Temporary staging area for files from Desktop/Finder.
+   - Native macOS file preview icons and drag-out support to any application or message.
 
-7. **🏝️ Praktis & Ramah Pengguna (Kombinasi Saran 1 & 2):**
-   - **Solid Jet-Black Floating Pill**: Jam digital dan ikon jam berada tepat di tengah-tengah kapsul secara simetris saat idle.
-   - **Klik untuk Buka (Saran 1)**: Tidak lagi memakai hover liar yang mengagetkan saat kursor melintas. Cukup klik kapsul untuk membuka menu, dan klik di mana saja di luar kartu untuk menutupnya.
-   - **Click-Through Cerdas**: Seluruh area di sekitar kapsul 100% tembus klik (*pass-through*), sehingga tombol dan tab browser di belakangnya tidak akan pernah terhalang.
-   - **Menu Bar Tray Icon (Saran 2)**: Terdapat ikon `🏝️` di Menu Bar kanan atas macOS:
-     - **Klik Kiri**: Buka / Tutup Dynamic Island seketika.
-     - **Klik Kanan**: Menu cepat untuk Buka/Tutup, Sembunyikan/Tampilkan Kapsul, dan **Keluar / Quit**.
-
----
-
-## 🛠️ Persyaratan Sistem & Instalasi
-
-* **Sistem Operasi**: macOS 12 Monterey atau lebih baru.
-* **Arsitektur**: Intel (x86_64) & Apple Silicon (ARM64).
-* **Ukuran Binary**: Hanya **~1.1 MB** (tanpa dependensi luar / no Electron).
-* **Alat Pengembang**: Hanya butuh **Apple Command Line Tools** (~700 MB via Terminal `xcode-select --install`).
+7. **🏝️ Authentic iOS Design & User Experience:**
+   - **OLED Jet-Black Pill**: Centered clock (`HH:mm`) and clock glyph symmetrically aligned in idle mode.
+   - **Click to Expand / Click Outside to Dismiss**: Zero intrusive auto-hover popups that interfere with web browsing.
+   - **Smart Pass-Through**: All transparent areas surrounding the pill let mouse clicks pass straight through to underlying browser tabs and desktop windows.
+   - **Menu Bar Tray Icon (🏝️)**:
+     - **Left-Click**: Instant toggle to expand/collapse Dynamic Island.
+     - **Right-Click**: Quick menu for Expand/Collapse, Hide/Show Island, and **Quit Dynamic Island**.
 
 ---
 
-## 🚀 Cara Menjalankan
+## 🛠️ System Requirements & Build Specs
 
-1. Clone repositori:
+* **Operating System**: macOS 12 Monterey or later.
+* **Architecture**: Intel (`x86_64`) & Apple Silicon (`arm64`).
+* **Binary Footprint**: Standalone **~1.1 MB** (Zero third-party dependencies / No Electron).
+* **Toolchain**: Apple Command Line Tools (`xcode-select --install`).
+
+---
+
+## 🚀 Getting Started
+
+1. Clone the repository:
    ```bash
    git clone https://github.com/FerrelHD/Dynamic-Chemicvl.git
    cd Dynamic-Chemicvl
    ```
 
-2. Jalankan skrip build & run:
+2. Build and run:
    ```bash
    chmod +x build.sh
    ./build.sh run
    ```
 
-Atau buka folder ini di **VS Code**, lalu tekan shortcut **`Cmd + Shift + B`** dan pilih **Build & Run Dynamic Island**.
+Or open the repository in **VS Code**, press **`Cmd + Shift + B`**, and select **Build & Run Dynamic Island**.
 
 ---
 
-## 📄 Lisensi
-Dibuat oleh [FerrelHD](https://github.com/FerrelHD) dengan Swift & AppKit/SwiftUI Native.
+## 📄 License
+Crafted by [FerrelHD](https://github.com/FerrelHD) with Native Swift, AppKit & SwiftUI.

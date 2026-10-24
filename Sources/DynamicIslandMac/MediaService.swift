@@ -76,7 +76,7 @@ public class MediaService {
                     let info = UniversalMediaInfo(
                         isPlaying: isPlaying,
                         title: title,
-                        artist: artist.isEmpty ? (album.isEmpty ? "Media Sistem" : album) : artist,
+                        artist: artist.isEmpty ? (album.isEmpty ? "System Audio" : album) : artist,
                         album: album,
                         position: elapsed,
                         duration: duration,
@@ -85,11 +85,11 @@ public class MediaService {
                     completion(info)
                     return
                 } else {
-                    // Fallback jika tidak ada media aktif
+                    // Fallback when no media is active
                     let fallback = UniversalMediaInfo(
                         isPlaying: false,
-                        title: "Tidak Ada Media",
-                        artist: "Putar lagu / YouTube / video apa saja",
+                        title: "No Media Playing",
+                        artist: "Play music or video from any app",
                         album: "",
                         position: 0,
                         duration: 0,

@@ -22,16 +22,16 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
     public override func hitTest(_ point: NSPoint) -> NSView? {
         let bounds = self.bounds
         
-        // Ukuran aktif kapsul melayang
+        // Active pill & card dimensions
         let capsuleWidth: CGFloat = {
             if state.isShowingVolumeHUD { return 250 }
-            if state.mode == .expanded { return 390 }
-            return state.isPlaying ? 200 : (state.isTimerRunning ? 180 : 155)
+            if state.mode == .expanded { return 395 }
+            return state.isPlaying ? 205 : (state.isTimerRunning ? 180 : 160)
         }()
         
         let capsuleHeight: CGFloat = {
             if state.isShowingVolumeHUD { return 36 }
-            if state.mode == .expanded { return 205 }
+            if state.mode == .expanded { return 215 }
             return 34
         }()
         
@@ -94,7 +94,7 @@ public class DynamicIslandPanel: NSPanel {
             let mouseLoc = NSEvent.mouseLocation
             
             guard let screen = self?.screen ?? NSScreen.main else { return }
-            let capsuleWidth: CGFloat = 390
+            let capsuleWidth: CGFloat = 395
             let capsuleHeight: CGFloat = 215
             let capsuleX = screen.frame.midX - (capsuleWidth / 2)
             let capsuleY = screen.frame.maxY - capsuleHeight - 8

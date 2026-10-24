@@ -11,7 +11,7 @@ public class SystemControlService {
             let powerOut = self.runShell("networksetup -getairportpower en0")
             let isEnabled = powerOut.contains(": On")
             
-            var ssid = "Tidak Terhubung"
+            var ssid = "Not Connected"
             if isEnabled {
                 let airportCmd = "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I"
                 let airportOut = self.runShell("\(airportCmd) | grep -w SSID")
@@ -25,7 +25,7 @@ public class SystemControlService {
             }
             
             DispatchQueue.main.async {
-                completion(isEnabled, isEnabled ? ssid : "Mati")
+                completion(isEnabled, isEnabled ? ssid : "Off")
             }
         }
     }
