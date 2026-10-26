@@ -48,6 +48,11 @@ public class IslandState: ObservableObject {
     @Published public var isPowerPlugged: Bool = false
     private var batteryHUDWorkItem: DispatchWorkItem?
     
+    // Caps Lock HUD overlay
+    @Published public var isShowingCapsLockHUD: Bool = false
+    @Published public var isCapsLockOn: Bool = false
+    private var capsLockHUDWorkItem: DispatchWorkItem?
+    
     // Control Center Status
     @Published public var isWifiOn: Bool = true
     @Published public var wifiSSID: String = "Wi-Fi"
@@ -143,6 +148,11 @@ public class IslandState: ObservableObject {
             if powerChanged {
                 self.triggerBatteryHUD()
             }
+        }
+        
+        // Monitoring Caps Lock State
+        CapsLockService.shared.startMonitoring { [weak self] isOn in
+            self?.triggerCapsLockHUD(isOn: isOn)
         }
         
         // Waveform audio ringan
@@ -314,6 +324,25 @@ public class IslandState: ObservableObject {
         }
         batteryHUDWorkItem = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.5, execute: work)
+    }
+    
+    // MARK: - Caps Lock HUD Trigger
+    public func triggerCapsLockHUD(isOn: Bool) {
+        guard mode != .expanded else { return }
+        isCapsLockOn = isOn
+        capsLockHUDWorkItem?.cancel()
+        
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+            isShowingCapsLockHUD = true
+        }
+        
+        let work = DispatchWorkItem { [weak self] in
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.78)) {
+                self?.isShowingCapsLockHUD = false
+            }
+        }
+        capsLockHUDWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4, execute: work)
     }
     
     // MARK: - Media Controls Universal

@@ -17,6 +17,9 @@ public struct DynamicIslandView: View {
         if state.isShowingBatteryHUD {
             return 224
         }
+        if state.isShowingCapsLockHUD {
+            return 185
+        }
         switch state.mode {
         case .compact:
             if state.isTimerRunning {
@@ -34,7 +37,7 @@ public struct DynamicIslandView: View {
     }
     
     private var islandHeight: CGFloat {
-        if state.isShowingVolumeHUD || state.isShowingBatteryHUD {
+        if state.isShowingVolumeHUD || state.isShowingBatteryHUD || state.isShowingCapsLockHUD {
             return 36
         }
         switch state.mode {
@@ -56,7 +59,7 @@ public struct DynamicIslandView: View {
     }
     
     private var cornerRadius: CGFloat {
-        if state.isShowingVolumeHUD || state.isShowingBatteryHUD {
+        if state.isShowingVolumeHUD || state.isShowingBatteryHUD || state.isShowingCapsLockHUD {
             return 18
         }
         switch state.mode {
@@ -86,6 +89,9 @@ public struct DynamicIslandView: View {
                             } else if state.isShowingBatteryHUD {
                                 batteryHUDContent
                                     .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                            } else if state.isShowingCapsLockHUD {
+                                capsLockHUDContent
+                                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
                             } else {
                                 switch state.mode {
                                 case .compact:
@@ -109,6 +115,7 @@ public struct DynamicIslandView: View {
             .animation(.spring(response: 0.30, dampingFraction: 0.76), value: state.isPlaying)
             .animation(.spring(response: 0.28, dampingFraction: 0.80), value: state.isShowingVolumeHUD)
             .animation(.spring(response: 0.28, dampingFraction: 0.80), value: state.isShowingBatteryHUD)
+            .animation(.spring(response: 0.28, dampingFraction: 0.80), value: state.isShowingCapsLockHUD)
             
             Spacer()
         }
@@ -195,6 +202,36 @@ public struct DynamicIslandView: View {
                     .foregroundColor(state.batteryLevel > 60 ? .black : .white)
                     .frame(width: 38, alignment: .center)
             }
+        }
+        .padding(.horizontal, 14)
+    }
+    
+    // MARK: - Caps Lock Floating HUD
+    private var capsLockHUDContent: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(state.isCapsLockOn ? Color.orange : Color.white.opacity(0.18))
+                    .frame(width: 24, height: 24)
+                
+                Image(systemName: "capslock.fill")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundColor(state.isCapsLockOn ? .black : .white)
+            }
+            
+            VStack(alignment: .leading, spacing: 1) {
+                Text(state.isCapsLockOn ? "Caps Lock On" : "Caps Lock Off")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                
+                Text(state.isCapsLockOn ? "ABC Uppercase" : "abc Lowercase")
+                    .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                    .foregroundColor(.white.opacity(0.70))
+                    .lineLimit(1)
+            }
+            
+            Spacer()
         }
         .padding(.horizontal, 14)
     }
