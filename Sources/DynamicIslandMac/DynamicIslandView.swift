@@ -53,7 +53,7 @@ public struct DynamicIslandView: View {
             case .notes:
                 return 196 // Fits input bar, task list, and footer
             case .shelf:
-                return state.shelfFiles.isEmpty ? 148 : 156
+                return 180 // Fits segment switcher, drop zone/clipboard list, and footer
             }
         }
     }
@@ -116,6 +116,7 @@ public struct DynamicIslandView: View {
             .animation(.spring(response: 0.28, dampingFraction: 0.80), value: state.isShowingVolumeHUD)
             .animation(.spring(response: 0.28, dampingFraction: 0.80), value: state.isShowingBatteryHUD)
             .animation(.spring(response: 0.28, dampingFraction: 0.80), value: state.isShowingCapsLockHUD)
+            .animation(.spring(response: 0.28, dampingFraction: 0.80), value: state.shelfSegment)
             
             Spacer()
         }
@@ -816,8 +817,77 @@ public struct DynamicIslandView: View {
         }
     }
     
-    // MARK: - Tab 4: File Shelf View (Drop Zone)
+    // MARK: - Tab 4: File Shelf & Quick Clipboard
     private var shelfTabView: some View {
+        VStack(spacing: 7) {
+            // Segment Switcher: Files | Clipboard
+            HStack(spacing: 5) {
+                Button(action: {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
+                        state.shelfSegment = 0
+                    }
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "folder.fill")
+                            .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                        Text("Files Shelf")
+                            .font(.system(size: 10, weight: state.shelfSegment == 0 ? .bold : .medium, design: .rounded))
+                        if !state.shelfFiles.isEmpty {
+                            Text("\(state.shelfFiles.count)")
+                                .font(.system(size: 8.5, weight: .bold, design: .rounded))
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 0.5)
+                                .background(Color.white.opacity(0.25))
+                                .clipShape(Capsule())
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3.5)
+                    .background(state.shelfSegment == 0 ? Color.white.opacity(0.22) : Color.white.opacity(0.06))
+                    .foregroundColor(state.shelfSegment == 0 ? .white : .white.opacity(0.55))
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                
+                Button(action: {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
+                        state.shelfSegment = 1
+                    }
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "doc.on.clipboard.fill")
+                            .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                        Text("Clipboard")
+                            .font(.system(size: 10, weight: state.shelfSegment == 1 ? .bold : .medium, design: .rounded))
+                        if !state.clipboardHistory.isEmpty {
+                            Text("\(state.clipboardHistory.count)")
+                                .font(.system(size: 8.5, weight: .bold, design: .rounded))
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 0.5)
+                                .background(Color.white.opacity(0.25))
+                                .clipShape(Capsule())
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3.5)
+                    .background(state.shelfSegment == 1 ? Color.white.opacity(0.22) : Color.white.opacity(0.06))
+                    .foregroundColor(state.shelfSegment == 1 ? .white : .white.opacity(0.55))
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                
+                Spacer()
+            }
+            
+            if state.shelfSegment == 0 {
+                filesShelfContent
+            } else {
+                clipboardHistoryContent
+            }
+        }
+    }
+    
+    private var filesShelfContent: some View {
         VStack(spacing: 7) {
             if state.shelfFiles.isEmpty {
                 ZStack {
@@ -906,6 +976,82 @@ public struct DynamicIslandView: View {
         }
     }
     
+    private var clipboardHistoryContent: some View {
+        VStack(spacing: 7) {
+            if state.clipboardHistory.isEmpty {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .fill(Color.white.opacity(0.06))
+                    
+                    VStack(spacing: 3) {
+                        Image(systemName: "doc.on.clipboard")
+                            .font(.system(size: 17, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.50))
+                        Text("Clipboard history is empty")
+                            .font(.system(size: 10.5, weight: .semibold, design: .rounded))
+                            .foregroundColor(.white.opacity(0.75))
+                        Text("Copied texts will automatically appear here")
+                            .font(.system(size: 9, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.50))
+                    }
+                }
+                .frame(height: 72)
+            } else {
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 4.5) {
+                        ForEach(Array(state.clipboardHistory.enumerated()), id: \.offset) { idx, item in
+                            Button(action: {
+                                state.copyClip(at: idx)
+                            }) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: state.copiedClipIndex == idx ? "checkmark.circle.fill" : "doc.text")
+                                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                                        .foregroundColor(state.copiedClipIndex == idx ? Color.green : Color.white.opacity(0.50))
+                                    
+                                    Text(item.replacingOccurrences(of: "\n", with: " "))
+                                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                                        .foregroundColor(.white)
+                                        .lineLimit(1)
+                                    
+                                    Spacer()
+                                    
+                                    if state.copiedClipIndex == idx {
+                                        Text("Copied!")
+                                            .font(.system(size: 9, weight: .bold, design: .rounded))
+                                            .foregroundColor(Color.green)
+                                    } else {
+                                        Text("Copy")
+                                            .font(.system(size: 9, weight: .semibold, design: .rounded))
+                                            .foregroundColor(.white.opacity(0.40))
+                                    }
+                                }
+                                .padding(.horizontal, 9)
+                                .padding(.vertical, 5)
+                                .background(Color.white.opacity(state.copiedClipIndex == idx ? 0.18 : 0.08))
+                                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .frame(height: 72)
+                
+                HStack {
+                    Text("\(state.clipboardHistory.count) item\(state.clipboardHistory.count == 1 ? "" : "s") in history")
+                        .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                        .foregroundColor(.white.opacity(0.60))
+                    Spacer()
+                    Button(action: { state.clearClipboard() }) {
+                        Text("Clear All")
+                            .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                            .foregroundColor(.red.opacity(0.85))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+    
     // MARK: - Helpers
     private func tabIcon(for tab: IslandTab) -> some View {
         switch tab {
@@ -926,7 +1072,8 @@ public struct DynamicIslandView: View {
             let count = state.todos.filter { !$0.isDone }.count
             return count > 0 ? count : nil
         case .shelf:
-            return !state.shelfFiles.isEmpty ? state.shelfFiles.count : nil
+            let count = state.shelfSegment == 0 ? state.shelfFiles.count : state.clipboardHistory.count
+            return count > 0 ? count : nil
         default:
             return nil
         }

@@ -43,7 +43,7 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
                 case .music: return 172
                 case .control: return 216
                 case .notes: return 196
-                case .shelf: return state.shelfFiles.isEmpty ? 148 : 156
+                case .shelf: return 180
                 }
             }
             return 34
@@ -123,7 +123,7 @@ public class DynamicIslandPanel: NSPanel {
                 case .music: return 172
                 case .control: return 216
                 case .notes: return 196
-                case .shelf: return state.shelfFiles.isEmpty ? 148 : 156
+                case .shelf: return 180
                 }
             }()
             

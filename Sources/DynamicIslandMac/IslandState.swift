@@ -91,8 +91,12 @@ public class IslandState: ObservableObject {
     @Published public var newTodoText: String = ""
     private let todosStorageKey = "DynamicIsland_SavedTodos"
     
-    // File Shelf
+    // File Shelf & Clipboard History
+    @Published public var shelfSegment: Int = 0 // 0: Files, 1: Clipboard
     @Published public var shelfFiles: [URL] = []
+    @Published public var clipboardHistory: [String] = []
+    @Published public var copiedClipIndex: Int? = nil
+    private var copyFeedbackWorkItem: DispatchWorkItem?
     
     public init() {
         loadTodos()
@@ -153,6 +157,20 @@ public class IslandState: ObservableObject {
         // Monitoring Caps Lock State
         CapsLockService.shared.startMonitoring { [weak self] isOn in
             self?.triggerCapsLockHUD(isOn: isOn)
+        }
+        
+        // Monitoring Clipboard History
+        if let initialClip = ClipboardService.shared.getCurrentClipboard() {
+            self.clipboardHistory.append(initialClip)
+        }
+        ClipboardService.shared.startMonitoring { [weak self] newText in
+            guard let self = self else { return }
+            if self.clipboardHistory.first != newText {
+                self.clipboardHistory.insert(newText, at: 0)
+                if self.clipboardHistory.count > 12 {
+                    self.clipboardHistory.removeLast()
+                }
+            }
         }
         
         // Waveform audio ringan
@@ -396,6 +414,25 @@ public class IslandState: ObservableObject {
     
     public func clearShelf() {
         shelfFiles.removeAll()
+    }
+    
+    // MARK: - Clipboard History Controls
+    public func copyClip(at index: Int) {
+        guard clipboardHistory.indices.contains(index) else { return }
+        let text = clipboardHistory[index]
+        ClipboardService.shared.copyToClipboard(text)
+        
+        copyFeedbackWorkItem?.cancel()
+        copiedClipIndex = index
+        let work = DispatchWorkItem { [weak self] in
+            self?.copiedClipIndex = nil
+        }
+        copyFeedbackWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2, execute: work)
+    }
+    
+    public func clearClipboard() {
+        clipboardHistory.removeAll()
     }
     
     private func formatTime(_ seconds: Int) -> String {
