@@ -46,7 +46,7 @@ public struct DynamicIslandView: View {
             case .music:
                 return 172 // Snugly hugs cover art, timeline, and controls
             case .control:
-                return 192 // Fits 2x2 squircle grid and volume capsule
+                return 216 // Fits 2x2 squircle grid, CPU/RAM stats, and volume capsule
             case .notes:
                 return 196 // Fits input bar, task list, and footer
             case .shelf:
@@ -393,6 +393,51 @@ public struct DynamicIslandView: View {
                 ) {
                     state.toggleTimer()
                 }
+            }
+            
+            // Real-time Mini System Stats (CPU & RAM)
+            HStack(spacing: 8) {
+                // CPU Meter
+                HStack(spacing: 6) {
+                    Image(systemName: "cpu")
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .foregroundColor(state.cpuUsage > 75 ? .red : (state.cpuUsage > 45 ? .orange : Color(red: 0.18, green: 0.85, blue: 0.38)))
+                    
+                    Text("CPU")
+                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                        .foregroundColor(.white.opacity(0.8))
+                    
+                    Spacer()
+                    
+                    Text("\(state.cpuUsage)%")
+                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                }
+                .padding(.horizontal, 9)
+                .padding(.vertical, 5)
+                .background(Color.white.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                
+                // RAM Meter
+                HStack(spacing: 6) {
+                    Image(systemName: "memorychip")
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .foregroundColor(state.ramPercent > 85 ? .red : (state.ramPercent > 65 ? .orange : Color(red: 0.0, green: 0.48, blue: 1.0)))
+                    
+                    Text("RAM")
+                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                        .foregroundColor(.white.opacity(0.8))
+                    
+                    Spacer()
+                    
+                    Text(String(format: "%.1f/%.0fGB", state.ramUsageGB, state.ramTotalGB))
+                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                }
+                .padding(.horizontal, 9)
+                .padding(.vertical, 5)
+                .background(Color.white.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
             
             // iOS Control Center Style Volume Slider Capsule

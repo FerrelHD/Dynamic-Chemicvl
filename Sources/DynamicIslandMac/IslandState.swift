@@ -54,6 +54,12 @@ public class IslandState: ObservableObject {
     @Published public var isBluetoothOn: Bool = true
     @Published public var isDNDOn: Bool = false
     
+    // System Hardware Stats (CPU & RAM)
+    @Published public var cpuUsage: Int = 10
+    @Published public var ramUsageGB: Double = 5.0
+    @Published public var ramTotalGB: Double = 8.0
+    @Published public var ramPercent: Int = 60
+    
     // Media / Universal Now Playing
     @Published public var trackTitle: String = "No Media Playing"
     @Published public var artistName: String = "Play music or video from any app"
@@ -192,6 +198,12 @@ public class IslandState: ObservableObject {
             self?.isWifiOn = isEnabled
             self?.wifiSSID = ssid
         }
+        
+        let stats = SystemStatsService.shared.getStats()
+        self.cpuUsage = stats.cpuPercent
+        self.ramUsageGB = stats.ramUsedGB
+        self.ramTotalGB = stats.ramTotalGB
+        self.ramPercent = stats.ramPercent
     }
     
     public func toggleWifi() {

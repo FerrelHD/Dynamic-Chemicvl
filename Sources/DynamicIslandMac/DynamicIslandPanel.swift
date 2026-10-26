@@ -40,7 +40,7 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
             if state.mode == .expanded {
                 switch state.activeTab {
                 case .music: return 172
-                case .control: return 192
+                case .control: return 216
                 case .notes: return 196
                 case .shelf: return state.shelfFiles.isEmpty ? 148 : 156
                 }
@@ -120,7 +120,7 @@ public class DynamicIslandPanel: NSPanel {
             let capsuleHeight: CGFloat = {
                 switch state.activeTab {
                 case .music: return 172
-                case .control: return 192
+                case .control: return 216
                 case .notes: return 196
                 case .shelf: return state.shelfFiles.isEmpty ? 148 : 156
                 }
