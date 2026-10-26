@@ -1,10 +1,37 @@
 import Foundation
 import AppKit
+import IOKit.pwr_mgt
 
 public class SystemControlService {
     public static let shared = SystemControlService()
     
     private let queue = DispatchQueue(label: "com.dynamicisland.controlservice", qos: .utility)
+    private var caffeinateAssertionID: IOPMAssertionID = 0
+    
+    public var isCaffeinateActive: Bool {
+        return caffeinateAssertionID != 0
+    }
+    
+    public func toggleCaffeinate() -> Bool {
+        if caffeinateAssertionID != 0 {
+            IOPMAssertionRelease(caffeinateAssertionID)
+            caffeinateAssertionID = 0
+            return false
+        } else {
+            var assertionID: IOPMAssertionID = 0
+            let result = IOPMAssertionCreateWithName(
+                kIOPMAssertionTypePreventUserIdleSystemSleep as CFString,
+                IOPMAssertionLevel(kIOPMAssertionLevelOn),
+                "Dynamic Island Keep Awake" as CFString,
+                &assertionID
+            )
+            if result == kIOReturnSuccess {
+                caffeinateAssertionID = assertionID
+                return true
+            }
+            return false
+        }
+    }
     
     public func getWifiStatus(completion: @escaping (Bool, String) -> Void) {
         queue.async {

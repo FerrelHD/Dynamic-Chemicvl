@@ -53,6 +53,7 @@ public class IslandState: ObservableObject {
     @Published public var wifiSSID: String = "Wi-Fi"
     @Published public var isBluetoothOn: Bool = true
     @Published public var isDNDOn: Bool = false
+    @Published public var isCaffeinated: Bool = false
     
     // System Hardware Stats (CPU & RAM)
     @Published public var cpuUsage: Int = 10
@@ -223,6 +224,10 @@ public class IslandState: ObservableObject {
         SystemControlService.shared.toggleDoNotDisturb(currentlyEnabled: isDNDOn) { [weak self] newState in
             self?.isDNDOn = newState
         }
+    }
+    
+    public func toggleCaffeinate() {
+        self.isCaffeinated = SystemControlService.shared.toggleCaffeinate()
     }
     
     public func updateVolume(_ newVol: Int) {

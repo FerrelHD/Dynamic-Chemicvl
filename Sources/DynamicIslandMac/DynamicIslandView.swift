@@ -371,23 +371,34 @@ public struct DynamicIslandView: View {
                 }
             }
             
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 // Focus / DND Tile
-                controlTile(
+                controlTileCompact(
                     icon: "moon.fill",
                     title: "Focus",
-                    subtitle: state.isDNDOn ? "Do Not Disturb" : "Off",
+                    subtitle: state.isDNDOn ? "DND On" : "Off",
                     isActive: state.isDNDOn,
                     activeColor: Color(red: 0.35, green: 0.34, blue: 0.84)
                 ) {
                     state.toggleDND()
                 }
                 
+                // Keep Awake (Caffeinate ☕) Tile
+                controlTileCompact(
+                    icon: "cup.and.saucer.fill",
+                    title: "Awake",
+                    subtitle: state.isCaffeinated ? "Active" : "Normal",
+                    isActive: state.isCaffeinated,
+                    activeColor: Color(red: 0.96, green: 0.55, blue: 0.15)
+                ) {
+                    state.toggleCaffeinate()
+                }
+                
                 // Focus Timer Tile
-                controlTile(
+                controlTileCompact(
                     icon: "timer",
-                    title: "Focus Timer",
-                    subtitle: state.isTimerRunning ? state.timerFormattedString : "25 min",
+                    title: "Timer",
+                    subtitle: state.isTimerRunning ? state.timerFormattedString : "25m",
                     isActive: state.isTimerRunning,
                     activeColor: Color(red: 1.0, green: 0.58, blue: 0.0)
                 ) {
@@ -512,6 +523,44 @@ public struct DynamicIslandView: View {
                     .stroke(Color.white.opacity(0.06), lineWidth: 0.75)
             )
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+    
+    private func controlTileCompact(icon: String, title: String, subtitle: String, isActive: Bool, activeColor: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                ZStack {
+                    Circle()
+                        .fill(isActive ? activeColor : Color.white.opacity(0.18))
+                        .frame(width: 26, height: 26)
+                    
+                    Image(systemName: icon)
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                }
+                
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                    Text(subtitle)
+                        .font(.system(size: 8.5, weight: .medium, design: .rounded))
+                        .foregroundColor(.white.opacity(0.70))
+                        .lineLimit(1)
+                }
+                
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 7)
+            .padding(.vertical, 6)
+            .background(Color.white.opacity(0.09))
+            .overlay(
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .stroke(Color.white.opacity(0.06), lineWidth: 0.75)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
         }
         .buttonStyle(.plain)
     }
