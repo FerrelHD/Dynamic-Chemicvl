@@ -14,6 +14,9 @@ public struct DynamicIslandView: View {
         if state.isShowingVolumeHUD {
             return 250
         }
+        if state.isShowingBatteryHUD {
+            return 224
+        }
         switch state.mode {
         case .compact:
             if state.isTimerRunning {
@@ -31,7 +34,7 @@ public struct DynamicIslandView: View {
     }
     
     private var islandHeight: CGFloat {
-        if state.isShowingVolumeHUD {
+        if state.isShowingVolumeHUD || state.isShowingBatteryHUD {
             return 36
         }
         switch state.mode {
@@ -53,7 +56,7 @@ public struct DynamicIslandView: View {
     }
     
     private var cornerRadius: CGFloat {
-        if state.isShowingVolumeHUD {
+        if state.isShowingVolumeHUD || state.isShowingBatteryHUD {
             return 18
         }
         switch state.mode {
@@ -80,6 +83,9 @@ public struct DynamicIslandView: View {
                             if state.isShowingVolumeHUD {
                                 volumeHUDContent
                                     .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                            } else if state.isShowingBatteryHUD {
+                                batteryHUDContent
+                                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
                             } else {
                                 switch state.mode {
                                 case .compact:
@@ -102,6 +108,7 @@ public struct DynamicIslandView: View {
             .animation(.spring(response: 0.32, dampingFraction: 0.78), value: state.activeTab)
             .animation(.spring(response: 0.30, dampingFraction: 0.76), value: state.isPlaying)
             .animation(.spring(response: 0.28, dampingFraction: 0.80), value: state.isShowingVolumeHUD)
+            .animation(.spring(response: 0.28, dampingFraction: 0.80), value: state.isShowingBatteryHUD)
             
             Spacer()
         }
@@ -144,6 +151,52 @@ public struct DynamicIslandView: View {
         if state.currentVolume < 33 { return "speaker.wave.1.fill" }
         if state.currentVolume < 66 { return "speaker.wave.2.fill" }
         return "speaker.wave.3.fill"
+    }
+    
+    // MARK: - iOS MagSafe Battery HUD Live Activity
+    private var batteryHUDContent: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(state.isBatteryCharging ? Color(red: 0.18, green: 0.85, blue: 0.38) : (state.batteryLevel <= 20 ? Color.red : Color.white.opacity(0.20)))
+                    .frame(width: 24, height: 24)
+                
+                Image(systemName: state.isBatteryCharging ? "bolt.fill" : (state.isPowerPlugged ? "powerplug.fill" : "battery.75"))
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundColor(state.isBatteryCharging ? .black : .white)
+            }
+            
+            VStack(alignment: .leading, spacing: 1) {
+                Text(state.isBatteryCharging ? "MagSafe Charging" : (state.isPowerPlugged ? "Power Connected" : "On Battery"))
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                
+                Text(state.isBatteryCharging ? "Fast Charging" : "\(state.batteryLevel)% Remaining")
+                    .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                    .foregroundColor(.white.opacity(0.70))
+                    .lineLimit(1)
+            }
+            
+            Spacer()
+            
+            // Battery Level Bar Capsule
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color.white.opacity(0.18))
+                    .frame(width: 38, height: 14)
+                
+                Capsule()
+                    .fill(state.isBatteryCharging ? Color(red: 0.18, green: 0.85, blue: 0.38) : (state.batteryLevel <= 20 ? Color.red : Color.white))
+                    .frame(width: max(4, 38 * CGFloat(state.batteryLevel) / 100.0), height: 14)
+                
+                Text("\(state.batteryLevel)%")
+                    .font(.system(size: 8.5, weight: .bold, design: .rounded))
+                    .foregroundColor(state.batteryLevel > 60 ? .black : .white)
+                    .frame(width: 38, alignment: .center)
+            }
+        }
+        .padding(.horizontal, 14)
     }
     
     // MARK: - 1. Compact View (Centered Clock & Responsive Media Pill)

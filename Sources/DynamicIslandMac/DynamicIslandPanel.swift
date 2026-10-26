@@ -25,6 +25,7 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         // Dynamic adaptive dimensions matching DynamicIslandView
         let capsuleWidth: CGFloat = {
             if state.isShowingVolumeHUD { return 250 }
+            if state.isShowingBatteryHUD { return 224 }
             if state.mode == .expanded { return 385 }
             if state.isTimerRunning { return 165 }
             if state.isPlaying {
@@ -35,7 +36,7 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         }()
         
         let capsuleHeight: CGFloat = {
-            if state.isShowingVolumeHUD { return 36 }
+            if state.isShowingVolumeHUD || state.isShowingBatteryHUD { return 36 }
             if state.mode == .expanded {
                 switch state.activeTab {
                 case .music: return 172

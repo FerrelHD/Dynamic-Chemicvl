@@ -41,6 +41,13 @@ public class IslandState: ObservableObject {
     @Published public var currentVolume: Int = 50
     private var volumeHUDWorkItem: DispatchWorkItem?
     
+    // Battery & MagSafe HUD overlay
+    @Published public var isShowingBatteryHUD: Bool = false
+    @Published public var batteryLevel: Int = 100
+    @Published public var isBatteryCharging: Bool = false
+    @Published public var isPowerPlugged: Bool = false
+    private var batteryHUDWorkItem: DispatchWorkItem?
+    
     // Control Center Status
     @Published public var isWifiOn: Bool = true
     @Published public var wifiSSID: String = "Wi-Fi"
@@ -112,6 +119,23 @@ public class IslandState: ObservableObject {
         // Monitoring Volume HUD otomatis
         AudioService.shared.startMonitoring { [weak self] newVolume in
             self?.triggerVolumeHUD(newVolume)
+        }
+        
+        // Monitoring Battery & MagSafe Status
+        let initialBattery = BatteryService.shared.getStatus()
+        self.batteryLevel = initialBattery.level
+        self.isBatteryCharging = initialBattery.isCharging
+        self.isPowerPlugged = initialBattery.isPlugged
+        
+        BatteryService.shared.startMonitoring { [weak self] status, powerChanged in
+            guard let self = self else { return }
+            self.batteryLevel = status.level
+            self.isBatteryCharging = status.isCharging
+            self.isPowerPlugged = status.isPlugged
+            
+            if powerChanged {
+                self.triggerBatteryHUD()
+            }
         }
         
         // Waveform audio ringan
@@ -255,6 +279,24 @@ public class IslandState: ObservableObject {
         }
         volumeHUDWorkItem = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.8, execute: work)
+    }
+    
+    // MARK: - Battery & MagSafe HUD Trigger
+    public func triggerBatteryHUD() {
+        guard mode != .expanded else { return }
+        batteryHUDWorkItem?.cancel()
+        
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+            isShowingBatteryHUD = true
+        }
+        
+        let work = DispatchWorkItem { [weak self] in
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.78)) {
+                self?.isShowingBatteryHUD = false
+            }
+        }
+        batteryHUDWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5, execute: work)
     }
     
     // MARK: - Media Controls Universal
