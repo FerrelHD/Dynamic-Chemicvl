@@ -18,6 +18,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         
         setupStatusItem()
         
+        // Register global keyboard shortcut (Option + Space)
+        HotKeyService.shared.registerDefaultHotKey {
+            IslandState.shared.toggleExpand()
+        }
+        
         print("🏝️ Native Dynamic Island Active (iOS Design & Full English)")
     }
     
