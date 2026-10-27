@@ -20,12 +20,13 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         fatalError("init(coder:) has not been implemented")
     }
     
+    public override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        return true
+    }
+    
     public override func hitTest(_ point: NSPoint) -> NSView? {
-        guard self.bounds.contains(point) else { return nil }
-        
-        // Strict Geometric Path Hit-Testing:
-        // Convert AppKit superview unflipped point (y=0 at bottom) to flipped view coordinates (y=0 at top)
-        let localPoint = CGPoint(x: point.x, y: self.bounds.height - point.y)
+        let localPoint = self.convert(point, from: self.superview)
+        guard self.bounds.contains(localPoint) else { return nil }
         
         let dims = state.currentDimensions
         let notchX = (self.bounds.width - dims.width) / 2.0
@@ -37,8 +38,8 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         }
         
         // Check if inside the curved notch path (including concave ear fillets)
-        let earRadius: CGFloat = (state.mode == .expanded) ? 12 : 9
-        let bottomRadius: CGFloat = (state.mode == .expanded) ? 26 : ((state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD) ? 18 : 14)
+        let earRadius: CGFloat = (state.mode == .expanded) ? 10 : 8
+        let bottomRadius: CGFloat = (state.mode == .expanded) ? 24 : ((state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD) ? 18 : 14)
         let notchPath = NotchShape(earRadius: earRadius, bottomRadius: bottomRadius).path(in: notchRect)
         
         // If click is in the transparent cutout corners outside the notch curve, pass through
@@ -100,6 +101,7 @@ public class DynamicIslandPanel: NSPanel {
         self.isReleasedWhenClosed = false
         self.hidesOnDeactivate = false
         self.ignoresMouseEvents = false
+        self.becomesKeyOnlyIfNeeded = true
         
         setupFullScreenObservers()
         setupStateObserver()

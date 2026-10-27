@@ -139,3 +139,4 @@ public class LyricsService {
         return lines.sorted(by: { $0.timestamp < $1.timestamp })
     }
 }
+

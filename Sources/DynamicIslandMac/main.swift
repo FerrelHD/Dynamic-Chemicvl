@@ -17,8 +17,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         islandPanel.startHoverPeekMonitoring(state: .shared)
         self.panel = islandPanel
         
-        setupStatusItem()
-        
         // Register global keyboard shortcut (Option + Space)
         HotKeyService.shared.registerDefaultHotKey {
             IslandState.shared.toggleExpand()

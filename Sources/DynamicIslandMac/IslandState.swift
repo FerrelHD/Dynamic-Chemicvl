@@ -112,19 +112,19 @@ public class IslandState: ObservableObject {
             }
         case .expanded:
             if activeTab == .music && isLyricsEnabled {
-                return (width: 540, height: 225) // Luxurious Split View for Apple Music Lyrics
+                return (width: 560, height: 245) // Luxurious Split View for Apple Music Lyrics
             }
             switch activeTab {
             case .control:
-                return (width: 395, height: 230)
+                return (width: 412, height: 236)
             case .music:
-                return (width: 395, height: 180) // Eliminates dead black void, perfectly hugs music player
+                return (width: 412, height: 232) // Ample, comfortable breathing room (zero bottom cramping!)
             case .notes:
-                return (width: 395, height: 200)
+                return (width: 412, height: 224)
             case .devices:
-                return (width: 395, height: 195)
+                return (width: 412, height: 216)
             case .shelf:
-                return (width: 395, height: 175) // Eliminates the 140pt black void, perfectly hugs drop card
+                return (width: 412, height: 195) // Spacious, comfortable file drop card
             }
         }
     }
@@ -347,7 +347,12 @@ public class IslandState: ObservableObject {
         
         let willExpand = (mode == .compact)
         withAnimation(.easeInOut(duration: 0.22)) {
-            mode = willExpand ? .expanded : .compact
+            if willExpand {
+                isHoverRevealed = true
+                mode = .expanded
+            } else {
+                mode = .compact
+            }
         }
     }
     

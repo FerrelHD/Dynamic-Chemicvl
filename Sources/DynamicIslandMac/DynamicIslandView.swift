@@ -149,15 +149,15 @@ public struct DynamicIslandView: View {
         case .compact:
             return 14 // Sleek Apple notch corner radius for compact height
         case .expanded:
-            return 26 // Continuous G2-like squircle curvature matching authentic macOS Monterey/Sonoma notch
+            return 24 // Refined G2 squircle curvature
         }
     }
     
     private var earRadius: CGFloat {
         if state.mode == .expanded {
-            return 12 // Authentic, flared Apple concave ear fillets for expanded canvas
+            return 10 // Authentic Apple concave ear fillets for expanded canvas
         }
-        return 9 // Subtle, organic concave ears in compact & HUD mode
+        return 8 // Subtle, organic concave ears in compact & HUD mode
     }
     
     public var body: some View {
@@ -838,7 +838,7 @@ public struct DynamicIslandView: View {
     
     // MARK: - Normal Player View (Single-column iOS dynamic island music player)
     private var normalMusicPlayerView: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 14) {
             // Row 1: Artwork, Title/Artist, and Neon Waveform
             HStack(spacing: 12) {
                 ZStack {
@@ -865,7 +865,7 @@ public struct DynamicIslandView: View {
                 .frame(width: 48, height: 48)
                 .shadow(color: .black.opacity(0.35), radius: 5, x: 0, y: 2)
                 
-                VStack(alignment: .leading, spacing: 2.5) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text(state.trackTitle)
                         .font(.system(size: 14, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
@@ -882,10 +882,11 @@ public struct DynamicIslandView: View {
                 // Animated Waveform Indicator
                 waveformView(height: 18)
             }
-            .padding(.top, 2)
+            .padding(.top, 4)
             
             // Row 2: Interactive Scrubber Bar with Knob & Realtime Seeking
             scrubberBarView()
+                .padding(.vertical, 2)
             
             // Row 3: Playback Controls (Centered) + Secondary Actions (Lyrics & AirPlay on Right)
             HStack(spacing: 0) {
@@ -894,21 +895,21 @@ public struct DynamicIslandView: View {
                 HStack(spacing: 36) {
                     Button(action: { state.previousTrack() }) {
                         Image(systemName: "backward.fill")
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.system(size: 19, weight: .bold))
                             .foregroundColor(.white)
                     }
                     .buttonStyle(.plain)
                     
                     Button(action: { state.togglePlayPause() }) {
                         Image(systemName: state.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 26, weight: .bold))
+                            .font(.system(size: 28, weight: .bold))
                             .foregroundColor(.white)
                     }
                     .buttonStyle(.plain)
                     
                     Button(action: { state.nextTrack() }) {
                         Image(systemName: "forward.fill")
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.system(size: 19, weight: .bold))
                             .foregroundColor(.white)
                     }
                     .buttonStyle(.plain)
@@ -943,7 +944,7 @@ public struct DynamicIslandView: View {
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.top, 2)
+            .padding(.bottom, 6)
         }
     }
     
