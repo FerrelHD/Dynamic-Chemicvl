@@ -178,6 +178,8 @@ public struct DynamicIslandView: View {
                 return 232
             case .notes:
                 return 216
+            case .devices:
+                return 205
             case .shelf:
                 return 200
             }
@@ -517,35 +519,35 @@ public struct DynamicIslandView: View {
     private var expandedContent: some View {
         VStack(spacing: 8) {
             // iOS Segmented Tab Bar Header (Responsive & Non-wrapping)
-            HStack(spacing: 3) {
+            HStack(spacing: 2) {
                 ForEach(IslandTab.allCases, id: \.self) { tab in
                     Button(action: {
                         withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
                             state.activeTab = tab
                         }
                     }) {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 3) {
                             tabIcon(for: tab)
                             
                             Text(tab.rawValue)
-                                .font(.system(size: 11, weight: state.activeTab == tab ? .bold : .medium, design: .rounded))
+                                .font(.system(size: 10.5, weight: state.activeTab == tab ? .bold : .medium, design: .rounded))
                                 .lineLimit(1)
                                 .fixedSize(horizontal: true, vertical: false)
                             
                             if let badge = tabBadgeCount(for: tab), badge > 0 {
                                 Text("\(badge)")
-                                    .font(.system(size: 8.5, weight: .bold, design: .rounded))
+                                    .font(.system(size: 8, weight: .bold, design: .rounded))
                                     .foregroundColor(.white)
                                     .lineLimit(1)
                                     .fixedSize(horizontal: true, vertical: true)
-                                    .frame(minWidth: 14, minHeight: 14)
-                                    .padding(.horizontal, 3)
+                                    .frame(minWidth: 13, minHeight: 13)
+                                    .padding(.horizontal, 2)
                                     .background(state.activeTab == tab ? Color.white.opacity(0.32) : Color.white.opacity(0.18))
                                     .clipShape(Capsule())
                             }
                         }
-                        .padding(.vertical, 4.5)
-                        .padding(.horizontal, 7)
+                        .padding(.vertical, 4)
+                        .padding(.horizontal, 5)
                         .background(
                             ZStack {
                                 if state.activeTab == tab {
@@ -560,7 +562,7 @@ public struct DynamicIslandView: View {
                     .buttonStyle(.plain)
                 }
                 
-                Spacer()
+                Spacer(minLength: 2)
                 
                 // Collapse button
                 Button(action: {
@@ -589,6 +591,8 @@ public struct DynamicIslandView: View {
                 musicTabView
             case .notes:
                 notesTabView
+            case .devices:
+                devicesTabView
             case .shelf:
                 shelfTabView
             }
@@ -818,138 +822,146 @@ public struct DynamicIslandView: View {
         .buttonStyle(.plain)
     }
     
-    // MARK: - Tab 2: Now Playing (iOS Live Activity Style)
+    // MARK: - Tab 2: Now Playing (Authentic iOS Dynamic Island Media Player)
     private var musicTabView: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 11) {
+        VStack(spacing: 12) {
+            // Row 1: Artwork, Title/Artist, and Neon Waveform
+            HStack(spacing: 12) {
                 ZStack {
                     if let art = state.artworkImage {
                         Image(nsImage: art)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
-                            .frame(width: 44, height: 44)
-                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .frame(width: 50, height: 50)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     } else {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .fill(LinearGradient(
-                                colors: [Color(red: 0.95, green: 0.2, blue: 0.45), Color(red: 0.5, green: 0.1, blue: 0.8)],
+                                colors: [Color(red: 0.95, green: 0.25, blue: 0.45), Color(red: 0.48, green: 0.15, blue: 0.85)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             ))
-                            .frame(width: 44, height: 44)
+                            .frame(width: 50, height: 50)
                         
                         Image(systemName: "music.note")
-                            .font(.system(size: 19, weight: .bold, design: .rounded))
+                            .font(.system(size: 22, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
                     }
                 }
-                .frame(width: 44, height: 44)
-                .shadow(color: .black.opacity(0.4), radius: 4)
+                .frame(width: 50, height: 50)
+                .shadow(color: .black.opacity(0.35), radius: 5, x: 0, y: 2)
                 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text(state.trackTitle)
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .font(.system(size: 14.5, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                         .lineLimit(1)
                     
                     Text(state.artistName)
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundColor(.white.opacity(0.75))
+                        .font(.system(size: 12.5, weight: .medium, design: .rounded))
+                        .foregroundColor(.white.opacity(0.68))
                         .lineLimit(1)
                 }
                 
-                Spacer()
+                Spacer(minLength: 8)
                 
-                waveformView(height: 18)
+                // Animated Waveform Indicator
+                waveformView(height: 19)
             }
+            .padding(.top, 2)
             
-            // Progress Bar & Timestamps
-            VStack(spacing: 2) {
+            // Row 2: Single-Row Scrubber Bar with Elapsed & Countdown Remaining
+            HStack(spacing: 8) {
+                Text(state.currentTime)
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.65))
+                    .frame(minWidth: 32, alignment: .leading)
+                
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         Capsule()
-                            .fill(Color.white.opacity(0.18))
-                            .frame(height: 3.5)
+                            .fill(Color.white.opacity(0.20))
+                            .frame(height: 5)
                         
                         Capsule()
                             .fill(Color.white)
-                            .frame(width: max(0, geo.size.width * CGFloat(state.playbackProgress)), height: 3.5)
+                            .frame(width: max(0, geo.size.width * CGFloat(state.playbackProgress)), height: 5)
                     }
+                    .frame(height: 5)
+                    .frame(maxHeight: .infinity, alignment: .center)
                 }
-                .frame(height: 3.5)
+                .frame(height: 14)
                 
-                HStack {
-                    Text(state.currentTime)
-                        .font(.system(size: 9.5, weight: .medium, design: .rounded))
-                        .foregroundColor(.white.opacity(0.65))
-                    
-                    Spacer()
-                    
-                    Text(state.totalDuration)
-                        .font(.system(size: 9.5, weight: .medium, design: .rounded))
-                        .foregroundColor(.white.opacity(0.65))
-                }
+                Text(state.remainingTime)
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.65))
+                    .frame(minWidth: 36, alignment: .trailing)
             }
             
-            // iOS Media Controls
-            HStack(spacing: 26) {
-                Button(action: { state.previousTrack() }) {
-                    Image(systemName: "backward.fill")
-                        .font(.system(size: 16, weight: .medium, design: .rounded))
-                        .foregroundColor(.white.opacity(0.9))
-                }
-                .buttonStyle(.plain)
+            // Row 3: Playback Controls (Centered Flat White + AirPlay on Right)
+            HStack(spacing: 0) {
+                Spacer()
                 
-                // Prominent Play/Pause Button
-                Button(action: { state.togglePlayPause() }) {
-                    ZStack {
-                        Circle()
-                            .fill(Color.white)
-                            .frame(width: 34, height: 34)
-                        
-                        Image(systemName: state.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 14, weight: .bold, design: .rounded))
-                            .foregroundColor(.black)
+                HStack(spacing: 36) {
+                    Button(action: { state.previousTrack() }) {
+                        Image(systemName: "backward.fill")
+                            .font(.system(size: 19, weight: .bold))
+                            .foregroundColor(.white)
                     }
+                    .buttonStyle(.plain)
+                    
+                    Button(action: { state.togglePlayPause() }) {
+                        Image(systemName: state.isPlaying ? "pause.fill" : "play.fill")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Button(action: { state.nextTrack() }) {
+                        Image(systemName: "forward.fill")
+                            .font(.system(size: 19, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
-                
-                Button(action: { state.nextTrack() }) {
-                    Image(systemName: "forward.fill")
-                        .font(.system(size: 16, weight: .medium, design: .rounded))
-                        .foregroundColor(.white.opacity(0.9))
-                }
-                .buttonStyle(.plain)
                 
                 Spacer()
                 
-                HStack(spacing: 4.5) {
-                    Image(systemName: volumeIcon)
-                        .font(.system(size: 10.5, weight: .semibold, design: .rounded))
-                        .foregroundColor(.white.opacity(0.75))
-                    Text("\(state.currentVolume)%")
-                        .font(.system(size: 10.5, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
+                // AirPlay / Audio Output Route
+                Button(action: {
+                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.sound") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }) {
+                    Image(systemName: "airplayaudio")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.85))
                 }
-                .padding(.horizontal, 7.5)
-                .padding(.vertical, 3.5)
-                .background(Color.white.opacity(0.10))
-                .clipShape(Capsule())
+                .buttonStyle(.plain)
             }
+            .padding(.top, 2)
         }
     }
     
     // MARK: - Tab 3: Reminders & Notes (iOS Reminders Style)
     private var notesTabView: some View {
         VStack(spacing: 7) {
-            // Input field with iOS Add button
+            // Input field with Frosted White Capsule (Gaya B)
             HStack(spacing: 8) {
-                TextField("Add a reminder or note...", text: $state.newTodoText, onCommit: {
-                    state.addTodo()
-                })
-                .textFieldStyle(.plain)
-                .font(.system(size: 12, weight: .medium, design: .rounded))
-                .foregroundColor(.white)
+                ZStack(alignment: .leading) {
+                    if state.newTodoText.isEmpty {
+                        Text("Add a reminder or note...")
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundColor(Color(red: 0.25, green: 0.25, blue: 0.28))
+                    }
+                    
+                    TextField("", text: $state.newTodoText, onCommit: {
+                        state.addTodo()
+                    })
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundColor(Color(red: 0.08, green: 0.08, blue: 0.10))
+                }
                 
                 Button(action: {
                     state.addTodo()
@@ -961,19 +973,27 @@ public struct DynamicIslandView: View {
                             .font(.system(size: 11, weight: .bold, design: .rounded))
                     }
                     .foregroundColor(.white)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 3.5)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4.5)
                     .background(Color(red: 0.0, green: 0.48, blue: 1.0))
                     .clipShape(Capsule())
+                    .shadow(color: Color.black.opacity(0.15), radius: 2, x: 0, y: 1)
                 }
                 .buttonStyle(.plain)
                 .disabled(state.newTodoText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 .opacity(state.newTodoText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.45 : 1.0)
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 11)
             .padding(.vertical, 5)
-            .background(Color.white.opacity(0.12))
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .background(
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .fill(Color.white.opacity(0.92))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 11, style: .continuous)
+                            .stroke(Color.white, lineWidth: 1.0)
+                    )
+                    .shadow(color: Color.black.opacity(0.18), radius: 4, x: 0, y: 2)
+            )
             
             // Scrollable List
             ScrollView(.vertical, showsIndicators: false) {
@@ -1032,7 +1052,97 @@ public struct DynamicIslandView: View {
         }
     }
     
-    // MARK: - Tab 4: File Shelf & Quick Clipboard
+    // MARK: - Tab 4: Connected Devices & Battery Hub (iOS Concept Style)
+    private var devicesTabView: some View {
+        VStack(spacing: 11) {
+            // Three Circular Battery Gauges Side-by-Side
+            HStack(spacing: 12) {
+                ForEach(state.connectedDevices) { dev in
+                    VStack(spacing: 5) {
+                        ZStack {
+                            // Background ring
+                            Circle()
+                                .stroke(Color.white.opacity(0.12), lineWidth: 4.5)
+                            
+                            // Progress ring
+                            Circle()
+                                .trim(from: 0, to: CGFloat(dev.batteryLevel) / 100.0)
+                                .stroke(
+                                    dev.isCharging
+                                        ? Color(red: 0.18, green: 0.85, blue: 0.38)
+                                        : (dev.batteryLevel > 20
+                                            ? Color(red: 0.18, green: 0.85, blue: 0.38)
+                                            : Color(red: 1.0, green: 0.23, blue: 0.19)),
+                                    style: StrokeStyle(lineWidth: 4.5, lineCap: .round)
+                                )
+                                .rotationEffect(.degrees(-90))
+                            
+                            // Center Icon
+                            VStack(spacing: 1) {
+                                Image(systemName: dev.iconName)
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(.white)
+                                
+                                if dev.isCharging {
+                                    Image(systemName: "bolt.fill")
+                                        .font(.system(size: 8, weight: .bold))
+                                        .foregroundColor(Color(red: 0.18, green: 0.85, blue: 0.38))
+                                }
+                            }
+                        }
+                        .frame(width: 52, height: 52)
+                        
+                        // Percentage & Device Info
+                        Text("\(dev.batteryLevel)%")
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                        
+                        Text(dev.name)
+                            .font(.system(size: 10, weight: .semibold, design: .rounded))
+                            .foregroundColor(.white.opacity(0.85))
+                            .lineLimit(1)
+                        
+                        Text(dev.subtitle)
+                            .font(.system(size: 8.5, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.50))
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 7)
+                    .background(Color.white.opacity(0.06))
+                    .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+                }
+            }
+            .padding(.top, 1)
+            
+            // Bottom System Power Info Pill
+            HStack(spacing: 6) {
+                Image(systemName: state.isPowerPlugged ? "bolt.fill" : "battery.100")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(state.isBatteryCharging ? Color(red: 0.18, green: 0.85, blue: 0.38) : Color.white.opacity(0.8))
+                
+                Text(state.isBatteryCharging ? "Charging via Power Adapter" : (state.isPowerPlugged ? "Connected to Power Adapter" : "Running on Battery Power"))
+                    .font(.system(size: 9.5, weight: .semibold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.85))
+                
+                Spacer()
+                
+                Text("Health Normal")
+                    .font(.system(size: 8.5, weight: .semibold, design: .rounded))
+                    .foregroundColor(Color(red: 0.18, green: 0.85, blue: 0.38))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color(red: 0.18, green: 0.85, blue: 0.38).opacity(0.15))
+                    .clipShape(Capsule())
+            }
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(Color.white.opacity(0.06))
+            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        }
+    }
+    
+    // MARK: - Tab 5: File Shelf & Quick Clipboard
     private var shelfTabView: some View {
         VStack(spacing: 7) {
             // Segment Switcher: Files | Clipboard
@@ -1259,6 +1369,8 @@ public struct DynamicIslandView: View {
             return Image(systemName: "music.note").font(.system(size: 9.5, weight: .bold, design: .rounded))
         case .notes:
             return Image(systemName: "checklist").font(.system(size: 9.5, weight: .bold, design: .rounded))
+        case .devices:
+            return Image(systemName: "battery.100.bolt").font(.system(size: 9.5, weight: .bold, design: .rounded))
         case .shelf:
             return Image(systemName: "tray.fill").font(.system(size: 9.5, weight: .bold, design: .rounded))
         }
