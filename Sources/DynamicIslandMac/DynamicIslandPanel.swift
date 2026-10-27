@@ -26,6 +26,16 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         guard self.bounds.contains(point) else { return nil }
         return super.hitTest(point)
     }
+    
+    public override var fittingSize: NSSize {
+        let dims = state.currentDimensions
+        return NSSize(width: dims.width, height: dims.height)
+    }
+    
+    public override var intrinsicContentSize: NSSize {
+        let dims = state.currentDimensions
+        return NSSize(width: dims.width, height: dims.height)
+    }
 }
 
 public class DynamicIslandPanel: NSPanel {
@@ -50,6 +60,8 @@ public class DynamicIslandPanel: NSPanel {
             backing: .buffered,
             defer: false
         )
+        
+        self.minSize = NSSize(width: 1, height: 1)
         
         self.level = .statusBar
         self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
