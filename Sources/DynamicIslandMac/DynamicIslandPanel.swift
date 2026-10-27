@@ -288,8 +288,9 @@ public class DynamicIslandPanel: NSPanel {
         // Coordinated animation prevents abrupt clipping between expanding and minimizing
         if animated {
             NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.28
-                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                context.duration = 0.32
+                // Fluid Apple cubic-bezier ease-out matches SwiftUI spring acceleration
+                context.timingFunction = CAMediaTimingFunction(controlPoints: 0.25, 1.0, 0.5, 1.0)
                 context.allowsImplicitAnimation = true
                 self.animator().setFrame(newFrame, display: true)
             }
