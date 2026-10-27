@@ -167,16 +167,16 @@ public struct DynamicIslandView: View {
         case .compact:
             return 34 // Sleek, flush with macOS menu bar height
         case .expanded:
-            // Dynamic content-aware height: eliminates dead space per tab!
+            // Dynamic content-aware height: generous breathing room and no clipping
             switch state.activeTab {
             case .music:
-                return 172 // Snugly hugs cover art, timeline, and controls
+                return 196
             case .control:
-                return 216 // Fits 2x2 squircle grid, CPU/RAM stats, and volume capsule
+                return 232
             case .notes:
-                return 196 // Fits input bar, task list, and footer
+                return 216
             case .shelf:
-                return 180 // Fits segment switcher, drop zone/clipboard list, and footer
+                return 200
             }
         }
     }
@@ -537,7 +537,7 @@ public struct DynamicIslandView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.top, 7)
+            .padding(.top, 14)
             
             Divider()
                 .background(Color.white.opacity(0.15))
@@ -554,8 +554,8 @@ public struct DynamicIslandView: View {
                 shelfTabView
             }
         }
-        .padding(.horizontal, 15)
-        .padding(.bottom, 12)
+        .padding(.horizontal, 18)
+        .padding(.bottom, 16)
     }
     
     // MARK: - Tab 1: Control Center (iOS Style Tiles)
@@ -970,7 +970,7 @@ public struct DynamicIslandView: View {
                     }
                 }
             }
-            .frame(height: 72)
+            .frame(height: 86)
             
             // Footer Info
             HStack {
