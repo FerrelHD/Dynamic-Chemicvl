@@ -66,7 +66,7 @@ public class IslandState: ObservableObject {
     
     public var isIslandVisible: Bool {
         if mode == .expanded { return true }
-        if isShowingVolumeHUD || isShowingBatteryHUD || isShowingCapsLockHUD { return true }
+        if isShowingVolumeHUD || isShowingBatteryHUD || isShowingWifiHUD || isShowingBluetoothHUD || isShowingCapsLockHUD { return true }
         
         // Auto-Hide when an app is Fullscreen (only reveal on hover peek)
         if isFullScreenAppActive {
@@ -82,14 +82,14 @@ public class IslandState: ObservableObject {
         if !isIslandVisible {
             return (width: 48, height: 4)
         }
-        if isShowingBatteryHUD {
-            return (width: 192, height: 34)
+        if isShowingBatteryHUD || isShowingWifiHUD || isShowingBluetoothHUD {
+            return (width: 232, height: 38)
         }
         if isShowingVolumeHUD {
-            return (width: 260, height: 36)
+            return (width: 250, height: 38)
         }
         if isShowingCapsLockHUD {
-            return (width: 195, height: 36)
+            return (width: 195, height: 38)
         }
         switch mode {
         case .compact:
@@ -102,16 +102,7 @@ public class IslandState: ObservableObject {
                 return (width: 136, height: 28) // Sleek, perfectly proportioned Apple compact notch
             }
         case .expanded:
-            let h: CGFloat = {
-                switch activeTab {
-                case .music: return 196
-                case .control: return 232
-                case .notes: return 216
-                case .devices: return 236
-                case .shelf: return 200
-                }
-            }()
-            return (width: 395, height: h)
+            return (width: 395, height: 230) // Standardized uniform height for all tabs (zero jitter)
         }
     }
     
@@ -126,6 +117,17 @@ public class IslandState: ObservableObject {
     @Published public var isBatteryCharging: Bool = false
     @Published public var isPowerPlugged: Bool = false
     private var batteryHUDWorkItem: DispatchWorkItem?
+    
+    // Wi-Fi HUD overlay
+    @Published public var isShowingWifiHUD: Bool = false
+    @Published public var wifiHUDSubtitle: String = ""
+    private var wifiHUDWorkItem: DispatchWorkItem?
+    
+    // Bluetooth HUD overlay
+    @Published public var isShowingBluetoothHUD: Bool = false
+    @Published public var bluetoothHUDSubtitle: String = ""
+    @Published public var bluetoothDeviceName: String = ""
+    private var bluetoothHUDWorkItem: DispatchWorkItem?
     
     // Caps Lock HUD overlay
     @Published public var isShowingCapsLockHUD: Bool = false
@@ -279,7 +281,7 @@ public class IslandState: ObservableObject {
         }
     }
     
-    // MARK: - Saran 1: Toggle Expand & Minimize
+    // MARK: - Toggle Expand & Minimize (Snappy Clean Animation)
     public func toggleExpand() {
         if isShowingVolumeHUD {
             isShowingVolumeHUD = false
@@ -287,20 +289,20 @@ public class IslandState: ObservableObject {
         refreshControlStatus()
         
         let willExpand = (mode == .compact)
-        withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
+        withAnimation(.easeInOut(duration: 0.22)) {
             mode = willExpand ? .expanded : .compact
         }
     }
     
     public func minimize() {
-        withAnimation(.spring(response: 0.30, dampingFraction: 0.80)) {
+        withAnimation(.easeInOut(duration: 0.22)) {
             self.mode = .compact
         }
     }
     
     // MARK: - Hover Peek Mode Action
     public func toggleHoverPeek() {
-        withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
+        withAnimation(.easeInOut(duration: 0.20)) {
             isHoverPeekEnabled.toggle()
         }
         UserDefaults.standard.set(isHoverPeekEnabled, forKey: hoverPeekStorageKey)
@@ -327,12 +329,14 @@ public class IslandState: ObservableObject {
         SystemControlService.shared.toggleWifi(currentlyEnabled: isWifiOn) { [weak self] newState in
             self?.isWifiOn = newState
             self?.refreshControlStatus()
+            self?.triggerWifiHUD(connected: newState)
         }
     }
     
     public func toggleBluetooth() {
         SystemControlService.shared.toggleBluetooth(currentlyEnabled: isBluetoothOn) { [weak self] newState in
             self?.isBluetoothOn = newState
+            self?.triggerBluetoothHUD(connected: newState)
         }
     }
     
@@ -401,12 +405,12 @@ public class IslandState: ObservableObject {
         currentVolume = level
         volumeHUDWorkItem?.cancel()
         
-        withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+        withAnimation(.easeInOut(duration: 0.18)) {
             isShowingVolumeHUD = true
         }
         
         let work = DispatchWorkItem { [weak self] in
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.78)) {
+            withAnimation(.easeInOut(duration: 0.20)) {
                 self?.isShowingVolumeHUD = false
             }
         }
@@ -414,22 +418,68 @@ public class IslandState: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.8, execute: work)
     }
     
-    // MARK: - Battery & MagSafe HUD Trigger
+    // MARK: - Battery & MagSafe HUD Trigger (Option 2: 3-Column Pill)
     public func triggerBatteryHUD() {
         guard mode != .expanded else { return }
         batteryHUDWorkItem?.cancel()
         
-        withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+        withAnimation(.easeInOut(duration: 0.20)) {
             isShowingBatteryHUD = true
         }
         
         let work = DispatchWorkItem { [weak self] in
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.78)) {
+            withAnimation(.easeInOut(duration: 0.20)) {
                 self?.isShowingBatteryHUD = false
             }
         }
         batteryHUDWorkItem = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.5, execute: work)
+    }
+    
+    // MARK: - Wi-Fi Connection HUD Trigger
+    public func triggerWifiHUD(connected: Bool, ssid: String? = nil) {
+        guard mode != .expanded else { return }
+        wifiHUDWorkItem?.cancel()
+        isWifiOn = connected
+        if let s = ssid, !s.isEmpty {
+            wifiSSID = s
+        }
+        wifiHUDSubtitle = connected ? (wifiSSID.isEmpty ? "Connected" : "Connected • \(wifiSSID)") : "Disconnected"
+        
+        withAnimation(.easeInOut(duration: 0.20)) {
+            isShowingWifiHUD = true
+        }
+        
+        let work = DispatchWorkItem { [weak self] in
+            withAnimation(.easeInOut(duration: 0.20)) {
+                self?.isShowingWifiHUD = false
+            }
+        }
+        wifiHUDWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2, execute: work)
+    }
+    
+    // MARK: - Bluetooth Connection HUD Trigger
+    public func triggerBluetoothHUD(connected: Bool, device: String? = nil) {
+        guard mode != .expanded else { return }
+        bluetoothHUDWorkItem?.cancel()
+        isBluetoothOn = connected
+        if let d = device, !d.isEmpty {
+            bluetoothDeviceName = d
+        }
+        bluetoothHUDSubtitle = connected ? (bluetoothDeviceName.isEmpty ? "Connected" : "Connected • \(bluetoothDeviceName)") : "Disconnected"
+        
+        withAnimation(.easeInOut(duration: 0.20)) {
+            isShowingBluetoothHUD = true
+        }
+        
+        let work = DispatchWorkItem { [weak self] in
+            withAnimation(.easeInOut(duration: 0.20)) {
+                self?.isShowingBluetoothHUD = false
+            }
+        }
+        bluetoothHUDWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2, execute: work)
     }
     
     // MARK: - Caps Lock HUD Trigger
@@ -438,12 +488,12 @@ public class IslandState: ObservableObject {
         isCapsLockOn = isOn
         capsLockHUDWorkItem?.cancel()
         
-        withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+        withAnimation(.easeInOut(duration: 0.18)) {
             isShowingCapsLockHUD = true
         }
         
         let work = DispatchWorkItem { [weak self] in
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.78)) {
+            withAnimation(.easeInOut(duration: 0.20)) {
                 self?.isShowingCapsLockHUD = false
             }
         }
