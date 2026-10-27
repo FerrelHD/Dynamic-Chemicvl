@@ -38,6 +38,7 @@ public class DynamicIslandPanel: NSPanel {
     private var screenChangeObserver: Any?
     private var spaceChangeObserver: Any?
     private var appActivateObserver: Any?
+    private var fullScreenPollTimer: Timer?
     private var stateCancellable: AnyCancellable?
     
     public init() {
@@ -103,13 +104,48 @@ public class DynamicIslandPanel: NSPanel {
             self?.checkFullScreenState()
         }
         
+        // Lightweight polling timer (every 1.0s) to catch any active fullscreen window
+        fullScreenPollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.checkFullScreenState()
+        }
+        
         checkFullScreenState()
     }
     
     private func checkFullScreenState() {
         guard let screen = self.screen ?? NSScreen.main else { return }
-        // In macOS fullscreen mode, the menu bar is hidden and visibleFrame fills to the top bezel
-        let isFullScreen = (screen.visibleFrame.maxY >= (screen.frame.maxY - 2))
+        let screenW = screen.frame.width
+        let screenH = screen.frame.height
+        
+        // 1. Direct window server inspection of the frontmost app's window bounds
+        var isFullScreen = false
+        if let frontApp = NSWorkspace.shared.frontmostApplication {
+            let frontPID = frontApp.processIdentifier
+            let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+            if let list = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] {
+                for win in list {
+                    if let pid = win[kCGWindowOwnerPID as String] as? pid_t, pid == frontPID,
+                       let layer = win[kCGWindowLayer as String] as? Int, layer == 0,
+                       let bounds = win[kCGWindowBounds as String] as? [String: Any],
+                       let w = bounds["Width"] as? CGFloat,
+                       let h = bounds["Height"] as? CGFloat {
+                        // If frontmost app has a window covering the full screen, it is fullscreen!
+                        if w >= screenW && h >= screenH {
+                            isFullScreen = true
+                            break
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 2. Secondary fallback: check if menu bar is hidden on main screen
+        if !isFullScreen {
+            if screen.visibleFrame.maxY >= (screen.frame.maxY - 2) {
+                isFullScreen = true
+            }
+        }
+        
         if IslandState.shared.isFullScreenAppActive != isFullScreen {
             DispatchQueue.main.async {
                 withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
