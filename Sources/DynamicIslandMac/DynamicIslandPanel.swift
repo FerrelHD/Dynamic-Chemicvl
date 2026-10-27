@@ -23,7 +23,7 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
     public override func hitTest(_ point: NSPoint) -> NSView? {
         guard self.bounds.contains(point) else { return nil }
         
-        // Strict Geometric Path Hit-Testing on Transparent Canvas:
+        // Strict Geometric Path Hit-Testing:
         // Convert AppKit superview unflipped point (y=0 at bottom) to flipped view coordinates (y=0 at top)
         let localPoint = CGPoint(x: point.x, y: self.bounds.height - point.y)
         
@@ -31,7 +31,7 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         let notchX = (self.bounds.width - dims.width) / 2.0
         let notchRect = CGRect(x: notchX, y: 0, width: dims.width, height: dims.height)
         
-        // If click is outside the active notch frame, pass through immediately to apps/menu bar below
+        // If click is outside the active notch frame, pass through immediately
         guard notchRect.contains(localPoint) else {
             return nil
         }
@@ -41,7 +41,7 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         let bottomRadius: CGFloat = (state.mode == .expanded) ? 22 : 14
         let notchPath = NotchShape(earRadius: earRadius, bottomRadius: bottomRadius).path(in: notchRect)
         
-        // If click is in the transparent cutout corners outside the notch curve, pass through to windows below
+        // If click is in the transparent cutout corners outside the notch curve, pass through
         guard notchPath.contains(localPoint) else {
             return nil
         }
@@ -50,17 +50,19 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
     }
     
     public override var fittingSize: NSSize {
-        return NSSize(width: DynamicIslandPanel.canvasWidth, height: DynamicIslandPanel.canvasHeight)
+        let dims = state.currentDimensions
+        return NSSize(width: dims.width, height: dims.height)
     }
     
     public override var intrinsicContentSize: NSSize {
-        return NSSize(width: DynamicIslandPanel.canvasWidth, height: DynamicIslandPanel.canvasHeight)
+        let dims = state.currentDimensions
+        return NSSize(width: dims.width, height: dims.height)
     }
 }
 
 public class DynamicIslandPanel: NSPanel {
-    public static let canvasWidth: CGFloat = 410
-    public static let canvasHeight: CGFloat = 250
+    private var stateCancellable: AnyCancellable?
+    private var collapseTimer: Timer?
     
     private var globalClickMonitor: Any?
     private var localClickMonitor: Any?
@@ -74,9 +76,10 @@ public class DynamicIslandPanel: NSPanel {
     
     public init() {
         let screenRect = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
-        let xPos = floor(screenRect.minX + ((screenRect.width - DynamicIslandPanel.canvasWidth) / 2.0))
-        let yPos = screenRect.maxY - DynamicIslandPanel.canvasHeight
-        let initialRect = NSRect(x: xPos, y: yPos, width: DynamicIslandPanel.canvasWidth, height: DynamicIslandPanel.canvasHeight)
+        let dims = IslandState.shared.currentDimensions
+        let xPos = floor(screenRect.minX + ((screenRect.width - dims.width) / 2.0))
+        let yPos = screenRect.maxY - dims.height
+        let initialRect = NSRect(x: xPos, y: yPos, width: dims.width, height: dims.height)
         
         super.init(
             contentRect: initialRect,
@@ -85,7 +88,7 @@ public class DynamicIslandPanel: NSPanel {
             defer: false
         )
         
-        self.minSize = NSSize(width: DynamicIslandPanel.canvasWidth, height: DynamicIslandPanel.canvasHeight)
+        self.minSize = NSSize(width: 48, height: 4)
         self.level = .statusBar
         self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         self.isOpaque = false
@@ -99,7 +102,8 @@ public class DynamicIslandPanel: NSPanel {
         self.ignoresMouseEvents = false
         
         setupFullScreenObservers()
-        repositionToTopCenter()
+        setupStateObserver()
+        updateWindowFrameForCurrentState()
         
         // Responsive screen change tracking (multi-monitor, resolution changes)
         screenChangeObserver = NotificationCenter.default.addObserver(
@@ -108,7 +112,72 @@ public class DynamicIslandPanel: NSPanel {
             queue: .main
         ) { [weak self] _ in
             self?.checkFullScreenState()
-            self?.repositionToTopCenter()
+            self?.updateWindowFrameForCurrentState()
+        }
+    }
+    
+    private func setupStateObserver() {
+        stateCancellable = IslandState.shared.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                DispatchQueue.main.async {
+                    self?.updateWindowFrameForCurrentState()
+                }
+            }
+    }
+    
+    public func updateWindowFrameForCurrentState() {
+        guard let screen = self.screen ?? NSScreen.main else { return }
+        let screenRect = screen.frame
+        let state = IslandState.shared
+        let dims = state.currentDimensions
+        
+        if state.mode == .expanded {
+            collapseTimer?.invalidate()
+            collapseTimer = nil
+            
+            // Expand immediately to target expanded dimensions:
+            // Zero animator -> zero buffer stretching ("narik") -> zero clipping!
+            // SwiftUI's .spring will smoothly animate the notch inside this transparent frame.
+            let targetW: CGFloat = 395
+            let targetH: CGFloat = dims.height
+            let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
+            let targetY = screenRect.maxY - targetH
+            let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)
+            
+            if self.frame != targetFrame {
+                super.setFrame(targetFrame, display: false)
+            }
+        } else {
+            // Compact mode or HUD:
+            // If the window was previously expanded (height > dims.height + 10),
+            // wait 0.32s for SwiftUI's spring collapse animation to finish cleanly before shrinking the window frame.
+            if self.frame.height > dims.height + 10 {
+                if collapseTimer == nil {
+                    collapseTimer = Timer.scheduledTimer(withTimeInterval: 0.32, repeats: false) { [weak self] _ in
+                        self?.collapseTimer = nil
+                        guard IslandState.shared.mode == .compact else { return }
+                        self?.applyCompactFrame()
+                    }
+                }
+            } else {
+                applyCompactFrame()
+            }
+        }
+    }
+    
+    private func applyCompactFrame() {
+        guard let screen = self.screen ?? NSScreen.main else { return }
+        let screenRect = screen.frame
+        let dims = IslandState.shared.currentDimensions
+        let targetW = dims.width
+        let targetH = dims.height
+        let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
+        let targetY = screenRect.maxY - targetH
+        let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)
+        
+        if self.frame != targetFrame {
+            super.setFrame(targetFrame, display: true)
         }
     }
     
@@ -290,29 +359,10 @@ public class DynamicIslandPanel: NSPanel {
     }
     
     public func updateFrame(animated: Bool = true) {
-        repositionToTopCenter()
-    }
-    
-    public override func setFrame(_ frameRect: NSRect, display flag: Bool) {
-        guard let screen = self.screen ?? NSScreen.main else {
-            super.setFrame(frameRect, display: flag)
-            return
-        }
-        let screenRect = screen.frame
-        let centeredX = floor(screenRect.minX + ((screenRect.width - DynamicIslandPanel.canvasWidth) / 2.0))
-        let topY = screenRect.maxY - DynamicIslandPanel.canvasHeight
-        let canvasFrame = NSRect(x: centeredX, y: topY, width: DynamicIslandPanel.canvasWidth, height: DynamicIslandPanel.canvasHeight)
-        super.setFrame(canvasFrame, display: flag)
+        updateWindowFrameForCurrentState()
     }
     
     public func repositionToTopCenter() {
-        guard let screen = self.screen ?? NSScreen.main else { return }
-        let screenRect = screen.frame
-        let centeredX = floor(screenRect.minX + ((screenRect.width - DynamicIslandPanel.canvasWidth) / 2.0))
-        let topY = screenRect.maxY - DynamicIslandPanel.canvasHeight
-        let canvasFrame = NSRect(x: centeredX, y: topY, width: DynamicIslandPanel.canvasWidth, height: DynamicIslandPanel.canvasHeight)
-        if self.frame != canvasFrame {
-            super.setFrame(canvasFrame, display: true)
-        }
+        updateWindowFrameForCurrentState()
     }
 }
