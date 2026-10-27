@@ -151,10 +151,10 @@ public class DynamicIslandPanel: NSPanel {
         } else {
             // Compact mode or HUD:
             // If the window was previously expanded (height > dims.height + 10),
-            // wait 0.28s for SwiftUI's collapse animation to finish cleanly before shrinking the window frame.
+            // wait 0.22s for SwiftUI's collapse animation to finish cleanly before shrinking the window frame.
             if self.frame.height > dims.height + 10 {
                 if collapseTimer == nil {
-                    collapseTimer = Timer.scheduledTimer(withTimeInterval: 0.28, repeats: false) { [weak self] _ in
+                    collapseTimer = Timer.scheduledTimer(withTimeInterval: 0.22, repeats: false) { [weak self] _ in
                         self?.collapseTimer = nil
                         guard IslandState.shared.mode == .compact else { return }
                         self?.applyCompactFrame()
@@ -329,7 +329,7 @@ public class DynamicIslandPanel: NSPanel {
                 
                 if !state.isHoverRevealed {
                     DispatchQueue.main.async {
-                        withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
+                        withAnimation(.easeInOut(duration: 0.20)) {
                             state.isHoverRevealed = true
                         }
                     }
@@ -342,7 +342,7 @@ public class DynamicIslandPanel: NSPanel {
                         let stillInZone = (currentLoc.y >= topY - 56) && (abs(currentLoc.x - midX) <= 160)
                         if !stillInZone && state.mode != .expanded {
                             DispatchQueue.main.async {
-                                withAnimation(.spring(response: 0.32, dampingFraction: 0.80)) {
+                                withAnimation(.easeInOut(duration: 0.20)) {
                                     state.isHoverRevealed = false
                                 }
                             }

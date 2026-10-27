@@ -225,16 +225,10 @@ public struct DynamicIslandView: View {
                             switch state.mode {
                             case .compact:
                                 compactContent
-                                    .transition(.asymmetric(
-                                        insertion: .opacity.animation(.easeInOut(duration: 0.16).delay(0.06)),
-                                        removal: .opacity.animation(.easeInOut(duration: 0.08))
-                                    ))
+                                    .transition(.opacity)
                             case .expanded:
                                 expandedContent
-                                    .transition(.asymmetric(
-                                        insertion: .opacity.animation(.easeInOut(duration: 0.16).delay(0.04)),
-                                        removal: .opacity.animation(.easeInOut(duration: 0.08))
-                                    ))
+                                    .transition(.opacity)
                             }
                         }
                     }
@@ -244,10 +238,7 @@ public struct DynamicIslandView: View {
                 .onTapGesture {
                     state.toggleExpand()
                 }
-                .transition(.asymmetric(
-                    insertion: .move(edge: .top).combined(with: .opacity),
-                    removal: .move(edge: .top).combined(with: .opacity)
-                ))
+                .transition(.opacity)
             } else {
                 // MARK: - Tucked Handle (Micro-Notch Flush with Top Bezel)
                 NotchShape(earRadius: 2, bottomRadius: 3)
