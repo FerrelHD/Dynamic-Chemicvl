@@ -20,6 +20,11 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
     }
     
     public override func hitTest(_ point: NSPoint) -> NSView? {
+        // Pass 100% of clicks through when tucked away in Hover Peek mode
+        guard state.isIslandVisible else {
+            return nil
+        }
+        
         let bounds = self.bounds
         
         // Dynamic adaptive dimensions matching DynamicIslandView
@@ -65,6 +70,9 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
 public class DynamicIslandPanel: NSPanel {
     private var globalClickMonitor: Any?
     private var localClickMonitor: Any?
+    private var mouseMoveMonitor: Any?
+    private var localMouseMoveMonitor: Any?
+    private var hideDebounceTimer: Timer?
     private var screenChangeObserver: Any?
     
     public init() {
@@ -142,6 +150,66 @@ public class DynamicIslandPanel: NSPanel {
         globalClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: checkClickOutside)
         localClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { event in
             checkClickOutside(event)
+            return event
+        }
+    }
+    
+    // MARK: - Hover Peek Detection (Top Bezel Trigger & Dismiss)
+    public func startHoverPeekMonitoring(state: IslandState) {
+        let checkHover: (NSEvent) -> Void = { [weak self] _ in
+            guard state.isHoverPeekEnabled else { return }
+            
+            // If expanded or showing temporary HUD, maintain current visibility
+            if state.mode == .expanded || state.isShowingVolumeHUD || state.isShowingBatteryHUD || state.isShowingCapsLockHUD {
+                return
+            }
+            
+            guard let screen = self?.screen ?? NSScreen.main else { return }
+            let mouseLoc = NSEvent.mouseLocation
+            let screenRect = screen.frame
+            let midX = screenRect.midX
+            let topY = screenRect.maxY
+            
+            // Trigger zone: top 18pt of the screen (in menu bar area, safely above Chrome tabs)
+            let inTriggerZone = (mouseLoc.y >= topY - 18) && (abs(mouseLoc.x - midX) <= 130)
+            
+            // Active zone: keep revealed while cursor is inside or directly surrounding the pill
+            let inActiveZone = (mouseLoc.y >= topY - 56) && (abs(mouseLoc.x - midX) <= 150)
+            
+            if inTriggerZone || (state.isHoverRevealed && inActiveZone) {
+                self?.hideDebounceTimer?.invalidate()
+                self?.hideDebounceTimer = nil
+                
+                if !state.isHoverRevealed {
+                    DispatchQueue.main.async {
+                        withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
+                            state.isHoverRevealed = true
+                        }
+                    }
+                }
+            } else if state.isHoverRevealed {
+                // When cursor leaves the active zone, wait 0.35s before retracting to avoid jitter
+                if self?.hideDebounceTimer == nil {
+                    self?.hideDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.35, repeats: false) { [weak self] _ in
+                        self?.hideDebounceTimer = nil
+                        let currentLoc = NSEvent.mouseLocation
+                        let stillInZone = (currentLoc.y >= topY - 56) && (abs(currentLoc.x - midX) <= 150)
+                        
+                        if !stillInZone && state.mode != .expanded {
+                            DispatchQueue.main.async {
+                                withAnimation(.spring(response: 0.32, dampingFraction: 0.80)) {
+                                    state.isHoverRevealed = false
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        mouseMoveMonitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved, handler: checkHover)
+        localMouseMoveMonitor = NSEvent.addLocalMonitorForEvents(matching: .mouseMoved) { event in
+            checkHover(event)
             return event
         }
     }

@@ -73,43 +73,61 @@ public struct DynamicIslandView: View {
     public var body: some View {
         VStack(spacing: 0) {
             ZStack(alignment: .top) {
-                // MARK: - OLED Jet-Black Pill with iOS Specular Rim
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Color.black)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .stroke(Color.white.opacity(0.12), lineWidth: 0.8)
-                    )
-                    .shadow(color: Color.black.opacity(0.55), radius: 16, x: 0, y: 8)
-                    .overlay(
-                        Group {
-                            if state.isShowingVolumeHUD {
-                                volumeHUDContent
-                                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                            } else if state.isShowingBatteryHUD {
-                                batteryHUDContent
-                                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                            } else if state.isShowingCapsLockHUD {
-                                capsLockHUDContent
-                                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                            } else {
-                                switch state.mode {
-                                case .compact:
-                                    compactContent
-                                        .transition(.opacity)
-                                case .expanded:
-                                    expandedContent
-                                        .transition(.opacity)
+                if state.isIslandVisible {
+                    // MARK: - OLED Jet-Black Pill with iOS Specular Rim
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(Color.black)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                                .stroke(Color.white.opacity(0.12), lineWidth: 0.8)
+                        )
+                        .shadow(color: Color.black.opacity(0.55), radius: 16, x: 0, y: 8)
+                        .overlay(
+                            Group {
+                                if state.isShowingVolumeHUD {
+                                    volumeHUDContent
+                                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                                } else if state.isShowingBatteryHUD {
+                                    batteryHUDContent
+                                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                                } else if state.isShowingCapsLockHUD {
+                                    capsLockHUDContent
+                                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                                } else {
+                                    switch state.mode {
+                                    case .compact:
+                                        compactContent
+                                            .transition(.opacity)
+                                    case .expanded:
+                                        expandedContent
+                                            .transition(.opacity)
+                                    }
                                 }
                             }
+                        )
+                        .frame(width: islandWidth, height: islandHeight)
+                        .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                        .onTapGesture {
+                            state.toggleExpand()
                         }
-                    )
-                    .frame(width: islandWidth, height: islandHeight)
-                    .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-                    .onTapGesture {
-                        state.toggleExpand()
-                    }
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .top).combined(with: .opacity),
+                            removal: .move(edge: .top).combined(with: .opacity)
+                        ))
+                } else {
+                    // MARK: - Tucked Handle (3.5pt Micro-Pill at Top Bezel)
+                    Capsule()
+                        .fill(Color.black.opacity(0.82))
+                        .overlay(
+                            Capsule()
+                                .stroke(Color.white.opacity(0.14), lineWidth: 0.5)
+                        )
+                        .frame(width: 44, height: 3.5)
+                        .shadow(color: Color.black.opacity(0.35), radius: 2, x: 0, y: 1)
+                        .transition(.opacity)
+                }
             }
+            .animation(.spring(response: 0.32, dampingFraction: 0.78), value: state.isIslandVisible)
             .animation(.spring(response: 0.34, dampingFraction: 0.78), value: state.mode)
             .animation(.spring(response: 0.32, dampingFraction: 0.78), value: state.activeTab)
             .animation(.spring(response: 0.30, dampingFraction: 0.76), value: state.isPlaying)

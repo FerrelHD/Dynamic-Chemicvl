@@ -36,6 +36,18 @@ public class IslandState: ObservableObject {
     @Published public var mode: IslandMode = .compact
     @Published public var activeTab: IslandTab = .control
     
+    // Hover Peek Mode
+    @Published public var isHoverPeekEnabled: Bool = true
+    @Published public var isHoverRevealed: Bool = false
+    private let hoverPeekStorageKey = "DynamicIsland_HoverPeekEnabled"
+    
+    public var isIslandVisible: Bool {
+        if !isHoverPeekEnabled { return true }
+        if mode == .expanded { return true }
+        if isShowingVolumeHUD || isShowingBatteryHUD || isShowingCapsLockHUD { return true }
+        return isHoverRevealed
+    }
+    
     // Volume HUD overlay
     @Published public var isShowingVolumeHUD: Bool = false
     @Published public var currentVolume: Int = 50
@@ -100,6 +112,12 @@ public class IslandState: ObservableObject {
     
     public init() {
         loadTodos()
+        
+        if UserDefaults.standard.object(forKey: hoverPeekStorageKey) != nil {
+            self.isHoverPeekEnabled = UserDefaults.standard.bool(forKey: hoverPeekStorageKey)
+        } else {
+            self.isHoverPeekEnabled = true
+        }
         
         if let vol = AudioService.shared.getSystemVolume() {
             self.currentVolume = vol
@@ -218,6 +236,17 @@ public class IslandState: ObservableObject {
     public func minimize() {
         withAnimation(.spring(response: 0.32, dampingFraction: 0.76)) {
             self.mode = .compact
+        }
+    }
+    
+    // MARK: - Hover Peek Mode Action
+    public func toggleHoverPeek() {
+        withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
+            isHoverPeekEnabled.toggle()
+        }
+        UserDefaults.standard.set(isHoverPeekEnabled, forKey: hoverPeekStorageKey)
+        if !isHoverPeekEnabled {
+            isHoverRevealed = true
         }
     }
     

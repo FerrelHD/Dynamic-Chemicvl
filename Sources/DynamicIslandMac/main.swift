@@ -14,6 +14,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         islandPanel.contentView = hostingView
         islandPanel.orderFrontRegardless()
         islandPanel.startClickOutsideMonitoring(state: .shared)
+        islandPanel.startHoverPeekMonitoring(state: .shared)
         self.panel = islandPanel
         
         setupStatusItem()
@@ -70,6 +71,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         visibilityItem.target = self
         menu.addItem(visibilityItem)
         
+        let isHoverMode = IslandState.shared.isHoverPeekEnabled
+        let hoverItem = NSMenuItem(
+            title: "Hover Peek Mode",
+            action: #selector(toggleHoverPeekAction),
+            keyEquivalent: "p"
+        )
+        hoverItem.state = isHoverMode ? .on : .off
+        hoverItem.target = self
+        menu.addItem(hoverItem)
+        
         menu.addItem(NSMenuItem.separator())
         
         let quitItem = NSMenuItem(
@@ -99,6 +110,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } else {
             panel.orderFrontRegardless()
         }
+    }
+    
+    @objc private func toggleHoverPeekAction() {
+        IslandState.shared.toggleHoverPeek()
     }
     
     @objc private func quitAppAction() {
