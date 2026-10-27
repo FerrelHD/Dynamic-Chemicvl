@@ -8,10 +8,15 @@ A lightweight, battery-friendly (idle CPU 0.0%, ~20 MB RAM, 1.8 MB binary) nativ
 
 1. **📱 MacBook Hardware Notch Design (Concave Ears & Camera Dot):**
    - **0-Pixel Flush Gap**: Sits seamlessly flush against the top physical bezel of your display, mirroring Apple's authentic MacBook Pro notch cutout.
-   - **Unified Hardware Silhouette**: Both idle mode (280 x 50 pt) and charging mode (350 x 54 pt) share the exact same hardware silhouette with a wide flat base and fluid continuous squircle corners (`bottomRadius = 18`).
-   - **Concave Outward Ears**: Fluid tangent fillets (`earRadius = 8`) connecting the top horizontal screen bezel down into the vertical sides of the notch.
+   - **Sleek Proportional Dimensions**: Idle mode sits snugly at `150 x 34 pt` (flush with macOS menu bar height), expanding smoothly to `350 x 54 pt` during Charging HUD.
+   - **Concave Outward Ears**: Fluid tangent fillets (`earRadius = 6` compact, `earRadius = 8` HUD) connecting the top horizontal screen bezel down into the vertical sides of the notch.
    - **Hardware Camera Dot Cutout**: Subtle dark sensor lens detailing with glass reflection at top center.
-   - Specular bottom and side rim outline while merging natively into the black screen bezel at the top.
+   - **Mathematical Dead-Center**: Sub-pixel horizontal centering across all screen resolutions without coordinate drift.
+
+2. **🪄 Automatic Fullscreen Hide & Desktop Standby:**
+   - **Auto-Hide in Fullscreen**: Detects when any application enters macOS fullscreen mode (`visibleFrame.maxY >= frame.maxY - 2`) and automatically tucks into a 4px micro-handle so browser tabs (Chrome, Arc, Safari) and fullscreen video controls are 100% unobstructed.
+   - **Auto-Standby on Desktop**: Automatically re-appears as an active idle notch as soon as you exit fullscreen or return to your desktop space.
+   - **Smart Hover Peek**: In fullscreen, peek at the top 14pt bezel for 200ms to smoothly reveal the island on demand.
 
 2. **⚡ Authentic iOS Charging Live Activity HUD:**
    - Triggers automatically when connecting/disconnecting power via native `IOKit.ps` event notifications.
