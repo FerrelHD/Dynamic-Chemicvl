@@ -75,7 +75,16 @@ public class MediaService {
                 let rate = dict["kMRMediaRemoteNowPlayingInfoPlaybackRate"] as? Double ?? 0.0
                 let isPlaying = rate > 0.0
                 let duration = dict["kMRMediaRemoteNowPlayingInfoDuration"] as? Double ?? 0.0
-                let elapsed = dict["kMRMediaRemoteNowPlayingInfoElapsedTime"] as? Double ?? 0.0
+                var elapsed = dict["kMRMediaRemoteNowPlayingInfoElapsedTime"] as? Double ?? 0.0
+                
+                // Realtime playback position interpolation using system timestamp
+                if isPlaying, let timestamp = dict["kMRMediaRemoteNowPlayingInfoTimestamp"] as? Date {
+                    let delta = Date().timeIntervalSince(timestamp)
+                    if delta > 0 && delta < duration {
+                        elapsed = min(duration, elapsed + (delta * rate))
+                    }
+                }
+                
                 let artworkData = dict["kMRMediaRemoteNowPlayingInfoArtworkData"] as? Data
                 
                 if !title.isEmpty {

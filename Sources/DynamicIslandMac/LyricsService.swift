@@ -18,14 +18,22 @@ public class LyricsService {
     
     public static func cleanTrackTitle(_ raw: String) -> String {
         var title = raw
-        let pattern1 = #"\s*[\(\[][^\)\]]*(?:official|video|audio|mv|lyrics?|hd|4k|m\/v|feat|ft\.)[^\)\]]*[\)\]]"#
+        // 1. Strip brackets and parentheses containing video/audio keywords
+        let pattern1 = #"\s*[\(\[][^\)\]]*(?:performance|practice|dance|stage|clip|visualizer|official|video|audio|mv|lyrics?|hd|4k|m\/v|feat|ft\.)[^\)\]]*[\)\]]"#
         if let regex = try? NSRegularExpression(pattern: pattern1, options: .caseInsensitive) {
             title = regex.stringByReplacingMatches(in: title, options: [], range: NSRange(location: 0, length: title.utf16.count), withTemplate: "")
         }
-        let pattern2 = #"(?i)\s*(?:official\s*(?:music\s*video|mv|video|audio)|music\s*video|m\/v|mv|audio|lyrics)\s*$"#
+        // 2. Strip trailing video keywords
+        let pattern2 = #"(?i)\s*(?:performance\s*video|music\s*video|special\s*clip|dance\s*practice|official\s*(?:music\s*video|mv|video|audio)|m\/v|mv|audio|lyrics)\s*$"#
         if let regex = try? NSRegularExpression(pattern: pattern2, options: .caseInsensitive) {
             title = regex.stringByReplacingMatches(in: title, options: [], range: NSRange(location: 0, length: title.utf16.count), withTemplate: "")
         }
+        // 3. Strip non-Latin/Korean transliteration in parentheses, e.g. "(뉴진스)"
+        let patternKorean = #"\s*\([^)]*[\uac00-\ud7a3]+[^)]*\)"#
+        if let regex = try? NSRegularExpression(pattern: patternKorean, options: []) {
+            title = regex.stringByReplacingMatches(in: title, options: [], range: NSRange(location: 0, length: title.utf16.count), withTemplate: "")
+        }
+        // 4. Strip single and double quotes
         let pattern3 = #"[\"\'\`]"#
         if let regex = try? NSRegularExpression(pattern: pattern3, options: .caseInsensitive) {
             title = regex.stringByReplacingMatches(in: title, options: [], range: NSRange(location: 0, length: title.utf16.count), withTemplate: "")
@@ -46,67 +54,86 @@ public class LyricsService {
             return
         }
         
-        let query = "\(clean) \(artist)"
+        var candidates: [String] = []
+        let hasArtistInTitle = clean.lowercased().contains(artist.lowercased())
+        if hasArtistInTitle {
+            candidates.append(clean)
+        } else {
+            candidates.append("\(clean) \(artist)")
+        }
+        
+        if clean.contains(" - ") {
+            let parts = clean.components(separatedBy: " - ")
+            if parts.count >= 2 {
+                candidates.append("\(parts[1].trimmingCharacters(in: .whitespaces)) \(parts[0].trimmingCharacters(in: .whitespaces))")
+            }
+        }
+        
+        if !hasArtistInTitle {
+            candidates.append("\(artist) \(clean)")
+        } else {
+            let stripped = clean.replacingOccurrences(of: artist, with: "", options: .caseInsensitive).trimmingCharacters(in: .whitespaces)
+            if !stripped.isEmpty {
+                candidates.append("\(stripped) \(artist)")
+            }
+        }
+        
+        searchLRCLIB(candidates: candidates, index: 0, cacheKey: cacheKey, completion: completion)
+    }
+    
+    private func searchLRCLIB(candidates: [String], index: Int, cacheKey: String, completion: @escaping (Result<[LyricLine], Error>) -> Void) {
+        guard index < candidates.count else {
+            DispatchQueue.main.async {
+                completion(.failure(NSError(domain: "LyricsService", code: 404, userInfo: [NSLocalizedDescriptionKey: "No lyrics found for this track"])))
+            }
+            return
+        }
+        
+        let query = candidates[index]
         guard let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
               let url = URL(string: "https://lrclib.net/api/search?q=\(encoded)") else {
-            completion(.failure(NSError(domain: "LyricsService", code: 400, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
+            searchLRCLIB(candidates: candidates, index: index + 1, cacheKey: cacheKey, completion: completion)
             return
         }
         
         var request = URLRequest(url: url)
         request.setValue("DynamicIslandMac/1.0 (Macintosh; Intel Mac OS X 12_7_6)", forHTTPHeaderField: "User-Agent")
-        request.timeoutInterval = 7.0
+        request.timeoutInterval = 5.0
         
         URLSession.shared.dataTask(with: request) { [weak self] data, _, error in
-            if let error = error {
-                DispatchQueue.main.async { completion(.failure(error)) }
-                return
-            }
-            guard let data = data else {
-                DispatchQueue.main.async {
-                    completion(.failure(NSError(domain: "LyricsService", code: 404, userInfo: [NSLocalizedDescriptionKey: "No data"])))
-                }
+            guard let data = data, error == nil,
+                  let jsonArray = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]],
+                  !jsonArray.isEmpty else {
+                self?.searchLRCLIB(candidates: candidates, index: index + 1, cacheKey: cacheKey, completion: completion)
                 return
             }
             
-            do {
-                guard let jsonArray = try JSONSerialization.jsonObject(with: data) as? [[String: Any]],
-                      !jsonArray.isEmpty else {
-                    DispatchQueue.main.async {
-                        completion(.failure(NSError(domain: "LyricsService", code: 404, userInfo: [NSLocalizedDescriptionKey: "Lyrics not found"])))
-                    }
-                    return
-                }
-                
-                // Prioritize entries with syncedLyrics
-                let match = jsonArray.first(where: {
-                    if let s = $0["syncedLyrics"] as? String, !s.isEmpty { return true }
-                    return false
-                }) ?? jsonArray.first!
-                
-                if let synced = match["syncedLyrics"] as? String, !synced.isEmpty {
-                    let parsed = LyricsService.parseLRC(synced)
-                    if !parsed.isEmpty {
-                        self?.lyricsCache[cacheKey] = parsed
-                        DispatchQueue.main.async { completion(.success(parsed)) }
-                        return
-                    }
-                }
-                
-                if let plain = match["plainLyrics"] as? String, !plain.isEmpty {
-                    let lines = plain.components(separatedBy: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-                    let parsed = lines.enumerated().map { LyricLine(timestamp: Double($0.offset * 4), text: $0.element) }
+            // Prioritize entries with syncedLyrics
+            let match = jsonArray.first(where: {
+                if let s = $0["syncedLyrics"] as? String, !s.isEmpty { return true }
+                return false
+            }) ?? jsonArray.first!
+            
+            if let synced = match["syncedLyrics"] as? String, !synced.isEmpty {
+                let parsed = LyricsService.parseLRC(synced)
+                if !parsed.isEmpty {
                     self?.lyricsCache[cacheKey] = parsed
                     DispatchQueue.main.async { completion(.success(parsed)) }
                     return
                 }
-                
-                DispatchQueue.main.async {
-                    completion(.failure(NSError(domain: "LyricsService", code: 404, userInfo: [NSLocalizedDescriptionKey: "No lyrics available"])))
-                }
-            } catch {
-                DispatchQueue.main.async { completion(.failure(error)) }
             }
+            
+            if let plain = match["plainLyrics"] as? String, !plain.isEmpty {
+                let lines = plain.components(separatedBy: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+                let parsed = lines.enumerated().map { LyricLine(timestamp: Double($0.offset * 4), text: $0.element) }
+                if !parsed.isEmpty {
+                    self?.lyricsCache[cacheKey] = parsed
+                    DispatchQueue.main.async { completion(.success(parsed)) }
+                    return
+                }
+            }
+            
+            self?.searchLRCLIB(candidates: candidates, index: index + 1, cacheKey: cacheKey, completion: completion)
         }.resume()
     }
     

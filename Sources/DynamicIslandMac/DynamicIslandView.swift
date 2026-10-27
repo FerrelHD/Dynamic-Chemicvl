@@ -163,14 +163,29 @@ public struct DynamicIslandView: View {
     public var body: some View {
         ZStack(alignment: .top) {
             if state.isIslandVisible {
-                // MARK: - OLED Jet-Black MacBook Notch (Flush with Top Bezel)
+                // MARK: - OLED Jet-Black MacBook Notch with Deep Midnight Cobalt Gradient Accent
                 ZStack(alignment: .top) {
                     NotchShape(earRadius: earRadius, bottomRadius: bottomRadius)
-                        .fill(Color.black)
-                        .shadow(color: Color.black.opacity(0.35), radius: 6, x: 0, y: 3)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.black,
+                                    Color(red: 0.04, green: 0.10, blue: 0.24),
+                                    Color.black
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .shadow(color: Color.black.opacity(0.40), radius: 8, x: 0, y: 4)
                         .overlay(
                             NotchOutlineShape(earRadius: earRadius, bottomRadius: bottomRadius)
-                                .stroke(isDropTargeted ? Color.green.opacity(0.85) : Color.white.opacity(0.14), lineWidth: isDropTargeted ? 1.5 : 0.8)
+                                .stroke(
+                                    isDropTargeted
+                                        ? Color.green.opacity(0.85)
+                                        : Color(red: 0.22, green: 0.50, blue: 1.0).opacity(0.24),
+                                    lineWidth: isDropTargeted ? 1.5 : 0.8
+                                )
                         )
                     
                     Group {
@@ -950,8 +965,8 @@ public struct DynamicIslandView: View {
     
     // MARK: - Apple Music Lyrics Split View (Left: Compact Controls | Right: Synchronized Lyrics)
     private var lyricsSplitView: some View {
-        HStack(spacing: 18) {
-            // SISI KIRI: Compact Player Column (~200 pt)
+        HStack(spacing: 16) {
+            // SISI KIRI: Compact Player Column (~232 pt)
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 10) {
                     ZStack {
@@ -995,7 +1010,7 @@ public struct DynamicIslandView: View {
                 scrubberBarView()
                 
                 // Controls Row
-                HStack(spacing: 18) {
+                HStack(spacing: 14) {
                     Button(action: { state.previousTrack() }) {
                         Image(systemName: "backward.fill")
                             .font(.system(size: 15, weight: .bold))
@@ -1019,24 +1034,26 @@ public struct DynamicIslandView: View {
                     
                     Spacer()
                     
-                    // Lyrics Toggle (Active Pink Pill)
+                    // Lyrics Toggle (Active Pink Pill - Guaranteed Single Line)
                     Button(action: { state.toggleLyrics() }) {
-                        HStack(spacing: 3) {
+                        HStack(spacing: 4) {
                             Image(systemName: "quote.bubble.fill")
                                 .font(.system(size: 11, weight: .bold))
                             Text("Lyrics")
                                 .font(.system(size: 10, weight: .bold, design: .rounded))
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
                         }
                         .foregroundColor(.white)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3.5)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 4.5)
                         .background(Color(red: 1.0, green: 0.22, blue: 0.38))
                         .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .frame(width: 205)
+            .frame(width: 232)
             
             // Divider
             Rectangle()

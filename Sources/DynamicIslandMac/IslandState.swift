@@ -197,6 +197,7 @@ public class IslandState: ObservableObject {
     // Waveform simulation
     @Published public var waveHeights: [CGFloat] = [0.2, 0.5, 0.3, 0.7, 0.4, 0.6, 0.3]
     private var waveformCancellable: AnyCancellable?
+    private var playbackTickerCancellable: AnyCancellable?
     
     // Focus / Pomodoro Timer
     @Published public var timerRemainingSeconds: Int = 25 * 60
@@ -247,12 +248,7 @@ public class IslandState: ObservableObject {
             self.trackTitle = info.title
             self.artistName = info.artist
             self.albumName = info.album
-            self.currentPositionSeconds = info.position
             self.totalDurationSeconds = info.duration
-            
-            if self.isPlaying != wasPlaying {
-                self.updateWaveformTimer()
-            }
             
             if let artData = info.artworkData {
                 self.artworkImage = NSImage(data: artData)
@@ -268,17 +264,27 @@ public class IslandState: ObservableObject {
                 }
             }
             
-            if info.duration > 0 {
-                self.playbackProgress = max(0, min(1.0, info.position / info.duration))
-                self.currentTime = self.formatTime(Int(info.position))
-                self.totalDuration = self.formatTime(Int(info.duration))
-                let rem = max(0, Int(info.duration - info.position))
+            // Sync position if track changed, stopped, or drifted more than 2 seconds
+            if trackChanged || !self.isPlaying || abs(self.currentPositionSeconds - info.position) > 2.0 {
+                self.currentPositionSeconds = info.position
+            }
+            
+            if self.totalDurationSeconds > 0 {
+                self.playbackProgress = max(0, min(1.0, self.currentPositionSeconds / self.totalDurationSeconds))
+                self.currentTime = self.formatTime(Int(self.currentPositionSeconds))
+                self.totalDuration = self.formatTime(Int(self.totalDurationSeconds))
+                let rem = max(0, Int(self.totalDurationSeconds - self.currentPositionSeconds))
                 self.remainingTime = "-\(self.formatTime(rem))"
             } else {
                 self.playbackProgress = 0
                 self.currentTime = "0:00"
                 self.totalDuration = "0:00"
                 self.remainingTime = "-0:00"
+            }
+            
+            if self.isPlaying != wasPlaying {
+                self.updateWaveformTimer()
+                self.updatePlaybackTicker()
             }
             
             if trackChanged {
@@ -651,6 +657,30 @@ public class IslandState: ObservableObject {
             waveformCancellable?.cancel()
             waveformCancellable = nil
             self.waveHeights = Array(repeating: 0.25, count: 7)
+        }
+    }
+    
+    // MARK: - Live Second-by-Second Playback Ticker (Zero CPU Idle when Paused)
+    private func updatePlaybackTicker() {
+        if isPlaying {
+            if playbackTickerCancellable == nil {
+                playbackTickerCancellable = Timer.publish(every: 1.0, on: .main, in: .common)
+                    .autoconnect()
+                    .sink { [weak self] _ in
+                        guard let self = self, self.isPlaying else { return }
+                        if self.totalDurationSeconds > 0 && self.currentPositionSeconds < self.totalDurationSeconds {
+                            self.currentPositionSeconds += 1.0
+                            self.playbackProgress = max(0, min(1.0, self.currentPositionSeconds / self.totalDurationSeconds))
+                            self.currentTime = self.formatTime(Int(self.currentPositionSeconds))
+                            let rem = max(0, Int(self.totalDurationSeconds - self.currentPositionSeconds))
+                            self.remainingTime = "-\(self.formatTime(rem))"
+                            self.updateActiveLyricIndex(for: self.currentPositionSeconds)
+                        }
+                    }
+            }
+        } else {
+            playbackTickerCancellable?.cancel()
+            playbackTickerCancellable = nil
         }
     }
     
