@@ -36,16 +36,23 @@ public class IslandState: ObservableObject {
     @Published public var mode: IslandMode = .compact
     @Published public var activeTab: IslandTab = .control
     
-    // Hover Peek Mode
+    // Hover Peek & Fullscreen Auto-Hide Mode
     @Published public var isHoverPeekEnabled: Bool = true
     @Published public var isHoverRevealed: Bool = false
+    @Published public var isFullScreenAppActive: Bool = false
     private let hoverPeekStorageKey = "DynamicIsland_HoverPeekEnabled"
     
     public var isIslandVisible: Bool {
-        if !isHoverPeekEnabled { return true }
         if mode == .expanded { return true }
         if isShowingVolumeHUD || isShowingBatteryHUD || isShowingCapsLockHUD { return true }
-        return isHoverRevealed
+        
+        // Auto-Hide when an app is Fullscreen (only reveal on hover peek)
+        if isFullScreenAppActive {
+            return isHoverRevealed
+        }
+        
+        // When not in fullscreen (Desktop / Windowed), always present as idle standby!
+        return isHoverPeekEnabled ? true : true
     }
     
     // MARK: - Dynamic Adaptive Dimensions for Physical NSWindow Frame
@@ -65,12 +72,12 @@ public class IslandState: ObservableObject {
         switch mode {
         case .compact:
             if isTimerRunning {
-                return (width: 220, height: 50)
+                return (width: 175, height: 34)
             } else if isPlaying {
                 let titleLen = CGFloat(trackTitle.count)
-                return (width: max(260, min(330, 220 + titleLen * 3.5)), height: 50)
+                return (width: max(195, min(245, 165 + titleLen * 3.0)), height: 34)
             } else {
-                return (width: 280, height: 50)
+                return (width: 150, height: 34) // Sleek, perfectly proportioned Apple compact notch
             }
         case .expanded:
             let h: CGFloat = {
