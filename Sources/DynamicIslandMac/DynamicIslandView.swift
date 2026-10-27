@@ -212,92 +212,88 @@ public struct DynamicIslandView: View {
     }
     
     public var body: some View {
-        VStack(spacing: 0) {
-            ZStack(alignment: .top) {
-                if state.isIslandVisible {
-                    // MARK: - OLED Jet-Black MacBook Notch (Flush with Top Bezel)
-                    ZStack(alignment: .top) {
-                        NotchShape(earRadius: earRadius, bottomRadius: bottomRadius)
-                            .fill(Color.black)
-                            .overlay(
-                                NotchOutlineShape(earRadius: earRadius, bottomRadius: bottomRadius)
-                                    .stroke(Color.white.opacity(0.12), lineWidth: 0.8)
-                            )
-                            .shadow(color: Color.black.opacity(0.55), radius: 16, x: 0, y: 8)
-                        
-                        // Subtle Hardware Camera Dot Cutout at Top Center
-                        Circle()
-                            .fill(Color(red: 0.08, green: 0.12, blue: 0.18))
-                            .frame(width: 5.5, height: 5.5)
-                            .overlay(
-                                Circle()
-                                    .fill(Color(red: 0.20, green: 0.32, blue: 0.50).opacity(0.5))
-                                    .frame(width: 2.5, height: 2.5)
-                            )
-                            .padding(.top, 4.5)
-                        
-                        Group {
-                            if state.isShowingVolumeHUD {
-                                volumeHUDContent
-                                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                            } else if state.isShowingBatteryHUD {
-                                batteryHUDContent
-                                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                            } else if state.isShowingCapsLockHUD {
-                                capsLockHUDContent
-                                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                            } else {
-                                switch state.mode {
-                                case .compact:
-                                    compactContent
-                                        .transition(.opacity)
-                                case .expanded:
-                                    expandedContent
-                                        .transition(.opacity)
-                                }
-                            }
-                        }
-                    }
-                    .frame(width: islandWidth, height: islandHeight)
-                    .contentShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
-                    .onTapGesture {
-                        state.toggleExpand()
-                    }
-                    .transition(.asymmetric(
-                        insertion: .move(edge: .top).combined(with: .opacity),
-                        removal: .move(edge: .top).combined(with: .opacity)
-                    ))
-                } else {
-                    // MARK: - Tucked Handle (Micro-Notch Flush with Top Bezel)
-                    NotchShape(earRadius: 2, bottomRadius: 3)
-                        .fill(Color.black.opacity(0.85))
+        ZStack(alignment: .top) {
+            if state.isIslandVisible {
+                // MARK: - OLED Jet-Black MacBook Notch (Flush with Top Bezel)
+                ZStack(alignment: .top) {
+                    NotchShape(earRadius: earRadius, bottomRadius: bottomRadius)
+                        .fill(Color.black)
                         .overlay(
-                            NotchOutlineShape(earRadius: 2, bottomRadius: 3)
-                                .stroke(Color.white.opacity(0.14), lineWidth: 0.5)
+                            NotchOutlineShape(earRadius: earRadius, bottomRadius: bottomRadius)
+                                .stroke(Color.white.opacity(0.12), lineWidth: 0.8)
                         )
-                        .frame(width: 48, height: 4)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
-                                state.isHoverRevealed = true
+                        .shadow(color: Color.black.opacity(0.55), radius: 16, x: 0, y: 8)
+                    
+                    // Subtle Hardware Camera Dot Cutout at Top Center
+                    Circle()
+                        .fill(Color(red: 0.08, green: 0.12, blue: 0.18))
+                        .frame(width: 5.5, height: 5.5)
+                        .overlay(
+                            Circle()
+                                .fill(Color(red: 0.20, green: 0.32, blue: 0.50).opacity(0.5))
+                                .frame(width: 2.5, height: 2.5)
+                        )
+                        .padding(.top, 4.5)
+                    
+                    Group {
+                        if state.isShowingVolumeHUD {
+                            volumeHUDContent
+                                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                        } else if state.isShowingBatteryHUD {
+                            batteryHUDContent
+                                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                        } else if state.isShowingCapsLockHUD {
+                            capsLockHUDContent
+                                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                        } else {
+                            switch state.mode {
+                            case .compact:
+                                compactContent
+                                    .transition(.opacity)
+                            case .expanded:
+                                expandedContent
+                                    .transition(.opacity)
                             }
                         }
-                        .shadow(color: Color.black.opacity(0.35), radius: 2, x: 0, y: 1)
-                        .transition(.opacity)
+                    }
                 }
+                .frame(width: islandWidth, height: islandHeight)
+                .contentShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
+                .onTapGesture {
+                    state.toggleExpand()
+                }
+                .transition(.asymmetric(
+                    insertion: .move(edge: .top).combined(with: .opacity),
+                    removal: .move(edge: .top).combined(with: .opacity)
+                ))
+            } else {
+                // MARK: - Tucked Handle (Micro-Notch Flush with Top Bezel)
+                NotchShape(earRadius: 2, bottomRadius: 3)
+                    .fill(Color.black.opacity(0.85))
+                    .overlay(
+                        NotchOutlineShape(earRadius: 2, bottomRadius: 3)
+                            .stroke(Color.white.opacity(0.14), lineWidth: 0.5)
+                    )
+                    .frame(width: 48, height: 4)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                            state.isHoverRevealed = true
+                        }
+                    }
+                    .shadow(color: Color.black.opacity(0.35), radius: 2, x: 0, y: 1)
+                    .transition(.opacity)
             }
-            .animation(.spring(response: 0.32, dampingFraction: 0.78), value: state.isIslandVisible)
-            .animation(.spring(response: 0.34, dampingFraction: 0.78), value: state.mode)
-            .animation(.spring(response: 0.32, dampingFraction: 0.78), value: state.activeTab)
-            .animation(.spring(response: 0.30, dampingFraction: 0.76), value: state.isPlaying)
-            .animation(.spring(response: 0.28, dampingFraction: 0.80), value: state.isShowingVolumeHUD)
-            .animation(.spring(response: 0.28, dampingFraction: 0.80), value: state.isShowingBatteryHUD)
-            .animation(.spring(response: 0.28, dampingFraction: 0.80), value: state.isShowingCapsLockHUD)
-            .animation(.spring(response: 0.28, dampingFraction: 0.80), value: state.shelfSegment)
-            
-            Spacer()
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .frame(width: islandWidth, height: islandHeight, alignment: .top)
+        .animation(.spring(response: 0.32, dampingFraction: 0.78), value: state.isIslandVisible)
+        .animation(.spring(response: 0.34, dampingFraction: 0.78), value: state.mode)
+        .animation(.spring(response: 0.32, dampingFraction: 0.78), value: state.activeTab)
+        .animation(.spring(response: 0.30, dampingFraction: 0.76), value: state.isPlaying)
+        .animation(.spring(response: 0.28, dampingFraction: 0.80), value: state.isShowingVolumeHUD)
+        .animation(.spring(response: 0.28, dampingFraction: 0.80), value: state.isShowingBatteryHUD)
+        .animation(.spring(response: 0.28, dampingFraction: 0.80), value: state.isShowingCapsLockHUD)
+        .animation(.spring(response: 0.28, dampingFraction: 0.80), value: state.shelfSegment)
         .padding(.top, 0)
     }
     

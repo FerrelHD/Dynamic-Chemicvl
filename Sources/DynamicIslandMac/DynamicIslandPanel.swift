@@ -1,7 +1,8 @@
 import AppKit
 import SwiftUI
+import Combine
 
-// MARK: - Responsive Hosting View: Click pass-through for transparent areas
+// MARK: - Responsive Hosting View
 public class IslandHostingView<Content: View>: NSHostingView<Content> {
     private let state: IslandState
     
@@ -20,59 +21,10 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
     }
     
     public override func hitTest(_ point: NSPoint) -> NSView? {
-        let bounds = self.bounds
-        
-        // When tucked away, pass 100% of clicks through EXCEPT on the tiny micro-notch handle!
-        if !state.isIslandVisible {
-            let handleWidth: CGFloat = 52
-            let handleHeight: CGFloat = 8
-            let handleX = (bounds.width - handleWidth) / 2
-            let handleY = bounds.height - handleHeight
-            let handleRect = NSRect(x: handleX - 4, y: handleY - 2, width: handleWidth + 8, height: handleHeight + 4)
-            if handleRect.contains(point) {
-                return super.hitTest(point)
-            }
-            return nil
-        }
-        
-        // Dynamic adaptive dimensions matching DynamicIslandView
-        let capsuleWidth: CGFloat = {
-            if state.isShowingVolumeHUD { return 260 }
-            if state.isShowingBatteryHUD { return 350 }
-            if state.isShowingCapsLockHUD { return 195 }
-            if state.mode == .expanded { return 395 }
-            if state.isTimerRunning { return 165 }
-            if state.isPlaying {
-                let titleLen = CGFloat(state.trackTitle.count)
-                return max(195, min(245, 165 + titleLen * 3.0))
-            }
-            return 136
-        }()
-        
-        let capsuleHeight: CGFloat = {
-            if state.isShowingBatteryHUD { return 54 }
-            if state.isShowingVolumeHUD || state.isShowingCapsLockHUD { return 36 }
-            if state.mode == .expanded {
-                switch state.activeTab {
-                case .music: return 172
-                case .control: return 216
-                case .notes: return 196
-                case .shelf: return 180
-                }
-            }
-            return 34
-        }()
-        
-        let capsuleX = (bounds.width - capsuleWidth) / 2
-        let capsuleY = bounds.height - capsuleHeight
-        let activeRect = NSRect(x: capsuleX - 4, y: capsuleY - 2, width: capsuleWidth + 8, height: capsuleHeight + 4)
-        
-        if activeRect.contains(point) {
-            return super.hitTest(point)
-        }
-        
-        // Pass clicks through transparent bounds to background windows (Safari, Chrome, Desktop)
-        return nil
+        // Since the window frame is physically tight to the visible island,
+        // any point inside bounds is interactive.
+        guard self.bounds.contains(point) else { return nil }
+        return super.hitTest(point)
     }
 }
 
@@ -84,9 +36,11 @@ public class DynamicIslandPanel: NSPanel {
     private var hideDebounceTimer: Timer?
     private var revealDwellTimer: Timer?
     private var screenChangeObserver: Any?
+    private var stateCancellable: AnyCancellable?
     
     public init() {
-        let initialRect = NSRect(x: 0, y: 0, width: 460, height: 260)
+        let initialDims = IslandState.shared.currentDimensions
+        let initialRect = NSRect(x: 0, y: 0, width: initialDims.width, height: initialDims.height)
         
         super.init(
             contentRect: initialRect,
@@ -107,7 +61,14 @@ public class DynamicIslandPanel: NSPanel {
         self.hidesOnDeactivate = false
         self.ignoresMouseEvents = false
         
-        repositionToTopCenter()
+        updateFrame(animated: false)
+        
+        // Listen to IslandState changes to dynamically resize the physical NSWindow
+        stateCancellable = IslandState.shared.objectWillChange
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.updateFrame(animated: true)
+            }
         
         // Responsive screen change tracking (multi-monitor, resolution changes)
         screenChangeObserver = NotificationCenter.default.addObserver(
@@ -135,22 +96,15 @@ public class DynamicIslandPanel: NSPanel {
             let mouseLoc = NSEvent.mouseLocation
             
             guard let screen = self?.screen ?? NSScreen.main else { return }
-            let capsuleWidth: CGFloat = 395
-            let capsuleHeight: CGFloat = {
-                switch state.activeTab {
-                case .music: return 172
-                case .control: return 216
-                case .notes: return 196
-                case .shelf: return 180
-                }
-            }()
+            let dims = state.currentDimensions
+            let screenRect = screen.frame
+            let midX = screenRect.midX
+            let topY = screenRect.maxY
             
-            let capsuleX = screen.frame.midX - (capsuleWidth / 2)
-            let capsuleY = screen.frame.maxY - capsuleHeight
-            let capsuleRect = CGRect(x: capsuleX, y: capsuleY, width: capsuleWidth, height: capsuleHeight)
+            let insideX = abs(mouseLoc.x - midX) <= (dims.width / 2)
+            let insideY = (mouseLoc.y >= topY - dims.height) && (mouseLoc.y <= topY)
             
-            // If click is outside the active card frame, minimize immediately
-            if !capsuleRect.contains(mouseLoc) {
+            if !insideX || !insideY {
                 DispatchQueue.main.async {
                     state.minimize()
                 }
@@ -243,17 +197,33 @@ public class DynamicIslandPanel: NSPanel {
         }
     }
     
-    public func repositionToTopCenter() {
-        guard let screen = NSScreen.main else { return }
+    public func updateFrame(animated: Bool = true) {
+        guard let screen = self.screen ?? NSScreen.main else { return }
         
         let screenRect = screen.frame
-        let panelWidth: CGFloat = 460
-        let panelHeight: CGFloat = 260
+        let dims = IslandState.shared.currentDimensions
+        
+        let panelWidth = dims.width
+        let panelHeight = dims.height
         
         let xPos = floor(screenRect.midX - (panelWidth / 2))
-        // Flush with top bezel of screen: 0pt margin!
         let yPos = screenRect.maxY - panelHeight
+        let newFrame = NSRect(x: xPos, y: yPos, width: panelWidth, height: panelHeight)
         
-        self.setFrame(NSRect(x: xPos, y: yPos, width: panelWidth, height: panelHeight), display: true)
+        guard self.frame != newFrame else { return }
+        
+        if animated {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.28
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                self.animator().setFrame(newFrame, display: true)
+            }
+        } else {
+            self.setFrame(newFrame, display: true)
+        }
+    }
+    
+    public func repositionToTopCenter() {
+        updateFrame(animated: false)
     }
 }

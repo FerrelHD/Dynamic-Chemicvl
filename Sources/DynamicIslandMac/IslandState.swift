@@ -48,6 +48,43 @@ public class IslandState: ObservableObject {
         return isHoverRevealed
     }
     
+    // MARK: - Dynamic Adaptive Dimensions for Physical NSWindow Frame
+    public var currentDimensions: (width: CGFloat, height: CGFloat) {
+        if !isIslandVisible {
+            return (width: 48, height: 4)
+        }
+        if isShowingBatteryHUD {
+            return (width: 350, height: 54)
+        }
+        if isShowingVolumeHUD {
+            return (width: 260, height: 36)
+        }
+        if isShowingCapsLockHUD {
+            return (width: 195, height: 36)
+        }
+        switch mode {
+        case .compact:
+            if isTimerRunning {
+                return (width: 165, height: 34)
+            } else if isPlaying {
+                let titleLen = CGFloat(trackTitle.count)
+                return (width: max(195, min(245, 165 + titleLen * 3.0)), height: 34)
+            } else {
+                return (width: 136, height: 34)
+            }
+        case .expanded:
+            let h: CGFloat = {
+                switch activeTab {
+                case .music: return 172
+                case .control: return 216
+                case .notes: return 196
+                case .shelf: return 180
+                }
+            }()
+            return (width: 395, height: h)
+        }
+    }
+    
     // Volume HUD overlay
     @Published public var isShowingVolumeHUD: Bool = false
     @Published public var currentVolume: Int = 50
