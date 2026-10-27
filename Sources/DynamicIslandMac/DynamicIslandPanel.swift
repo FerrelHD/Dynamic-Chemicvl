@@ -24,13 +24,15 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         guard self.bounds.contains(point) else { return nil }
         
         // Strict Geometric Path Hit-Testing on Transparent Canvas:
-        // Calculate the current active notch rect centered horizontally at top
+        // Convert AppKit superview unflipped point (y=0 at bottom) to flipped view coordinates (y=0 at top)
+        let localPoint = CGPoint(x: point.x, y: self.bounds.height - point.y)
+        
         let dims = state.currentDimensions
         let notchX = (self.bounds.width - dims.width) / 2.0
         let notchRect = CGRect(x: notchX, y: 0, width: dims.width, height: dims.height)
         
         // If click is outside the active notch frame, pass through immediately to apps/menu bar below
-        guard notchRect.contains(point) else {
+        guard notchRect.contains(localPoint) else {
             return nil
         }
         
@@ -40,11 +42,11 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         let notchPath = NotchShape(earRadius: earRadius, bottomRadius: bottomRadius).path(in: notchRect)
         
         // If click is in the transparent cutout corners outside the notch curve, pass through to windows below
-        guard notchPath.contains(point) else {
+        guard notchPath.contains(localPoint) else {
             return nil
         }
         
-        return super.hitTest(point)
+        return super.hitTest(point) ?? self
     }
     
     public override var fittingSize: NSSize {
