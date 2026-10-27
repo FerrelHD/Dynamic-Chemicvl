@@ -65,12 +65,12 @@ public class IslandState: ObservableObject {
         switch mode {
         case .compact:
             if isTimerRunning {
-                return (width: 165, height: 34)
+                return (width: 220, height: 50)
             } else if isPlaying {
                 let titleLen = CGFloat(trackTitle.count)
-                return (width: max(195, min(245, 165 + titleLen * 3.0)), height: 34)
+                return (width: max(260, min(330, 220 + titleLen * 3.5)), height: 50)
             } else {
-                return (width: 136, height: 34)
+                return (width: 280, height: 50)
             }
         case .expanded:
             let h: CGFloat = {
