@@ -82,10 +82,10 @@ public class IslandState: ObservableObject {
         case .expanded:
             let h: CGFloat = {
                 switch activeTab {
-                case .music: return 172
-                case .control: return 216
-                case .notes: return 196
-                case .shelf: return 180
+                case .music: return 196
+                case .control: return 232
+                case .notes: return 216
+                case .shelf: return 200
                 }
             }()
             return (width: 395, height: h)
