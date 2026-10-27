@@ -172,13 +172,13 @@ public class DynamicIslandPanel: NSPanel {
         }
     }
     
-    // MARK: - Non-Activating Overlay (Never Steal Focus from Active Apps like Chrome)
+    // MARK: - Non-Activating Overlay (Keyboard Focus Only When Expanded for Notes)
     public override var canBecomeKey: Bool {
-        return false
+        return IslandState.shared.mode == .expanded
     }
     
     public override var canBecomeMain: Bool {
-        return false
+        return IslandState.shared.mode == .expanded
     }
     
     // MARK: - Click-Outside Detection to Minimize
