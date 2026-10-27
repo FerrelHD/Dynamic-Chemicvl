@@ -76,12 +76,12 @@ public class IslandState: ObservableObject {
         switch mode {
         case .compact:
             if isTimerRunning {
-                return (width: 175, height: 34)
+                return (width: 170, height: 30)
             } else if isPlaying {
                 let titleLen = CGFloat(trackTitle.count)
-                return (width: max(195, min(245, 165 + titleLen * 3.0)), height: 34)
+                return (width: max(180, min(230, 150 + titleLen * 3.0)), height: 30)
             } else {
-                return (width: 150, height: 34) // Sleek, perfectly proportioned Apple compact notch
+                return (width: 136, height: 28) // Sleek, perfectly proportioned Apple compact notch
             }
         case .expanded:
             let h: CGFloat = {
@@ -259,13 +259,13 @@ public class IslandState: ObservableObject {
         refreshControlStatus()
         
         let willExpand = (mode == .compact)
-        withAnimation(.spring(response: 0.34, dampingFraction: 0.74)) {
+        withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
             mode = willExpand ? .expanded : .compact
         }
     }
     
     public func minimize() {
-        withAnimation(.spring(response: 0.32, dampingFraction: 0.76)) {
+        withAnimation(.spring(response: 0.30, dampingFraction: 0.80)) {
             self.mode = .compact
         }
     }
