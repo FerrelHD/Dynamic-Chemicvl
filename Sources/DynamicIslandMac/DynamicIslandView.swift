@@ -222,7 +222,6 @@ public struct DynamicIslandView: View {
                             NotchOutlineShape(earRadius: earRadius, bottomRadius: bottomRadius)
                                 .stroke(Color.white.opacity(0.12), lineWidth: 0.8)
                         )
-                        .shadow(color: Color.black.opacity(0.55), radius: 16, x: 0, y: 8)
                     
                     // Subtle Hardware Camera Dot Cutout at Top Center
                     Circle()
@@ -281,7 +280,6 @@ public struct DynamicIslandView: View {
                             state.isHoverRevealed = true
                         }
                     }
-                    .shadow(color: Color.black.opacity(0.35), radius: 2, x: 0, y: 1)
                     .transition(.opacity)
             }
         }
