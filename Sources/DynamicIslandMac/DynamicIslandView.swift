@@ -135,7 +135,7 @@ public struct DynamicIslandView: View {
             return 260
         }
         if state.isShowingBatteryHUD {
-            return 350
+            return 192 // Option 2: Super Compact 192pt
         }
         if state.isShowingCapsLockHUD {
             return 195
@@ -158,7 +158,7 @@ public struct DynamicIslandView: View {
     
     private var islandHeight: CGFloat {
         if state.isShowingBatteryHUD {
-            return 54 // Ample vertical breathing room for authentic iOS Charging HUD
+            return 34 // Option 2: Exact same height as compact notch (no downward bulge)
         }
         if state.isShowingVolumeHUD || state.isShowingCapsLockHUD {
             return 36
@@ -188,7 +188,7 @@ public struct DynamicIslandView: View {
     
     private var bottomRadius: CGFloat {
         if state.isShowingBatteryHUD {
-            return 18
+            return 14
         }
         if state.isShowingVolumeHUD || state.isShowingCapsLockHUD {
             return 16
@@ -202,18 +202,7 @@ public struct DynamicIslandView: View {
     }
     
     private var earRadius: CGFloat {
-        if state.isShowingBatteryHUD {
-            return 8
-        }
-        if state.isShowingVolumeHUD || state.isShowingCapsLockHUD {
-            return 6
-        }
-        switch state.mode {
-        case .compact:
-            return 6 // Proportional concave outward fillet
-        case .expanded:
-            return 14 // Pronounced authentic Apple notch concave ears (cekungan atas)
-        }
+        return 6 // Elegant, subtle, identical authentic concave fillet in all modes
     }
     
     public var body: some View {
@@ -231,13 +220,13 @@ public struct DynamicIslandView: View {
                     Group {
                         if state.isShowingVolumeHUD {
                             volumeHUDContent
-                                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                                .transition(.opacity)
                         } else if state.isShowingBatteryHUD {
                             batteryHUDContent
-                                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                                .transition(.opacity)
                         } else if state.isShowingCapsLockHUD {
                             capsLockHUDContent
-                                .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                                .transition(.opacity)
                         } else {
                             switch state.mode {
                             case .compact:
@@ -283,7 +272,7 @@ public struct DynamicIslandView: View {
                     .transition(.opacity)
             }
         }
-        .frame(width: islandWidth, height: islandHeight, alignment: .top)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .animation(.spring(response: 0.32, dampingFraction: 0.78), value: state.isIslandVisible)
         .animation(.spring(response: 0.34, dampingFraction: 0.78), value: state.mode)
         .animation(.spring(response: 0.32, dampingFraction: 0.78), value: state.activeTab)
@@ -371,64 +360,36 @@ public struct DynamicIslandView: View {
         return "speaker.wave.3.fill"
     }
     
-    // MARK: - iOS MagSafe Battery HUD Live Activity (Matching media_1793082172070_98b07237.png)
+    // MARK: - iOS MagSafe Battery HUD Live Activity (Option 2: Super Compact 192x34)
     private var batteryHUDContent: some View {
-        HStack(spacing: 14) {
-            // Left: Circular Battery Gauge Ring with Bolt Icon
-            ZStack {
-                // Background track ring
-                Circle()
-                    .stroke(
-                        state.isBatteryCharging
-                            ? Color(red: 0.18, green: 0.85, blue: 0.38).opacity(0.22)
-                            : (state.batteryLevel <= 20 ? Color.red.opacity(0.25) : Color.white.opacity(0.18)),
-                        lineWidth: 3.5
-                    )
-                    .frame(width: 32, height: 32)
+        HStack(spacing: 7) {
+            if state.isBatteryCharging {
+                Image(systemName: "bolt.fill")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(Color(red: 0.18, green: 0.85, blue: 0.38))
                 
-                // Active progress ring
-                Circle()
-                    .trim(from: 0, to: max(0.04, CGFloat(state.batteryLevel) / 100.0))
-                    .stroke(
-                        state.isBatteryCharging
-                            ? Color(red: 0.18, green: 0.85, blue: 0.38)
-                            : (state.batteryLevel <= 20 ? Color.red : Color.white),
-                        style: StrokeStyle(lineWidth: 3.5, lineCap: .round)
-                    )
-                    .frame(width: 32, height: 32)
-                    .rotationEffect(.degrees(-90))
+                Text("Charging • \(state.batteryLevel)%")
+                    .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                    .foregroundColor(.white)
+            } else if state.isPowerPlugged {
+                Image(systemName: "powerplug.fill")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(Color(red: 0.18, green: 0.85, blue: 0.38))
                 
-                // Center icon
-                Image(systemName: state.isBatteryCharging ? "bolt.fill" : (state.isPowerPlugged ? "powerplug.fill" : "battery.75"))
-                    .font(.system(size: 13, weight: .bold))
+                Text("Connected • \(state.batteryLevel)%")
+                    .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                    .foregroundColor(.white)
+            } else {
+                Image(systemName: "battery.75")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(state.batteryLevel <= 20 ? Color.red : Color.orange)
+                
+                Text("On Battery • \(state.batteryLevel)%")
+                    .font(.system(size: 11.5, weight: .semibold, design: .rounded))
                     .foregroundColor(.white)
             }
-            .frame(width: 34, height: 34)
-            
-            // Middle: Title & Subtitle
-            VStack(alignment: .leading, spacing: 2) {
-                Text(state.isBatteryCharging ? "Charging" : (state.isPowerPlugged ? "Power Connected" : "On Battery"))
-                    .font(.system(size: 15, weight: .semibold, design: .default))
-                    .foregroundColor(.white)
-                    .lineLimit(1)
-                
-                Text(state.isBatteryCharging ? "Charger connected" : (state.batteryLevel == 100 ? "Fully charged" : "\(state.batteryLevel)% Remaining"))
-                    .font(.system(size: 11.5, weight: .regular, design: .default))
-                    .foregroundColor(Color(white: 0.62))
-                    .lineLimit(1)
-            }
-            
-            Spacer()
-            
-            // Right: Large Percentage Typography
-            Text("\(state.batteryLevel)%")
-                .font(.system(size: 24, weight: .semibold, design: .default))
-                .foregroundColor(.white)
-                .padding(.trailing, 2)
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 6)
-        .padding(.bottom, 2)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
     
     // MARK: - Caps Lock Floating HUD
