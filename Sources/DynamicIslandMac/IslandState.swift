@@ -92,13 +92,13 @@ public class IslandState: ObservableObject {
             return (width: 48, height: 4)
         }
         if isShowingBatteryHUD || isShowingWifiHUD || isShowingBluetoothHUD {
-            return (width: 268, height: 42)
+            return (width: 280, height: 42)
         }
         if isShowingVolumeHUD {
-            return (width: 268, height: 42)
+            return (width: 280, height: 42)
         }
         if isShowingCapsLockHUD {
-            return (width: 200, height: 40)
+            return (width: 220, height: 40)
         }
         switch mode {
         case .compact:
@@ -112,7 +112,7 @@ public class IslandState: ObservableObject {
             }
         case .expanded:
             if activeTab == .music && isLyricsEnabled {
-                return (width: 560, height: 245) // Luxurious Split View for Apple Music Lyrics
+                return (width: 680, height: 245) // Spacious Responsive Split View for Apple Music Lyrics
             }
             switch activeTab {
             case .control:
@@ -269,12 +269,14 @@ public class IslandState: ObservableObject {
                 self.currentPositionSeconds = info.position
             }
             
-            if self.totalDurationSeconds > 0 {
-                self.playbackProgress = max(0, min(1.0, self.currentPositionSeconds / self.totalDurationSeconds))
-                self.currentTime = self.formatTime(Int(self.currentPositionSeconds))
-                self.totalDuration = self.formatTime(Int(self.totalDurationSeconds))
-                let rem = max(0, Int(self.totalDurationSeconds - self.currentPositionSeconds))
-                self.remainingTime = "-\(self.formatTime(rem))"
+            if self.totalDurationSeconds.isFinite && !self.totalDurationSeconds.isNaN && self.totalDurationSeconds > 0 {
+                let dur = max(0.1, self.totalDurationSeconds)
+                let pos = max(0, min(dur, (self.currentPositionSeconds.isFinite && !self.currentPositionSeconds.isNaN) ? self.currentPositionSeconds : 0))
+                self.playbackProgress = max(0, min(1.0, pos / dur))
+                self.currentTime = self.formatTime(self.safeSeconds(pos))
+                self.totalDuration = self.formatTime(self.safeSeconds(dur))
+                let rem = max(0, dur - pos)
+                self.remainingTime = "-\(self.formatTime(self.safeSeconds(rem)))"
             } else {
                 self.playbackProgress = 0
                 self.currentTime = "0:00"
@@ -352,7 +354,7 @@ public class IslandState: ObservableObject {
         refreshControlStatus()
         
         let willExpand = (mode == .compact)
-        withAnimation(.easeInOut(duration: 0.22)) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
             if willExpand {
                 isHoverRevealed = true
                 mode = .expanded
@@ -363,7 +365,7 @@ public class IslandState: ObservableObject {
     }
     
     public func minimize() {
-        withAnimation(.easeInOut(duration: 0.22)) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
             self.mode = .compact
         }
     }
@@ -583,12 +585,14 @@ public class IslandState: ObservableObject {
     }
     
     public func seekTo(_ seconds: Double) {
-        currentPositionSeconds = max(0, min(totalDurationSeconds > 0 ? totalDurationSeconds : seconds, seconds))
-        if totalDurationSeconds > 0 {
-            playbackProgress = max(0, min(1.0, currentPositionSeconds / totalDurationSeconds))
-            currentTime = formatTime(Int(currentPositionSeconds))
-            let rem = max(0, Int(totalDurationSeconds - currentPositionSeconds))
-            remainingTime = "-\(formatTime(rem))"
+        guard seconds.isFinite && !seconds.isNaN else { return }
+        let validDuration = (totalDurationSeconds.isFinite && !totalDurationSeconds.isNaN && totalDurationSeconds > 0) ? totalDurationSeconds : 0
+        currentPositionSeconds = max(0, min(validDuration > 0 ? validDuration : seconds, seconds))
+        if validDuration > 0 {
+            playbackProgress = max(0, min(1.0, currentPositionSeconds / validDuration))
+            currentTime = formatTime(safeSeconds(currentPositionSeconds))
+            let rem = max(0, validDuration - currentPositionSeconds)
+            remainingTime = "-\(formatTime(safeSeconds(rem)))"
         }
         updateActiveLyricIndex(for: currentPositionSeconds)
         MediaService.shared.seek(to: currentPositionSeconds)
@@ -668,12 +672,13 @@ public class IslandState: ObservableObject {
                     .autoconnect()
                     .sink { [weak self] _ in
                         guard let self = self, self.isPlaying else { return }
-                        if self.totalDurationSeconds > 0 && self.currentPositionSeconds < self.totalDurationSeconds {
+                        if self.totalDurationSeconds.isFinite && !self.totalDurationSeconds.isNaN && self.totalDurationSeconds > 0 && self.currentPositionSeconds < self.totalDurationSeconds {
                             self.currentPositionSeconds += 1.0
-                            self.playbackProgress = max(0, min(1.0, self.currentPositionSeconds / self.totalDurationSeconds))
-                            self.currentTime = self.formatTime(Int(self.currentPositionSeconds))
-                            let rem = max(0, Int(self.totalDurationSeconds - self.currentPositionSeconds))
-                            self.remainingTime = "-\(self.formatTime(rem))"
+                            let dur = max(0.1, self.totalDurationSeconds)
+                            self.playbackProgress = max(0, min(1.0, self.currentPositionSeconds / dur))
+                            self.currentTime = self.formatTime(self.safeSeconds(self.currentPositionSeconds))
+                            let rem = max(0, dur - self.currentPositionSeconds)
+                            self.remainingTime = "-\(self.formatTime(self.safeSeconds(rem)))"
                             self.updateActiveLyricIndex(for: self.currentPositionSeconds)
                         }
                     }
@@ -947,9 +952,16 @@ public class IslandState: ObservableObject {
         return nil
     }
     
+    private func safeSeconds(_ val: Double) -> Int {
+        guard val.isFinite, !val.isNaN, val >= 0 else { return 0 }
+        if val > 86400 * 365 { return 0 } // Clamp to reasonable duration
+        return Int(val)
+    }
+    
     private func formatTime(_ seconds: Int) -> String {
-        let m = seconds / 60
-        let s = seconds % 60
-        return String(format: "%d:%02d", m, s)
+        let s = max(0, seconds)
+        let m = s / 60
+        let sec = s % 60
+        return String(format: "%d:%02d", m, sec)
     }
 }

@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-// MARK: - MacBook Hardware Notch Cutout Shape with Concave Ears (Flush with Top Bezel)
+// MARK: - MacBook Hardware Notch Cutout Shape with Quadratic Bézier Ears (Flush with Top Bezel)
 public struct NotchShape: Shape {
     public var earRadius: CGFloat = 8
     public var bottomRadius: CGFloat = 14
@@ -25,37 +25,41 @@ public struct NotchShape: Shape {
         let b = max(0, min(bottomRadius, min((rect.width - 2 * e) / 2, rect.height)))
         
         path.move(to: CGPoint(x: rect.minX, y: rect.minY))
-        path.addArc(
-            center: CGPoint(x: rect.minX, y: rect.minY + e),
-            radius: e,
-            startAngle: .degrees(-90),
-            endAngle: .degrees(0),
-            clockwise: false
+        
+        // Top-left concave ear fillet
+        path.addQuadCurve(
+            to: CGPoint(x: rect.minX + e, y: rect.minY + e),
+            control: CGPoint(x: rect.minX + e, y: rect.minY)
         )
+        
+        // Left vertical edge
         path.addLine(to: CGPoint(x: rect.minX + e, y: rect.maxY - b))
-        path.addArc(
-            center: CGPoint(x: rect.minX + e + b, y: rect.maxY - b),
-            radius: b,
-            startAngle: .degrees(180),
-            endAngle: .degrees(90),
-            clockwise: true
+        
+        // Bottom-left convex squircle corner
+        path.addQuadCurve(
+            to: CGPoint(x: rect.minX + e + b, y: rect.maxY),
+            control: CGPoint(x: rect.minX + e, y: rect.maxY)
         )
+        
+        // Bottom horizontal edge
         path.addLine(to: CGPoint(x: rect.maxX - e - b, y: rect.maxY))
-        path.addArc(
-            center: CGPoint(x: rect.maxX - e - b, y: rect.maxY - b),
-            radius: b,
-            startAngle: .degrees(90),
-            endAngle: .degrees(0),
-            clockwise: true
+        
+        // Bottom-right convex squircle corner
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX - e, y: rect.maxY - b),
+            control: CGPoint(x: rect.maxX - e, y: rect.maxY)
         )
+        
+        // Right vertical edge
         path.addLine(to: CGPoint(x: rect.maxX - e, y: rect.minY + e))
-        path.addArc(
-            center: CGPoint(x: rect.maxX, y: rect.minY + e),
-            radius: e,
-            startAngle: .degrees(180),
-            endAngle: .degrees(270),
-            clockwise: false
+        
+        // Top-right concave ear fillet
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX, y: rect.minY),
+            control: CGPoint(x: rect.maxX - e, y: rect.minY)
         )
+        
+        // Top straight edge flush with display bezel
         path.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
         path.closeSubpath()
         return path
@@ -86,37 +90,40 @@ public struct NotchOutlineShape: Shape {
         
         // Leaves top bezel edge unstroked so it seamlessly flows out of the screen's black bezel
         path.move(to: CGPoint(x: rect.minX, y: rect.minY))
-        path.addArc(
-            center: CGPoint(x: rect.minX, y: rect.minY + e),
-            radius: e,
-            startAngle: .degrees(-90),
-            endAngle: .degrees(0),
-            clockwise: false
+        
+        // Top-left concave ear fillet
+        path.addQuadCurve(
+            to: CGPoint(x: rect.minX + e, y: rect.minY + e),
+            control: CGPoint(x: rect.minX + e, y: rect.minY)
         )
+        
+        // Left vertical edge
         path.addLine(to: CGPoint(x: rect.minX + e, y: rect.maxY - b))
-        path.addArc(
-            center: CGPoint(x: rect.minX + e + b, y: rect.maxY - b),
-            radius: b,
-            startAngle: .degrees(180),
-            endAngle: .degrees(90),
-            clockwise: true
+        
+        // Bottom-left convex squircle corner
+        path.addQuadCurve(
+            to: CGPoint(x: rect.minX + e + b, y: rect.maxY),
+            control: CGPoint(x: rect.minX + e, y: rect.maxY)
         )
+        
+        // Bottom horizontal edge
         path.addLine(to: CGPoint(x: rect.maxX - e - b, y: rect.maxY))
-        path.addArc(
-            center: CGPoint(x: rect.maxX - e - b, y: rect.maxY - b),
-            radius: b,
-            startAngle: .degrees(90),
-            endAngle: .degrees(0),
-            clockwise: true
+        
+        // Bottom-right convex squircle corner
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX - e, y: rect.maxY - b),
+            control: CGPoint(x: rect.maxX - e, y: rect.maxY)
         )
+        
+        // Right vertical edge
         path.addLine(to: CGPoint(x: rect.maxX - e, y: rect.minY + e))
-        path.addArc(
-            center: CGPoint(x: rect.maxX, y: rect.minY + e),
-            radius: e,
-            startAngle: .degrees(180),
-            endAngle: .degrees(270),
-            clockwise: false
+        
+        // Top-right concave ear fillet
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX, y: rect.minY),
+            control: CGPoint(x: rect.maxX - e, y: rect.minY)
         )
+        
         return path
     }
 }
@@ -155,36 +162,29 @@ public struct DynamicIslandView: View {
     
     private var earRadius: CGFloat {
         if state.mode == .expanded {
-            return 10 // Authentic Apple concave ear fillets for expanded canvas
+            return 19 // Authentic Apple concave ear fillets for expanded canvas
         }
-        return 8 // Subtle, organic concave ears in compact & HUD mode
+        if state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD {
+            return 8
+        }
+        return 6 // Subtle, organic concave ears in compact mode
     }
     
     public var body: some View {
         ZStack(alignment: .top) {
             if state.isIslandVisible {
-                // MARK: - OLED Jet-Black MacBook Notch with Deep Midnight Cobalt Gradient Accent
+                // MARK: - OLED Jet-Black MacBook Notch (Seamless Bezel Integration)
                 ZStack(alignment: .top) {
                     NotchShape(earRadius: earRadius, bottomRadius: bottomRadius)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.black,
-                                    Color(red: 0.04, green: 0.10, blue: 0.24),
-                                    Color.black
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                        .fill(Color.black)
                         .shadow(color: Color.black.opacity(0.40), radius: 8, x: 0, y: 4)
                         .overlay(
                             NotchOutlineShape(earRadius: earRadius, bottomRadius: bottomRadius)
                                 .stroke(
                                     isDropTargeted
                                         ? Color.green.opacity(0.85)
-                                        : Color(red: 0.22, green: 0.50, blue: 1.0).opacity(0.24),
-                                    lineWidth: isDropTargeted ? 1.5 : 0.8
+                                        : Color.white.opacity(0.14),
+                                    lineWidth: isDropTargeted ? 1.5 : 0.6
                                 )
                         )
                     
@@ -245,7 +245,6 @@ public struct DynamicIslandView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .animation(.easeInOut(duration: 0.22), value: state.isIslandVisible)
-        .animation(.easeInOut(duration: 0.22), value: state.mode)
         .animation(.easeInOut(duration: 0.16), value: state.activeTab)
         .animation(.easeInOut(duration: 0.18), value: state.isPlaying)
         .animation(.easeInOut(duration: 0.20), value: state.isShowingVolumeHUD)
@@ -965,95 +964,109 @@ public struct DynamicIslandView: View {
     
     // MARK: - Apple Music Lyrics Split View (Left: Compact Controls | Right: Synchronized Lyrics)
     private var lyricsSplitView: some View {
-        HStack(spacing: 16) {
-            // SISI KIRI: Compact Player Column (~232 pt)
+        HStack(spacing: 18) {
+            // SISI KIRI: Player Column (~340 pt)
             VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 10) {
+                HStack(spacing: 12) {
                     ZStack {
                         if let art = state.artworkImage {
                             Image(nsImage: art)
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
-                                .frame(width: 44, height: 44)
-                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                .frame(width: 46, height: 46)
+                                .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
                         } else {
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            RoundedRectangle(cornerRadius: 11, style: .continuous)
                                 .fill(LinearGradient(
                                     colors: [Color(red: 0.95, green: 0.25, blue: 0.45), Color(red: 0.48, green: 0.15, blue: 0.85)],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 ))
-                                .frame(width: 44, height: 44)
+                                .frame(width: 46, height: 46)
                             
                             Image(systemName: "music.note")
-                                .font(.system(size: 18, weight: .bold, design: .rounded))
+                                .font(.system(size: 19, weight: .bold, design: .rounded))
                                 .foregroundColor(.white)
                         }
                     }
-                    .frame(width: 44, height: 44)
+                    .frame(width: 46, height: 46)
                     .shadow(color: .black.opacity(0.35), radius: 4, x: 0, y: 2)
                     
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 2.5) {
                         Text(state.trackTitle)
-                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .font(.system(size: 13.5, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
                             .lineLimit(1)
                         
                         Text(state.artistName)
-                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .font(.system(size: 11.5, weight: .medium, design: .rounded))
                             .foregroundColor(.white.opacity(0.68))
                             .lineLimit(1)
                     }
+                    
+                    Spacer(minLength: 4)
                 }
                 
                 // Mini Scrubber Bar
                 scrubberBarView()
                 
                 // Controls Row
-                HStack(spacing: 14) {
+                HStack(spacing: 16) {
                     Button(action: { state.previousTrack() }) {
                         Image(systemName: "backward.fill")
-                            .font(.system(size: 15, weight: .bold))
+                            .font(.system(size: 16, weight: .bold))
                             .foregroundColor(.white)
                     }
                     .buttonStyle(.plain)
                     
                     Button(action: { state.togglePlayPause() }) {
                         Image(systemName: state.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 22, weight: .bold))
+                            .font(.system(size: 24, weight: .bold))
                             .foregroundColor(.white)
                     }
                     .buttonStyle(.plain)
                     
                     Button(action: { state.nextTrack() }) {
                         Image(systemName: "forward.fill")
-                            .font(.system(size: 15, weight: .bold))
+                            .font(.system(size: 16, weight: .bold))
                             .foregroundColor(.white)
                     }
                     .buttonStyle(.plain)
                     
                     Spacer()
                     
-                    // Lyrics Toggle (Active Pink Pill - Guaranteed Single Line)
+                    // Lyrics Toggle (Active Pink Pill)
                     Button(action: { state.toggleLyrics() }) {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 5) {
                             Image(systemName: "quote.bubble.fill")
-                                .font(.system(size: 11, weight: .bold))
+                                .font(.system(size: 12, weight: .bold))
                             Text("Lyrics")
-                                .font(.system(size: 10, weight: .bold, design: .rounded))
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
                                 .lineLimit(1)
                                 .fixedSize(horizontal: true, vertical: false)
                         }
                         .foregroundColor(.white)
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 4.5)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
                         .background(Color(red: 1.0, green: 0.22, blue: 0.38))
                         .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
+                    
+                    // AirPlay / Audio Output Route
+                    Button(action: {
+                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.sound") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }) {
+                        Image(systemName: "airplayaudio")
+                            .font(.system(size: 14.5, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.75))
+                    }
+                    .buttonStyle(.plain)
                 }
             }
-            .frame(width: 232)
+            .frame(width: 340)
             
             // Divider
             Rectangle()
@@ -1061,7 +1074,7 @@ public struct DynamicIslandView: View {
                 .frame(width: 1)
                 .frame(maxHeight: .infinity)
             
-            // SISI KANAN: Apple Music Karaoke Scrolling Lyrics (~275 pt)
+            // SISI KANAN: Apple Music Karaoke Scrolling Lyrics (~300 pt)
             lyricsScrollingPane
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }

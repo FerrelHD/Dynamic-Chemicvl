@@ -38,7 +38,7 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         }
         
         // Check if inside the curved notch path (including concave ear fillets)
-        let earRadius: CGFloat = (state.mode == .expanded) ? 10 : 8
+        let earRadius: CGFloat = (state.mode == .expanded) ? 19 : ((state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD) ? 8 : 6)
         let bottomRadius: CGFloat = (state.mode == .expanded) ? 24 : ((state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD) ? 18 : 14)
         let notchPath = NotchShape(earRadius: earRadius, bottomRadius: bottomRadius).path(in: notchRect)
         
@@ -90,7 +90,7 @@ public class DynamicIslandPanel: NSPanel {
         )
         
         self.minSize = NSSize(width: 48, height: 4)
-        self.level = .statusBar
+        self.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.mainMenuWindow)) + 3)
         self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         self.isOpaque = false
         self.backgroundColor = .clear
@@ -139,9 +139,7 @@ public class DynamicIslandPanel: NSPanel {
             collapseTimer = nil
             
             // Expand immediately to target expanded dimensions:
-            // Zero animator -> zero buffer stretching ("narik") -> zero clipping!
-            // Provide 24pt extra canvas width (12pt on each side) so top ear fillets flare smoothly into the bezel
-            let targetW: CGFloat = dims.width + 24
+            let targetW: CGFloat = dims.width
             let targetH: CGFloat = dims.height
             let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
             let targetY = screenRect.maxY - targetH
@@ -152,11 +150,11 @@ public class DynamicIslandPanel: NSPanel {
             }
         } else {
             // Compact mode or HUD:
-            // If the window was previously expanded (height > dims.height + 10),
-            // wait 0.22s for SwiftUI's collapse animation to finish cleanly before shrinking the window frame.
+            // If the window was previously expanded, wait 0.35s for SwiftUI's spring animation to finish
+            // cleanly before shrinking the window frame.
             if self.frame.height > dims.height + 10 {
                 if collapseTimer == nil {
-                    collapseTimer = Timer.scheduledTimer(withTimeInterval: 0.22, repeats: false) { [weak self] _ in
+                    collapseTimer = Timer.scheduledTimer(withTimeInterval: 0.35, repeats: false) { [weak self] _ in
                         self?.collapseTimer = nil
                         guard IslandState.shared.mode == .compact else { return }
                         self?.applyCompactFrame()
@@ -172,8 +170,7 @@ public class DynamicIslandPanel: NSPanel {
         guard let screen = self.screen ?? NSScreen.main else { return }
         let screenRect = screen.frame
         let dims = IslandState.shared.currentDimensions
-        // Provide 24pt extra canvas width so ear fillets flare out gracefully without edge clipping
-        let targetW = dims.width + 24
+        let targetW = dims.width
         let targetH = dims.height
         let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let targetY = screenRect.maxY - targetH
