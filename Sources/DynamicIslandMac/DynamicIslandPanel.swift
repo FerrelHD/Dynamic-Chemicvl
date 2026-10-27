@@ -71,7 +71,9 @@ public class DynamicIslandPanel: NSPanel {
         stateCancellable = IslandState.shared.objectWillChange
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
-                self?.updateFrame(animated: true)
+                DispatchQueue.main.async {
+                    self?.updateFrame(animated: true)
+                }
             }
         
         // Responsive screen change tracking (multi-monitor, resolution changes)
@@ -273,8 +275,6 @@ public class DynamicIslandPanel: NSPanel {
     }
     
     public func updateFrame(animated: Bool = true) {
-        checkFullScreenState()
-        
         guard let screen = self.screen ?? NSScreen.main else { return }
         
         let screenRect = screen.frame
