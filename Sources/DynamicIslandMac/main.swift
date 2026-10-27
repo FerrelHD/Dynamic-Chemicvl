@@ -73,6 +73,25 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         
         menu.addItem(NSMenuItem.separator())
         
+        let seamlessItem = NSMenuItem(
+            title: "Seamless Black Menu Bar (Match Notch)",
+            action: #selector(toggleSeamlessMenuBarAction),
+            keyEquivalent: "b"
+        )
+        seamlessItem.state = IslandState.shared.isSeamlessMenuBarEnabled ? .on : .off
+        seamlessItem.target = self
+        menu.addItem(seamlessItem)
+        
+        let restoreWallpaperItem = NSMenuItem(
+            title: "Restore Original Wallpaper",
+            action: #selector(restoreOriginalWallpaperAction),
+            keyEquivalent: "r"
+        )
+        restoreWallpaperItem.target = self
+        menu.addItem(restoreWallpaperItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
         let quitItem = NSMenuItem(
             title: "Quit Dynamic Island",
             action: #selector(quitAppAction),
@@ -100,6 +119,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } else {
             panel.orderFrontRegardless()
         }
+    }
+    
+    @objc private func toggleSeamlessMenuBarAction() {
+        IslandState.shared.toggleSeamlessMenuBar()
+    }
+    
+    @objc private func restoreOriginalWallpaperAction() {
+        IslandState.shared.restoreOriginalWallpaper()
     }
     
     @objc private func quitAppAction() {
