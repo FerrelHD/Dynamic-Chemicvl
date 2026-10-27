@@ -299,6 +299,19 @@ public class DynamicIslandPanel: NSPanel {
         }
     }
     
+    public override func setFrame(_ frameRect: NSRect, display flag: Bool) {
+        guard let screen = self.screen ?? NSScreen.main else {
+            super.setFrame(frameRect, display: flag)
+            return
+        }
+        // Strict invariant: any resize (from SwiftUI, animator, or AppKit) is mathematically locked to dead-center
+        let screenRect = screen.frame
+        let centeredX = floor(screenRect.minX + ((screenRect.width - frameRect.width) / 2.0))
+        let topY = screenRect.maxY - frameRect.height
+        let centeredFrame = NSRect(x: centeredX, y: topY, width: frameRect.width, height: frameRect.height)
+        super.setFrame(centeredFrame, display: flag)
+    }
+    
     public func repositionToTopCenter() {
         updateFrame(animated: false)
     }
