@@ -107,7 +107,7 @@ public class IslandState: ObservableObject {
                 case .music: return 196
                 case .control: return 232
                 case .notes: return 216
-                case .devices: return 205
+                case .devices: return 236
                 case .shelf: return 200
                 }
             }()
