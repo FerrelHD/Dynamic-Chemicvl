@@ -131,11 +131,11 @@ public struct DynamicIslandView: View {
     
     // MARK: - Dynamic Adaptive Dimensions (Content-Hugging & Responsive)
     private var islandWidth: CGFloat {
-        if state.isShowingVolumeHUD {
-            return 260
+        if state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD {
+            return 232 // Compact, elegant 3-column pill (matching reference image)
         }
-        if state.isShowingBatteryHUD {
-            return 192 // Option 2: Super Compact 192pt
+        if state.isShowingVolumeHUD {
+            return 250
         }
         if state.isShowingCapsLockHUD {
             return 195
@@ -157,11 +157,11 @@ public struct DynamicIslandView: View {
     }
     
     private var islandHeight: CGFloat {
-        if state.isShowingBatteryHUD {
-            return 34 // Option 2: Exact same height as compact notch (no downward bulge)
+        if state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD {
+            return 38 // Exact sleek HUD pill height matching reference
         }
         if state.isShowingVolumeHUD || state.isShowingCapsLockHUD {
-            return 36
+            return 38
         }
         switch state.mode {
         case .compact:
@@ -170,34 +170,22 @@ public struct DynamicIslandView: View {
             }
             return 28 // Sleek, flush with macOS menu bar height + subtle curve
         case .expanded:
-            // Dynamic content-aware height: generous breathing room and no clipping
-            switch state.activeTab {
-            case .music:
-                return 196
-            case .control:
-                return 232
-            case .notes:
-                return 216
-            case .devices:
-                return 236
-            case .shelf:
-                return 200
-            }
+            return 230 // Uniform standardized height for all tabs (zero vertical jumping)
         }
     }
     
     private var bottomRadius: CGFloat {
-        if state.isShowingBatteryHUD {
-            return 14
+        if state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD {
+            return 16 // Continuous smooth squircle corners matching reference
         }
         if state.isShowingVolumeHUD || state.isShowingCapsLockHUD {
             return 16
         }
         switch state.mode {
         case .compact:
-            return 14 // Sleek Apple notch corner radius for 34pt height
+            return 14 // Sleek Apple notch corner radius for compact height
         case .expanded:
-            return 22 // iOS continuous squircle curvature
+            return 20 // Refined squircle curvature matching idle notch aesthetic
         }
     }
     
@@ -223,6 +211,12 @@ public struct DynamicIslandView: View {
                                 .transition(.opacity)
                         } else if state.isShowingBatteryHUD {
                             batteryHUDContent
+                                .transition(.opacity)
+                        } else if state.isShowingWifiHUD {
+                            wifiHUDContent
+                                .transition(.opacity)
+                        } else if state.isShowingBluetoothHUD {
+                            bluetoothHUDContent
                                 .transition(.opacity)
                         } else if state.isShowingCapsLockHUD {
                             capsLockHUDContent
@@ -265,7 +259,7 @@ public struct DynamicIslandView: View {
                     .frame(width: 48, height: 4)
                     .contentShape(Rectangle())
                     .onTapGesture {
-                        withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                        withAnimation(.easeInOut(duration: 0.20)) {
                             state.isHoverRevealed = true
                         }
                     }
@@ -273,14 +267,16 @@ public struct DynamicIslandView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .animation(.spring(response: 0.32, dampingFraction: 0.78), value: state.isIslandVisible)
-        .animation(.spring(response: 0.34, dampingFraction: 0.78), value: state.mode)
-        .animation(.spring(response: 0.32, dampingFraction: 0.78), value: state.activeTab)
-        .animation(.spring(response: 0.30, dampingFraction: 0.76), value: state.isPlaying)
-        .animation(.spring(response: 0.28, dampingFraction: 0.80), value: state.isShowingVolumeHUD)
-        .animation(.spring(response: 0.28, dampingFraction: 0.80), value: state.isShowingBatteryHUD)
-        .animation(.spring(response: 0.28, dampingFraction: 0.80), value: state.isShowingCapsLockHUD)
-        .animation(.spring(response: 0.28, dampingFraction: 0.80), value: state.shelfSegment)
+        .animation(.easeInOut(duration: 0.22), value: state.isIslandVisible)
+        .animation(.easeInOut(duration: 0.22), value: state.mode)
+        .animation(.easeInOut(duration: 0.16), value: state.activeTab)
+        .animation(.easeInOut(duration: 0.18), value: state.isPlaying)
+        .animation(.easeInOut(duration: 0.20), value: state.isShowingVolumeHUD)
+        .animation(.easeInOut(duration: 0.20), value: state.isShowingBatteryHUD)
+        .animation(.easeInOut(duration: 0.20), value: state.isShowingWifiHUD)
+        .animation(.easeInOut(duration: 0.20), value: state.isShowingBluetoothHUD)
+        .animation(.easeInOut(duration: 0.20), value: state.isShowingCapsLockHUD)
+        .animation(.easeInOut(duration: 0.18), value: state.shelfSegment)
         .padding(.top, 0)
         .onDrop(of: ["public.file-url"], isTargeted: $isDropTargeted) { providers in
             handleDroppedFiles(providers)
@@ -288,7 +284,7 @@ public struct DynamicIslandView: View {
         }
         .onChange(of: isDropTargeted) { targeted in
             if targeted && state.mode == .compact {
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.76)) {
+                withAnimation(.easeInOut(duration: 0.22)) {
                     state.activeTab = .shelf
                     state.mode = .expanded
                 }
@@ -362,36 +358,116 @@ public struct DynamicIslandView: View {
         return "speaker.wave.3.fill"
     }
     
-    // MARK: - iOS MagSafe Battery HUD Live Activity (Option 2: Super Compact 192x34)
-    private var batteryHUDContent: some View {
-        HStack(spacing: 7) {
-            if state.isBatteryCharging {
-                Image(systemName: "bolt.fill")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(Color(red: 0.18, green: 0.85, blue: 0.38))
+    // MARK: - iOS 3-Column Pill HUD Notification Component (Matching Reference)
+    private func pillHUDNotificationView(
+        ringColor: Color,
+        ringProgress: Double,
+        iconName: String,
+        iconColor: Color = .white,
+        title: String,
+        subtitle: String,
+        trailingText: String
+    ) -> some View {
+        HStack(spacing: 10) {
+            // 1. Left: Dynamic Circular Progress Ring with Center Icon
+            ZStack {
+                Circle()
+                    .stroke(Color.white.opacity(0.14), lineWidth: 2.4)
                 
-                Text("Charging • \(state.batteryLevel)%")
-                    .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-                    .foregroundColor(.white)
-            } else if state.isPowerPlugged {
-                Image(systemName: "powerplug.fill")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(Color(red: 0.18, green: 0.85, blue: 0.38))
+                Circle()
+                    .trim(from: 0, to: CGFloat(max(0.04, min(1.0, ringProgress))))
+                    .stroke(ringColor, style: StrokeStyle(lineWidth: 2.4, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
                 
-                Text("Connected • \(state.batteryLevel)%")
-                    .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-                    .foregroundColor(.white)
-            } else {
-                Image(systemName: "battery.75")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(state.batteryLevel <= 20 ? Color.red : Color.orange)
-                
-                Text("On Battery • \(state.batteryLevel)%")
-                    .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-                    .foregroundColor(.white)
+                Image(systemName: iconName)
+                    .font(.system(size: 10.5, weight: .bold))
+                    .foregroundColor(iconColor)
             }
+            .frame(width: 23, height: 23)
+            
+            // 2. Middle: Title + Subtitle
+            VStack(alignment: .leading, spacing: 1.5) {
+                Text(title)
+                    .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                
+                Text(subtitle)
+                    .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                    .foregroundColor(.white.opacity(0.65))
+                    .lineLimit(1)
+            }
+            
+            Spacer(minLength: 4)
+            
+            // 3. Right: Prominent Percentage or Status
+            Text(trailingText)
+                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .foregroundColor(.white)
+                .lineLimit(1)
         }
+        .padding(.horizontal, 14)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        .offset(y: 2) // optical vertical center alignment for top-bezel notch
+    }
+    
+    // MARK: - iOS MagSafe Battery HUD (Reference Matching 3-Column Pill)
+    private var batteryHUDContent: some View {
+        let isCharging = state.isBatteryCharging || state.isPowerPlugged
+        let ringColor = isCharging ? Color(red: 0.18, green: 0.85, blue: 0.38) : (state.batteryLevel <= 20 ? Color.red : Color(red: 1.0, green: 0.62, blue: 0.10))
+        let icon = isCharging ? "bolt.fill" : "powerplug"
+        let title = isCharging ? "Charging" : "On Battery"
+        let subtitle = isCharging ? "Charger connected" : "Charger disconnected"
+        
+        return pillHUDNotificationView(
+            ringColor: ringColor,
+            ringProgress: Double(state.batteryLevel) / 100.0,
+            iconName: icon,
+            iconColor: .white,
+            title: title,
+            subtitle: subtitle,
+            trailingText: "\(state.batteryLevel)%"
+        )
+    }
+    
+    // MARK: - Wi-Fi HUD Notification (Connected vs Disconnected)
+    private var wifiHUDContent: some View {
+        let isConnected = state.isWifiOn
+        let ringColor = isConnected ? Color(red: 0.10, green: 0.55, blue: 1.0) : Color(white: 0.35)
+        let icon = isConnected ? "wifi" : "wifi.slash"
+        let title = "Wi-Fi"
+        let subtitle = isConnected ? (state.wifiSSID.isEmpty ? "Connected" : "Connected • \(state.wifiSSID)") : "Disconnected"
+        let trailing = isConnected ? "On" : "Off"
+        
+        return pillHUDNotificationView(
+            ringColor: ringColor,
+            ringProgress: 1.0,
+            iconName: icon,
+            iconColor: isConnected ? .white : Color.white.opacity(0.60),
+            title: title,
+            subtitle: subtitle,
+            trailingText: trailing
+        )
+    }
+    
+    // MARK: - Bluetooth HUD Notification (Connected vs Disconnected)
+    private var bluetoothHUDContent: some View {
+        let isConnected = state.isBluetoothOn
+        let ringColor = isConnected ? Color(red: 0.20, green: 0.60, blue: 1.0) : Color(white: 0.35)
+        let icon = isConnected ? "wave.3.forward" : "bluetooth.slash"
+        let title = "Bluetooth"
+        let subtitle = isConnected ? (state.bluetoothDeviceName.isEmpty ? "Connected" : "Connected • \(state.bluetoothDeviceName)") : "Disconnected"
+        let trailing = isConnected ? "On" : "Off"
+        
+        return pillHUDNotificationView(
+            ringColor: ringColor,
+            ringProgress: 1.0,
+            iconName: icon,
+            iconColor: isConnected ? .white : Color.white.opacity(0.60),
+            title: title,
+            subtitle: subtitle,
+            trailingText: trailing
+        )
     }
     
     // MARK: - Caps Lock Floating HUD
@@ -483,7 +559,7 @@ public struct DynamicIslandView: View {
             HStack(spacing: 2) {
                 ForEach(IslandTab.allCases, id: \.self) { tab in
                     Button(action: {
-                        withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                        withAnimation(.easeInOut(duration: 0.14)) {
                             state.activeTab = tab
                         }
                     }) {
@@ -527,7 +603,7 @@ public struct DynamicIslandView: View {
                 
                 // Collapse button
                 Button(action: {
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.76)) {
+                    withAnimation(.easeInOut(duration: 0.22)) {
                         state.mode = .compact
                     }
                 }) {
@@ -544,19 +620,23 @@ public struct DynamicIslandView: View {
             Divider()
                 .background(Color.white.opacity(0.15))
             
-            // Tab Contents
-            switch state.activeTab {
-            case .control:
-                controlTabView
-            case .music:
-                musicTabView
-            case .notes:
-                notesTabView
-            case .devices:
-                devicesTabView
-            case .shelf:
-                shelfTabView
+            // Tab Contents (Simple Responsive Crossfade)
+            Group {
+                switch state.activeTab {
+                case .control:
+                    controlTabView
+                case .music:
+                    musicTabView
+                case .notes:
+                    notesTabView
+                case .devices:
+                    devicesTabView
+                case .shelf:
+                    shelfTabView
+                }
             }
+            .transition(.opacity)
+            .id(state.activeTab)
         }
         .padding(.horizontal, 18)
         .padding(.bottom, 16)

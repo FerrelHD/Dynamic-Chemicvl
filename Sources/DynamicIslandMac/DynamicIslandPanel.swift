@@ -38,7 +38,7 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         
         // Check if inside the curved notch path (including concave ear fillets)
         let earRadius: CGFloat = 6
-        let bottomRadius: CGFloat = (state.mode == .expanded) ? 22 : 14
+        let bottomRadius: CGFloat = (state.mode == .expanded) ? 20 : ((state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD) ? 16 : 14)
         let notchPath = NotchShape(earRadius: earRadius, bottomRadius: bottomRadius).path(in: notchRect)
         
         // If click is in the transparent cutout corners outside the notch curve, pass through
