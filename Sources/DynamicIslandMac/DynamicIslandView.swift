@@ -143,13 +143,13 @@ public struct DynamicIslandView: View {
         switch state.mode {
         case .compact:
             if state.isTimerRunning {
-                return 220
+                return 175
             } else if state.isPlaying {
-                // Responsively adapt width to track title length (min 260, max 330)
+                // Responsively adapt width to track title length (min 195, max 245)
                 let titleLen = CGFloat(state.trackTitle.count)
-                return max(260, min(330, 220 + titleLen * 3.5))
+                return max(195, min(245, 165 + titleLen * 3.0))
             } else {
-                return 280 // Perfectly proportioned MacBook Hardware Notch
+                return 150 // Sleek, perfectly proportioned Apple compact notch
             }
         case .expanded:
             return 395 // Balanced proportion on 13" and larger screens
@@ -165,7 +165,7 @@ public struct DynamicIslandView: View {
         }
         switch state.mode {
         case .compact:
-            return 50 // Matching authentic charging notch depth
+            return 34 // Sleek, flush with macOS menu bar height
         case .expanded:
             // Dynamic content-aware height: eliminates dead space per tab!
             switch state.activeTab {
@@ -190,7 +190,7 @@ public struct DynamicIslandView: View {
         }
         switch state.mode {
         case .compact:
-            return 18 // Matching charging HUD's continuous squircle curvature
+            return 14 // Sleek Apple notch corner radius for 34pt height
         case .expanded:
             return 22 // iOS continuous squircle curvature
         }
@@ -205,7 +205,7 @@ public struct DynamicIslandView: View {
         }
         switch state.mode {
         case .compact:
-            return 8 // Matching charging HUD's outward concave tangent fillet
+            return 6 // Proportional concave outward fillet
         case .expanded:
             return 9
         }
@@ -428,54 +428,51 @@ public struct DynamicIslandView: View {
     private var compactContent: some View {
         ZStack {
             if state.isTimerRunning {
-                HStack(spacing: 7) {
+                HStack(spacing: 5.5) {
                     Image(systemName: "timer")
-                        .font(.system(size: 13.5, weight: .bold, design: .rounded))
+                        .font(.system(size: 11.5, weight: .bold, design: .rounded))
                         .foregroundColor(.orange)
                     
                     Text(state.timerFormattedString)
-                        .font(.system(size: 15.5, weight: .bold, design: .rounded))
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                .padding(.top, 4)
             } else if state.isPlaying {
-                HStack(spacing: 9) {
+                HStack(spacing: 7) {
                     if let art = state.artworkImage {
                         Image(nsImage: art)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
-                            .frame(width: 22, height: 22)
-                            .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                            .frame(width: 17, height: 17)
+                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                     } else {
                         Image(systemName: "music.note")
-                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .font(.system(size: 11.5, weight: .bold, design: .rounded))
                             .foregroundColor(.pink)
                     }
                     
                     Text(state.trackTitle)
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
                         .foregroundColor(.white)
                         .lineLimit(1)
                     
-                    waveformView(height: 14)
+                    waveformView(height: 12)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                .padding(.horizontal, 14)
-                .padding(.top, 4)
+                .padding(.horizontal, 10)
             } else {
                 // Dead-Center Clock: Both icon and digits sit exactly at mathematical and optical center
-                HStack(spacing: 7) {
+                HStack(spacing: 5.5) {
                     Image(systemName: "clock.fill")
-                        .font(.system(size: 13.5, weight: .semibold, design: .rounded))
+                        .font(.system(size: 11.5, weight: .semibold, design: .rounded))
                         .foregroundColor(.white.opacity(0.85))
                     
                     Text(currentShortTime)
-                        .font(.system(size: 16.5, weight: .bold, design: .rounded))
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                .padding(.top, 4)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
