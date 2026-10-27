@@ -267,7 +267,7 @@ public class DynamicIslandPanel: NSPanel {
     
     // MARK: - Click-Outside Detection to Minimize
     public func startClickOutsideMonitoring(state: IslandState) {
-        let checkClickOutside: (NSEvent) -> Void = { [weak self] _ in
+        let checkClickOutside: (NSEvent) -> Void = { [weak self] event in
             guard state.mode == .expanded else { return }
             
             // Shelf Pinned Mode: While on Shelf tab, keep open so user can click and drag files from Finder
@@ -275,7 +275,8 @@ public class DynamicIslandPanel: NSPanel {
                 return
             }
             
-            let mouseLoc = NSEvent.mouseLocation
+            // For global monitor events, locationInWindow gives the actual screen coordinate of the click
+            let clickLoc = event.locationInWindow
             
             guard let screen = self?.screen ?? NSScreen.main else { return }
             let dims = state.currentDimensions
@@ -283,8 +284,8 @@ public class DynamicIslandPanel: NSPanel {
             let midX = screenRect.midX
             let topY = screenRect.maxY
             
-            let insideX = abs(mouseLoc.x - midX) <= (dims.width / 2)
-            let insideY = (mouseLoc.y >= topY - dims.height) && (mouseLoc.y <= topY)
+            let insideX = abs(clickLoc.x - midX) <= (dims.width / 2)
+            let insideY = (clickLoc.y >= topY - dims.height) && (clickLoc.y <= topY)
             
             if !insideX || !insideY {
                 DispatchQueue.main.async {
@@ -294,10 +295,6 @@ public class DynamicIslandPanel: NSPanel {
         }
         
         globalClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: checkClickOutside)
-        localClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { event in
-            checkClickOutside(event)
-            return event
-        }
     }
     
     // MARK: - Smart Hover Peek Detection (Top Bezel Trigger & Dismiss)

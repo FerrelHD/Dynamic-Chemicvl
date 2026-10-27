@@ -2,6 +2,7 @@ import Foundation
 import Combine
 import SwiftUI
 import AppKit
+import IOBluetooth
 
 public enum IslandMode: Equatable {
     case compact
@@ -22,13 +23,15 @@ public struct ConnectedDevice: Identifiable, Equatable {
     public let batteryLevel: Int
     public let iconName: String
     public let isCharging: Bool
+    public let isConnected: Bool
     public let subtitle: String
     
-    public init(name: String, batteryLevel: Int, iconName: String, isCharging: Bool, subtitle: String) {
+    public init(name: String, batteryLevel: Int, iconName: String, isCharging: Bool, isConnected: Bool = true, subtitle: String) {
         self.name = name
         self.batteryLevel = batteryLevel
         self.iconName = iconName
         self.isCharging = isCharging
+        self.isConnected = isConnected
         self.subtitle = subtitle
     }
 }
@@ -52,7 +55,13 @@ public class IslandState: ObservableObject {
     
     // UI State: Saran 1 (Klik untuk Buka, Klik di Luar untuk Tutup)
     @Published public var mode: IslandMode = .compact
-    @Published public var activeTab: IslandTab = .control
+    @Published public var activeTab: IslandTab = .devices {
+        didSet {
+            if activeTab == .devices {
+                refreshConnectedDevices()
+            }
+        }
+    }
     
     // Hover Peek & Fullscreen Auto-Hide Mode
     @Published public var isHoverPeekEnabled: Bool = true
@@ -642,39 +651,159 @@ public class IslandState: ObservableObject {
         }
     }
     
-    // MARK: - Connected Devices Battery Hub
+    // MARK: - Connected Devices Battery Hub (Native macOS Real Hardware Detection)
     public func refreshConnectedDevices() {
-        var list: [ConnectedDevice] = []
-        
-        // 1. MacBook Pro Internal Battery
-        let mbStatus = BatteryService.shared.getStatus()
-        list.append(ConnectedDevice(
-            name: "MacBook Pro",
-            batteryLevel: mbStatus.level,
-            iconName: "laptopcomputer",
-            isCharging: mbStatus.isCharging || mbStatus.isPlugged,
-            subtitle: mbStatus.isCharging ? "Charging" : (mbStatus.isPlugged ? "Power Adapter" : "Battery")
-        ))
-        
-        // 2. AirPods Pro (or Bluetooth Audio Device)
-        list.append(ConnectedDevice(
-            name: "AirPods Pro",
-            batteryLevel: 85,
-            iconName: "airpodspro",
-            isCharging: false,
-            subtitle: "Connected"
-        ))
-        
-        // 3. Magic Mouse / Wireless Accessories
-        list.append(ConnectedDevice(
-            name: "Magic Mouse",
-            batteryLevel: 72,
-            iconName: "magicmouse",
-            isCharging: false,
-            subtitle: "Connected"
-        ))
-        
-        self.connectedDevices = list
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            var list: [ConnectedDevice] = []
+            
+            // 1. MacBook Pro Internal Battery (Real hardware via BatteryService / IOPowerSources)
+            let mbStatus = BatteryService.shared.getStatus()
+            list.append(ConnectedDevice(
+                name: "MacBook Pro",
+                batteryLevel: mbStatus.level,
+                iconName: "laptopcomputer",
+                isCharging: mbStatus.isCharging || mbStatus.isPlugged,
+                isConnected: true,
+                subtitle: mbStatus.isCharging ? "Charging" : (mbStatus.isPlugged ? "Power Adapter" : "Battery")
+            ))
+            
+            // 2. Query Real Paired Bluetooth Accessories via IOBluetooth
+            let hidMap = self.getHIDBatteryLevels()
+            let airPodsBattery = self.getAirPodsBatteryLevel()
+            
+            if let paired = IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] {
+                var connectedList: [IOBluetoothDevice] = []
+                var disconnectedList: [IOBluetoothDevice] = []
+                for dev in paired {
+                    if dev.isConnected() {
+                        connectedList.append(dev)
+                    } else {
+                        disconnectedList.append(dev)
+                    }
+                }
+                
+                // Prioritize user accessories (mouse, airpods, headphones) over generic serial tags
+                disconnectedList.sort { d1, d2 in
+                    let n1 = (d1.nameOrAddress ?? "").lowercased()
+                    let n2 = (d2.nameOrAddress ?? "").lowercased()
+                    let s1 = (n1.contains("mouse") || n1.contains("airpod")) ? 1 : 0
+                    let s2 = (n2.contains("mouse") || n2.contains("airpod")) ? 1 : 0
+                    return s1 > s2
+                }
+                
+                let targetList = connectedList + disconnectedList
+                for dev in targetList.prefix(3) {
+                    let name = dev.nameOrAddress ?? dev.name ?? "Bluetooth Device"
+                    let lower = name.lowercased()
+                    let minor = Int(dev.deviceClassMinor)
+                    let isConn = dev.isConnected()
+                    
+                    let icon: String
+                    if lower.contains("airpod") || lower.contains("bud") {
+                        icon = "airpodspro"
+                    } else if lower.contains("mouse") || minor == 32 {
+                        icon = "magicmouse"
+                    } else if lower.contains("keyboard") {
+                        icon = "keyboard"
+                    } else if lower.contains("trackpad") {
+                        icon = "computermouse"
+                    } else if lower.contains("bean") || lower.contains("speaker") || minor == 1 || minor == 16 {
+                        icon = "headphones"
+                    } else {
+                        icon = "wave.3.right"
+                    }
+                    
+                    var level: Int = 0
+                    if isConn {
+                        if let matched = hidMap[lower] {
+                            level = matched
+                        } else if lower.contains("mouse"), let m = hidMap.first(where: { $0.key.contains("mouse") }) {
+                            level = m.value
+                        } else if lower.contains("airpod"), let ap = airPodsBattery {
+                            level = ap
+                        } else {
+                            level = -1 // Connected, hardware doesn't report battery via HID
+                        }
+                    }
+                    
+                    list.append(ConnectedDevice(
+                        name: name,
+                        batteryLevel: level,
+                        iconName: icon,
+                        isCharging: false,
+                        isConnected: isConn,
+                        subtitle: isConn ? "Connected" : "Disconnected"
+                    ))
+                }
+            }
+            
+            DispatchQueue.main.async {
+                self.connectedDevices = list
+            }
+        }
+    }
+    
+    private func getHIDBatteryLevels() -> [String: Int] {
+        var map: [String: Int] = [:]
+        let task = Process()
+        let pipe = Pipe()
+        task.launchPath = "/usr/sbin/ioreg"
+        task.arguments = ["-c", "AppleDeviceManagementHIDEventService", "-r", "-l"]
+        task.standardOutput = pipe
+        task.standardError = Pipe()
+        do {
+            try task.run()
+            task.waitUntilExit()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            if let output = String(data: data, encoding: .utf8) {
+                let chunks = output.components(separatedBy: "+-o AppleDeviceManagementHIDEventService")
+                for chunk in chunks {
+                    var prod = ""
+                    var pct = -1
+                    for line in chunk.components(separatedBy: "\n") {
+                        let trimmed = line.trimmingCharacters(in: .whitespaces)
+                        if trimmed.hasPrefix("\"Product\" = ") {
+                            prod = trimmed.replacingOccurrences(of: "\"Product\" = \"", with: "").replacingOccurrences(of: "\"", with: "")
+                        }
+                        if trimmed.hasPrefix("\"BatteryPercent\" = ") {
+                            let valStr = trimmed.replacingOccurrences(of: "\"BatteryPercent\" = ", with: "")
+                            if let val = Int(valStr) {
+                                pct = val
+                            }
+                        }
+                    }
+                    if !prod.isEmpty && pct >= 0 {
+                        map[prod.lowercased()] = pct
+                    }
+                }
+            }
+        } catch {}
+        return map
+    }
+    
+    private func getAirPodsBatteryLevel() -> Int? {
+        let task = Process()
+        let pipe = Pipe()
+        task.launchPath = "/usr/sbin/ioreg"
+        task.arguments = ["-r", "-k", "BatteryPercentCombined"]
+        task.standardOutput = pipe
+        task.standardError = Pipe()
+        do {
+            try task.run()
+            task.waitUntilExit()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            if let output = String(data: data, encoding: .utf8) {
+                for line in output.components(separatedBy: "\n") {
+                    let trimmed = line.trimmingCharacters(in: .whitespaces)
+                    if trimmed.hasPrefix("\"BatteryPercentCombined\" = ") {
+                        let valStr = trimmed.replacingOccurrences(of: "\"BatteryPercentCombined\" = ", with: "")
+                        return Int(valStr)
+                    }
+                }
+            }
+        } catch {}
+        return nil
     }
     
     private func formatTime(_ seconds: Int) -> String {

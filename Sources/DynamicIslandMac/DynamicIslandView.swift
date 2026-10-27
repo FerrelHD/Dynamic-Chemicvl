@@ -236,7 +236,9 @@ public struct DynamicIslandView: View {
                 .frame(width: islandWidth, height: islandHeight, alignment: .top)
                 .contentShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
                 .onTapGesture {
-                    state.toggleExpand()
+                    if state.mode == .compact {
+                        state.toggleExpand()
+                    }
                 }
                 .transition(.opacity)
             } else {
@@ -1086,62 +1088,10 @@ public struct DynamicIslandView: View {
     // MARK: - Tab 4: Connected Devices & Battery Hub (iOS Concept Style)
     private var devicesTabView: some View {
         VStack(spacing: 11) {
-            // Three Circular Battery Gauges Side-by-Side
-            HStack(spacing: 12) {
+            let isDense = state.connectedDevices.count > 3
+            HStack(spacing: isDense ? 8 : 12) {
                 ForEach(state.connectedDevices) { dev in
-                    VStack(spacing: 5) {
-                        ZStack {
-                            // Background ring
-                            Circle()
-                                .stroke(Color.white.opacity(0.12), lineWidth: 4.5)
-                            
-                            // Progress ring
-                            Circle()
-                                .trim(from: 0, to: CGFloat(dev.batteryLevel) / 100.0)
-                                .stroke(
-                                    dev.isCharging
-                                        ? Color(red: 0.18, green: 0.85, blue: 0.38)
-                                        : (dev.batteryLevel > 20
-                                            ? Color(red: 0.18, green: 0.85, blue: 0.38)
-                                            : Color(red: 1.0, green: 0.23, blue: 0.19)),
-                                    style: StrokeStyle(lineWidth: 4.5, lineCap: .round)
-                                )
-                                .rotationEffect(.degrees(-90))
-                            
-                            // Center Icon
-                            VStack(spacing: 1) {
-                                Image(systemName: dev.iconName)
-                                    .font(.system(size: 16, weight: .semibold))
-                                    .foregroundColor(.white)
-                                
-                                if dev.isCharging {
-                                    Image(systemName: "bolt.fill")
-                                        .font(.system(size: 8, weight: .bold))
-                                        .foregroundColor(Color(red: 0.18, green: 0.85, blue: 0.38))
-                                }
-                            }
-                        }
-                        .frame(width: 52, height: 52)
-                        
-                        // Percentage & Device Info
-                        Text("\(dev.batteryLevel)%")
-                            .font(.system(size: 13, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
-                        
-                        Text(dev.name)
-                            .font(.system(size: 10, weight: .semibold, design: .rounded))
-                            .foregroundColor(.white.opacity(0.85))
-                            .lineLimit(1)
-                        
-                        Text(dev.subtitle)
-                            .font(.system(size: 8.5, weight: .medium, design: .rounded))
-                            .foregroundColor(.white.opacity(0.50))
-                            .lineLimit(1)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 7)
-                    .background(Color.white.opacity(0.06))
-                    .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+                    DeviceCardView(dev: dev, isDense: isDense)
                 }
             }
             .padding(.top, 1)
@@ -1528,3 +1478,79 @@ public struct SpiderMascotEyesView: View {
 
 // Backward compatibility alias
 public typealias MascotEyesView = SpiderMascotEyesView
+
+private struct DeviceCardView: View {
+    let dev: ConnectedDevice
+    let isDense: Bool
+    
+    private var progressValue: CGFloat {
+        if dev.batteryLevel > 0 {
+            return CGFloat(dev.batteryLevel) / 100.0
+        }
+        return 1.0
+    }
+    
+    private var ringColor: Color {
+        if dev.isCharging {
+            return Color(red: 0.18, green: 0.85, blue: 0.38)
+        }
+        if dev.batteryLevel > 20 || dev.batteryLevel <= 0 {
+            return Color(red: 0.18, green: 0.85, blue: 0.38)
+        }
+        return Color(red: 1.0, green: 0.23, blue: 0.19)
+    }
+    
+    private var batteryText: String {
+        if dev.isConnected {
+            return dev.batteryLevel > 0 ? "\(dev.batteryLevel)%" : "On"
+        }
+        return "Off"
+    }
+    
+    var body: some View {
+        VStack(spacing: 5) {
+            ZStack {
+                Circle()
+                    .stroke(Color.white.opacity(dev.isConnected ? 0.12 : 0.06), lineWidth: isDense ? 3.8 : 4.5)
+                
+                if dev.isConnected {
+                    Circle()
+                        .trim(from: 0, to: progressValue)
+                        .stroke(ringColor, style: StrokeStyle(lineWidth: isDense ? 3.8 : 4.5, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                }
+                
+                VStack(spacing: 1) {
+                    Image(systemName: dev.iconName)
+                        .font(.system(size: isDense ? 14 : 16, weight: .semibold))
+                        .foregroundColor(dev.isConnected ? .white : .white.opacity(0.35))
+                    
+                    if dev.isCharging {
+                        Image(systemName: "bolt.fill")
+                            .font(.system(size: 7.5, weight: .bold))
+                            .foregroundColor(Color(red: 0.18, green: 0.85, blue: 0.38))
+                    }
+                }
+            }
+            .frame(width: isDense ? 46 : 52, height: isDense ? 46 : 52)
+            
+            Text(batteryText)
+                .font(.system(size: isDense ? 11.5 : 13, weight: .bold, design: .rounded))
+                .foregroundColor(dev.isConnected ? .white : .white.opacity(0.40))
+            
+            Text(dev.name)
+                .font(.system(size: isDense ? 9 : 10, weight: .semibold, design: .rounded))
+                .foregroundColor(.white.opacity(dev.isConnected ? 0.85 : 0.45))
+                .lineLimit(1)
+            
+            Text(dev.subtitle)
+                .font(.system(size: 8, weight: .medium, design: .rounded))
+                .foregroundColor(.white.opacity(dev.isConnected ? 0.50 : 0.28))
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 7)
+        .background(Color.white.opacity(dev.isConnected ? 0.06 : 0.03))
+        .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+    }
+}
