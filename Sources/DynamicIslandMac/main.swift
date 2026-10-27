@@ -63,22 +63,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(NSMenuItem.separator())
         
         let isSeamless = IslandState.shared.isSeamlessMenuBarEnabled
+        let transparentItem = NSMenuItem(
+            title: "Transparent Menu Bar (Wallpaper)",
+            action: #selector(restoreOriginalWallpaperAction),
+            keyEquivalent: "t"
+        )
+        transparentItem.state = !isSeamless ? .on : .off
+        transparentItem.target = self
+        menu.addItem(transparentItem)
+        
         let seamlessItem = NSMenuItem(
-            title: "Seamless Black Menu Bar (Match Notch)",
+            title: "Solid Black Menu Bar (Match Notch)",
             action: #selector(toggleSeamlessMenuBarAction),
             keyEquivalent: "b"
         )
         seamlessItem.state = isSeamless ? .on : .off
         seamlessItem.target = self
         menu.addItem(seamlessItem)
-        
-        let restoreWallpaperItem = NSMenuItem(
-            title: "Restore Original Wallpaper",
-            action: #selector(restoreOriginalWallpaperAction),
-            keyEquivalent: "r"
-        )
-        restoreWallpaperItem.target = self
-        menu.addItem(restoreWallpaperItem)
         
         menu.addItem(NSMenuItem.separator())
         
