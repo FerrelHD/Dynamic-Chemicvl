@@ -1,71 +1,122 @@
 import SwiftUI
 import AppKit
 
-// MARK: - MacBook Hardware Notch Cutout Shape (Flush with Top Bezel)
+// MARK: - MacBook Hardware Notch Cutout Shape with Concave Ears (Flush with Top Bezel)
 public struct NotchShape: Shape {
-    public var bottomRadius: CGFloat
+    public var earRadius: CGFloat = 8
+    public var bottomRadius: CGFloat = 14
     
-    public var animatableData: CGFloat {
-        get { bottomRadius }
-        set { bottomRadius = newValue }
+    public var animatableData: AnimatablePair<CGFloat, CGFloat> {
+        get { AnimatablePair(earRadius, bottomRadius) }
+        set {
+            earRadius = newValue.first
+            bottomRadius = newValue.second
+        }
     }
     
-    public init(bottomRadius: CGFloat) {
+    public init(earRadius: CGFloat = 8, bottomRadius: CGFloat = 14) {
+        self.earRadius = earRadius
         self.bottomRadius = bottomRadius
     }
     
     public func path(in rect: CGRect) -> Path {
-        let r = max(0, min(bottomRadius, min(rect.width / 2, rect.height)))
         var path = Path()
+        let e = max(0, min(earRadius, rect.width / 4))
+        let b = max(0, min(bottomRadius, min((rect.width - 2 * e) / 2, rect.height)))
+        
         path.move(to: CGPoint(x: rect.minX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - r))
         path.addArc(
-            tangent1End: CGPoint(x: rect.maxX, y: rect.maxY),
-            tangent2End: CGPoint(x: rect.maxX - r, y: rect.maxY),
-            radius: r
+            center: CGPoint(x: rect.minX, y: rect.minY + e),
+            radius: e,
+            startAngle: .degrees(-90),
+            endAngle: .degrees(0),
+            clockwise: false
         )
-        path.addLine(to: CGPoint(x: rect.minX + r, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX + e, y: rect.maxY - b))
         path.addArc(
-            tangent1End: CGPoint(x: rect.minX, y: rect.maxY),
-            tangent2End: CGPoint(x: rect.minX, y: rect.maxY - r),
-            radius: r
+            center: CGPoint(x: rect.minX + e + b, y: rect.maxY - b),
+            radius: b,
+            startAngle: .degrees(180),
+            endAngle: .degrees(90),
+            clockwise: true
         )
+        path.addLine(to: CGPoint(x: rect.maxX - e - b, y: rect.maxY))
+        path.addArc(
+            center: CGPoint(x: rect.maxX - e - b, y: rect.maxY - b),
+            radius: b,
+            startAngle: .degrees(90),
+            endAngle: .degrees(0),
+            clockwise: true
+        )
+        path.addLine(to: CGPoint(x: rect.maxX - e, y: rect.minY + e))
+        path.addArc(
+            center: CGPoint(x: rect.maxX, y: rect.minY + e),
+            radius: e,
+            startAngle: .degrees(180),
+            endAngle: .degrees(270),
+            clockwise: false
+        )
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
         path.closeSubpath()
         return path
     }
 }
 
 public struct NotchOutlineShape: Shape {
-    public var bottomRadius: CGFloat
+    public var earRadius: CGFloat = 8
+    public var bottomRadius: CGFloat = 14
     
-    public var animatableData: CGFloat {
-        get { bottomRadius }
-        set { bottomRadius = newValue }
+    public var animatableData: AnimatablePair<CGFloat, CGFloat> {
+        get { AnimatablePair(earRadius, bottomRadius) }
+        set {
+            earRadius = newValue.first
+            bottomRadius = newValue.second
+        }
     }
     
-    public init(bottomRadius: CGFloat) {
+    public init(earRadius: CGFloat = 8, bottomRadius: CGFloat = 14) {
+        self.earRadius = earRadius
         self.bottomRadius = bottomRadius
     }
     
     public func path(in rect: CGRect) -> Path {
-        let r = max(0, min(bottomRadius, min(rect.width / 2, rect.height)))
         var path = Path()
-        // Leaves the top edge unstroked so it seamlessly flows out of the black bezel!
+        let e = max(0, min(earRadius, rect.width / 4))
+        let b = max(0, min(bottomRadius, min((rect.width - 2 * e) / 2, rect.height)))
+        
+        // Leaves top bezel edge unstroked so it seamlessly flows out of the screen's black bezel
         path.move(to: CGPoint(x: rect.minX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY - r))
         path.addArc(
-            tangent1End: CGPoint(x: rect.minX, y: rect.maxY),
-            tangent2End: CGPoint(x: rect.minX + r, y: rect.maxY),
-            radius: r
+            center: CGPoint(x: rect.minX, y: rect.minY + e),
+            radius: e,
+            startAngle: .degrees(-90),
+            endAngle: .degrees(0),
+            clockwise: false
         )
-        path.addLine(to: CGPoint(x: rect.maxX - r, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX + e, y: rect.maxY - b))
         path.addArc(
-            tangent1End: CGPoint(x: rect.maxX, y: rect.maxY),
-            tangent2End: CGPoint(x: rect.maxX, y: rect.maxY - r),
-            radius: r
+            center: CGPoint(x: rect.minX + e + b, y: rect.maxY - b),
+            radius: b,
+            startAngle: .degrees(180),
+            endAngle: .degrees(90),
+            clockwise: true
         )
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX - e - b, y: rect.maxY))
+        path.addArc(
+            center: CGPoint(x: rect.maxX - e - b, y: rect.maxY - b),
+            radius: b,
+            startAngle: .degrees(90),
+            endAngle: .degrees(0),
+            clockwise: true
+        )
+        path.addLine(to: CGPoint(x: rect.maxX - e, y: rect.minY + e))
+        path.addArc(
+            center: CGPoint(x: rect.maxX, y: rect.minY + e),
+            radius: e,
+            startAngle: .degrees(180),
+            endAngle: .degrees(270),
+            clockwise: false
+        )
         return path
     }
 }
@@ -81,32 +132,35 @@ public struct DynamicIslandView: View {
     // MARK: - Dynamic Adaptive Dimensions (Content-Hugging & Responsive)
     private var islandWidth: CGFloat {
         if state.isShowingVolumeHUD {
-            return 250
+            return 260
         }
         if state.isShowingBatteryHUD {
-            return 224
+            return 350
         }
         if state.isShowingCapsLockHUD {
-            return 185
+            return 195
         }
         switch state.mode {
         case .compact:
             if state.isTimerRunning {
                 return 165
             } else if state.isPlaying {
-                // Responsively adapt width to track title length (min 195, max 235)
+                // Responsively adapt width to track title length (min 195, max 245)
                 let titleLen = CGFloat(state.trackTitle.count)
-                return max(195, min(235, 165 + titleLen * 3.0))
+                return max(195, min(245, 165 + titleLen * 3.0))
             } else {
-                return 126 // Perfectly proportioned for centered clock
+                return 136 // Perfectly proportioned for centered clock
             }
         case .expanded:
-            return 385 // Balanced proportion on 13" and larger screens
+            return 395 // Balanced proportion on 13" and larger screens
         }
     }
     
     private var islandHeight: CGFloat {
-        if state.isShowingVolumeHUD || state.isShowingBatteryHUD || state.isShowingCapsLockHUD {
+        if state.isShowingBatteryHUD {
+            return 54 // Ample vertical breathing room for authentic iOS Charging HUD
+        }
+        if state.isShowingVolumeHUD || state.isShowingCapsLockHUD {
             return 36
         }
         switch state.mode {
@@ -127,8 +181,11 @@ public struct DynamicIslandView: View {
         }
     }
     
-    private var cornerRadius: CGFloat {
-        if state.isShowingVolumeHUD || state.isShowingBatteryHUD || state.isShowingCapsLockHUD {
+    private var bottomRadius: CGFloat {
+        if state.isShowingBatteryHUD {
+            return 18
+        }
+        if state.isShowingVolumeHUD || state.isShowingCapsLockHUD {
             return 16
         }
         switch state.mode {
@@ -139,56 +196,83 @@ public struct DynamicIslandView: View {
         }
     }
     
+    private var earRadius: CGFloat {
+        if state.isShowingBatteryHUD {
+            return 8
+        }
+        if state.isShowingVolumeHUD || state.isShowingCapsLockHUD {
+            return 6
+        }
+        switch state.mode {
+        case .compact:
+            return 6
+        case .expanded:
+            return 9
+        }
+    }
+    
     public var body: some View {
         VStack(spacing: 0) {
             ZStack(alignment: .top) {
                 if state.isIslandVisible {
                     // MARK: - OLED Jet-Black MacBook Notch (Flush with Top Bezel)
-                    NotchShape(bottomRadius: cornerRadius)
-                        .fill(Color.black)
-                        .overlay(
-                            NotchOutlineShape(bottomRadius: cornerRadius)
-                                .stroke(Color.white.opacity(0.12), lineWidth: 0.8)
-                        )
-                        .shadow(color: Color.black.opacity(0.55), radius: 16, x: 0, y: 8)
-                        .overlay(
-                            Group {
-                                if state.isShowingVolumeHUD {
-                                    volumeHUDContent
-                                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                                } else if state.isShowingBatteryHUD {
-                                    batteryHUDContent
-                                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                                } else if state.isShowingCapsLockHUD {
-                                    capsLockHUDContent
-                                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
-                                } else {
-                                    switch state.mode {
-                                    case .compact:
-                                        compactContent
-                                            .transition(.opacity)
-                                    case .expanded:
-                                        expandedContent
-                                            .transition(.opacity)
-                                    }
+                    ZStack(alignment: .top) {
+                        NotchShape(earRadius: earRadius, bottomRadius: bottomRadius)
+                            .fill(Color.black)
+                            .overlay(
+                                NotchOutlineShape(earRadius: earRadius, bottomRadius: bottomRadius)
+                                    .stroke(Color.white.opacity(0.12), lineWidth: 0.8)
+                            )
+                            .shadow(color: Color.black.opacity(0.55), radius: 16, x: 0, y: 8)
+                        
+                        // Subtle Hardware Camera Dot Cutout at Top Center
+                        Circle()
+                            .fill(Color(red: 0.08, green: 0.12, blue: 0.18))
+                            .frame(width: 5.5, height: 5.5)
+                            .overlay(
+                                Circle()
+                                    .fill(Color(red: 0.20, green: 0.32, blue: 0.50).opacity(0.5))
+                                    .frame(width: 2.5, height: 2.5)
+                            )
+                            .padding(.top, 4.5)
+                        
+                        Group {
+                            if state.isShowingVolumeHUD {
+                                volumeHUDContent
+                                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                            } else if state.isShowingBatteryHUD {
+                                batteryHUDContent
+                                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                            } else if state.isShowingCapsLockHUD {
+                                capsLockHUDContent
+                                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                            } else {
+                                switch state.mode {
+                                case .compact:
+                                    compactContent
+                                        .transition(.opacity)
+                                case .expanded:
+                                    expandedContent
+                                        .transition(.opacity)
                                 }
                             }
-                        )
-                        .frame(width: islandWidth, height: islandHeight)
-                        .contentShape(NotchShape(bottomRadius: cornerRadius))
-                        .onTapGesture {
-                            state.toggleExpand()
                         }
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .top).combined(with: .opacity),
-                            removal: .move(edge: .top).combined(with: .opacity)
-                        ))
+                    }
+                    .frame(width: islandWidth, height: islandHeight)
+                    .contentShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
+                    .onTapGesture {
+                        state.toggleExpand()
+                    }
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .top).combined(with: .opacity),
+                        removal: .move(edge: .top).combined(with: .opacity)
+                    ))
                 } else {
                     // MARK: - Tucked Handle (Micro-Notch Flush with Top Bezel)
-                    NotchShape(bottomRadius: 3)
+                    NotchShape(earRadius: 2, bottomRadius: 3)
                         .fill(Color.black.opacity(0.85))
                         .overlay(
-                            NotchOutlineShape(bottomRadius: 3)
+                            NotchOutlineShape(earRadius: 2, bottomRadius: 3)
                                 .stroke(Color.white.opacity(0.14), lineWidth: 0.5)
                         )
                         .frame(width: 48, height: 4)
@@ -254,50 +338,64 @@ public struct DynamicIslandView: View {
         return "speaker.wave.3.fill"
     }
     
-    // MARK: - iOS MagSafe Battery HUD Live Activity
+    // MARK: - iOS MagSafe Battery HUD Live Activity (Matching media_1793082172070_98b07237.png)
     private var batteryHUDContent: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 14) {
+            // Left: Circular Battery Gauge Ring with Bolt Icon
             ZStack {
+                // Background track ring
                 Circle()
-                    .fill(state.isBatteryCharging ? Color(red: 0.18, green: 0.85, blue: 0.38) : (state.batteryLevel <= 20 ? Color.red : Color.white.opacity(0.20)))
-                    .frame(width: 24, height: 24)
+                    .stroke(
+                        state.isBatteryCharging
+                            ? Color(red: 0.18, green: 0.85, blue: 0.38).opacity(0.22)
+                            : (state.batteryLevel <= 20 ? Color.red.opacity(0.25) : Color.white.opacity(0.18)),
+                        lineWidth: 3.5
+                    )
+                    .frame(width: 32, height: 32)
                 
+                // Active progress ring
+                Circle()
+                    .trim(from: 0, to: max(0.04, CGFloat(state.batteryLevel) / 100.0))
+                    .stroke(
+                        state.isBatteryCharging
+                            ? Color(red: 0.18, green: 0.85, blue: 0.38)
+                            : (state.batteryLevel <= 20 ? Color.red : Color.white),
+                        style: StrokeStyle(lineWidth: 3.5, lineCap: .round)
+                    )
+                    .frame(width: 32, height: 32)
+                    .rotationEffect(.degrees(-90))
+                
+                // Center icon
                 Image(systemName: state.isBatteryCharging ? "bolt.fill" : (state.isPowerPlugged ? "powerplug.fill" : "battery.75"))
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundColor(state.isBatteryCharging ? .black : .white)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(.white)
             }
+            .frame(width: 34, height: 34)
             
-            VStack(alignment: .leading, spacing: 1) {
-                Text(state.isBatteryCharging ? "MagSafe Charging" : (state.isPowerPlugged ? "Power Connected" : "On Battery"))
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
+            // Middle: Title & Subtitle
+            VStack(alignment: .leading, spacing: 2) {
+                Text(state.isBatteryCharging ? "Charging" : (state.isPowerPlugged ? "Power Connected" : "On Battery"))
+                    .font(.system(size: 15, weight: .semibold, design: .default))
                     .foregroundColor(.white)
                     .lineLimit(1)
                 
-                Text(state.isBatteryCharging ? "Fast Charging" : "\(state.batteryLevel)% Remaining")
-                    .font(.system(size: 9.5, weight: .medium, design: .rounded))
-                    .foregroundColor(.white.opacity(0.70))
+                Text(state.isBatteryCharging ? "Charger connected" : (state.batteryLevel == 100 ? "Fully charged" : "\(state.batteryLevel)% Remaining"))
+                    .font(.system(size: 11.5, weight: .regular, design: .default))
+                    .foregroundColor(Color(white: 0.62))
                     .lineLimit(1)
             }
             
             Spacer()
             
-            // Battery Level Bar Capsule
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(Color.white.opacity(0.18))
-                    .frame(width: 38, height: 14)
-                
-                Capsule()
-                    .fill(state.isBatteryCharging ? Color(red: 0.18, green: 0.85, blue: 0.38) : (state.batteryLevel <= 20 ? Color.red : Color.white))
-                    .frame(width: max(4, 38 * CGFloat(state.batteryLevel) / 100.0), height: 14)
-                
-                Text("\(state.batteryLevel)%")
-                    .font(.system(size: 8.5, weight: .bold, design: .rounded))
-                    .foregroundColor(state.batteryLevel > 60 ? .black : .white)
-                    .frame(width: 38, alignment: .center)
-            }
+            // Right: Large Percentage Typography
+            Text("\(state.batteryLevel)%")
+                .font(.system(size: 24, weight: .semibold, design: .default))
+                .foregroundColor(.white)
+                .padding(.trailing, 2)
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 20)
+        .padding(.top, 6)
+        .padding(.bottom, 2)
     }
     
     // MARK: - Caps Lock Floating HUD

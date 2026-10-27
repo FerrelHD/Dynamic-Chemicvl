@@ -14,6 +14,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         islandPanel.contentView = hostingView
         islandPanel.orderFrontRegardless()
         islandPanel.startClickOutsideMonitoring(state: .shared)
+        islandPanel.startHoverPeekMonitoring(state: .shared)
         self.panel = islandPanel
         
         setupStatusItem()

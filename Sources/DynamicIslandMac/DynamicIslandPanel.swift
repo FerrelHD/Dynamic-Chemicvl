@@ -37,20 +37,21 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         
         // Dynamic adaptive dimensions matching DynamicIslandView
         let capsuleWidth: CGFloat = {
-            if state.isShowingVolumeHUD { return 250 }
-            if state.isShowingBatteryHUD { return 224 }
-            if state.isShowingCapsLockHUD { return 185 }
-            if state.mode == .expanded { return 385 }
+            if state.isShowingVolumeHUD { return 260 }
+            if state.isShowingBatteryHUD { return 350 }
+            if state.isShowingCapsLockHUD { return 195 }
+            if state.mode == .expanded { return 395 }
             if state.isTimerRunning { return 165 }
             if state.isPlaying {
                 let titleLen = CGFloat(state.trackTitle.count)
-                return max(195, min(235, 165 + titleLen * 3.0))
+                return max(195, min(245, 165 + titleLen * 3.0))
             }
-            return 126
+            return 136
         }()
         
         let capsuleHeight: CGFloat = {
-            if state.isShowingVolumeHUD || state.isShowingBatteryHUD || state.isShowingCapsLockHUD { return 36 }
+            if state.isShowingBatteryHUD { return 54 }
+            if state.isShowingVolumeHUD || state.isShowingCapsLockHUD { return 36 }
             if state.mode == .expanded {
                 switch state.activeTab {
                 case .music: return 172
@@ -78,6 +79,10 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
 public class DynamicIslandPanel: NSPanel {
     private var globalClickMonitor: Any?
     private var localClickMonitor: Any?
+    private var mouseMoveMonitor: Any?
+    private var localMouseMoveMonitor: Any?
+    private var hideDebounceTimer: Timer?
+    private var revealDwellTimer: Timer?
     private var screenChangeObserver: Any?
     
     public init() {
@@ -85,7 +90,7 @@ public class DynamicIslandPanel: NSPanel {
         
         super.init(
             contentRect: initialRect,
-            styleMask: [.borderless],
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
@@ -114,13 +119,13 @@ public class DynamicIslandPanel: NSPanel {
         }
     }
     
-    // MARK: - Keyboard Focus Support for Reminders & Notes Input
+    // MARK: - Non-Activating Overlay (Never Steal Focus from Active Apps like Chrome)
     public override var canBecomeKey: Bool {
-        return true
+        return false
     }
     
     public override var canBecomeMain: Bool {
-        return true
+        return false
     }
     
     // MARK: - Click-Outside Detection to Minimize
@@ -130,7 +135,7 @@ public class DynamicIslandPanel: NSPanel {
             let mouseLoc = NSEvent.mouseLocation
             
             guard let screen = self?.screen ?? NSScreen.main else { return }
-            let capsuleWidth: CGFloat = 385
+            let capsuleWidth: CGFloat = 395
             let capsuleHeight: CGFloat = {
                 switch state.activeTab {
                 case .music: return 172
@@ -155,6 +160,85 @@ public class DynamicIslandPanel: NSPanel {
         globalClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: checkClickOutside)
         localClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { event in
             checkClickOutside(event)
+            return event
+        }
+    }
+    
+    // MARK: - Smart Hover Peek Detection (Top Bezel Trigger & Dismiss)
+    public func startHoverPeekMonitoring(state: IslandState) {
+        let checkHover: (NSEvent) -> Void = { [weak self] _ in
+            guard state.isHoverPeekEnabled else { return }
+            
+            if state.mode == .expanded || state.isShowingVolumeHUD || state.isShowingBatteryHUD || state.isShowingCapsLockHUD {
+                self?.revealDwellTimer?.invalidate()
+                self?.revealDwellTimer = nil
+                return
+            }
+            
+            guard let screen = self?.screen ?? NSScreen.main else { return }
+            let mouseLoc = NSEvent.mouseLocation
+            let screenRect = screen.frame
+            let midX = screenRect.midX
+            let topY = screenRect.maxY
+            
+            // Trigger zone: top 14pt of screen in menu bar area
+            let inTriggerZone = (mouseLoc.y >= topY - 14) && (abs(mouseLoc.x - midX) <= 135)
+            
+            // Active zone: keep revealed while cursor is inside or directly surrounding the notch
+            let inActiveZone = (mouseLoc.y >= topY - 56) && (abs(mouseLoc.x - midX) <= 160)
+            
+            if state.isHoverRevealed {
+                self?.revealDwellTimer?.invalidate()
+                self?.revealDwellTimer = nil
+                
+                if inActiveZone {
+                    self?.hideDebounceTimer?.invalidate()
+                    self?.hideDebounceTimer = nil
+                } else {
+                    if self?.hideDebounceTimer == nil {
+                        self?.hideDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: false) { [weak self] _ in
+                            self?.hideDebounceTimer = nil
+                            let currentLoc = NSEvent.mouseLocation
+                            let stillInZone = (currentLoc.y >= topY - 56) && (abs(currentLoc.x - midX) <= 160)
+                            if !stillInZone && state.mode != .expanded {
+                                DispatchQueue.main.async {
+                                    withAnimation(.spring(response: 0.32, dampingFraction: 0.80)) {
+                                        state.isHoverRevealed = false
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                self?.hideDebounceTimer?.invalidate()
+                self?.hideDebounceTimer = nil
+                
+                if inTriggerZone {
+                    if self?.revealDwellTimer == nil {
+                        self?.revealDwellTimer = Timer.scheduledTimer(withTimeInterval: 0.20, repeats: false) { [weak self] _ in
+                            self?.revealDwellTimer = nil
+                            let currentLoc = NSEvent.mouseLocation
+                            let stillInTrigger = (currentLoc.y >= topY - 16) && (abs(currentLoc.x - midX) <= 140)
+                            if stillInTrigger && !state.isHoverRevealed && state.mode != .expanded {
+                                DispatchQueue.main.async {
+                                    withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
+                                        state.isHoverRevealed = true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    self?.revealDwellTimer?.invalidate()
+                    self?.revealDwellTimer = nil
+                }
+            }
+        }
+        
+        mouseMoveMonitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved, handler: checkHover)
+        localMouseMoveMonitor = NSEvent.addLocalMonitorForEvents(matching: .mouseMoved) { event in
+            checkHover(event)
             return event
         }
     }

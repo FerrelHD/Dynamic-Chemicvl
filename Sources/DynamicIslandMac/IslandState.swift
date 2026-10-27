@@ -42,9 +42,10 @@ public class IslandState: ObservableObject {
     private let hoverPeekStorageKey = "DynamicIsland_HoverPeekEnabled"
     
     public var isIslandVisible: Bool {
+        if !isHoverPeekEnabled { return true }
         if mode == .expanded { return true }
         if isShowingVolumeHUD || isShowingBatteryHUD || isShowingCapsLockHUD { return true }
-        return false
+        return isHoverRevealed
     }
     
     // Volume HUD overlay
@@ -127,10 +128,15 @@ public class IslandState: ObservableObject {
         // Monitoring Media Universal otomatis
         MediaService.shared.startMonitoring { [weak self] info in
             guard let self = self else { return }
+            let wasPlaying = self.isPlaying
             self.isPlaying = info.isPlaying
             self.trackTitle = info.title
             self.artistName = info.artist
             self.albumName = info.album
+            
+            if self.isPlaying != wasPlaying {
+                self.updateWaveformTimer()
+            }
             
             if let artData = info.artworkData {
                 self.artworkImage = NSImage(data: artData)
@@ -189,29 +195,6 @@ public class IslandState: ObservableObject {
                 }
             }
         }
-        
-        // Waveform audio ringan
-        waveformCancellable = Timer.publish(every: 0.14, on: .main, in: .common)
-            .autoconnect()
-            .sink { [weak self] _ in
-                guard let self = self, self.isPlaying else { return }
-                withAnimation(.easeInOut(duration: 0.13)) {
-                    self.waveHeights = (0..<7).map { _ in CGFloat.random(in: 0.25...1.0) }
-                }
-            }
-            
-        // Timer countdown runner
-        timerCancellable = Timer.publish(every: 1.0, on: .main, in: .common)
-            .autoconnect()
-            .sink { [weak self] _ in
-                guard let self = self, self.isTimerRunning else { return }
-                if self.timerRemainingSeconds > 0 {
-                    self.timerRemainingSeconds -= 1
-                } else {
-                    self.isTimerRunning = false
-                    NSSound.beep()
-                }
-            }
     }
     
     // MARK: - Saran 1: Toggle Expand & Minimize
@@ -399,7 +382,27 @@ public class IslandState: ObservableObject {
         MediaService.shared.previousTrack()
     }
     
-    // MARK: - Timer Controls
+    // MARK: - On-Demand Waveform Animation (Zero CPU Idle)
+    private func updateWaveformTimer() {
+        if isPlaying {
+            if waveformCancellable == nil {
+                waveformCancellable = Timer.publish(every: 0.14, on: .main, in: .common)
+                    .autoconnect()
+                    .sink { [weak self] _ in
+                        guard let self = self, self.isPlaying else { return }
+                        withAnimation(.easeInOut(duration: 0.13)) {
+                            self.waveHeights = (0..<7).map { _ in CGFloat.random(in: 0.25...1.0) }
+                        }
+                    }
+            }
+        } else {
+            waveformCancellable?.cancel()
+            waveformCancellable = nil
+            self.waveHeights = Array(repeating: 0.25, count: 7)
+        }
+    }
+    
+    // MARK: - Timer Controls (Zero CPU Idle when Paused)
     public var timerFormattedString: String {
         let mins = timerRemainingSeconds / 60
         let secs = timerRemainingSeconds % 60
@@ -413,12 +416,36 @@ public class IslandState: ObservableObject {
     
     public func toggleTimer() {
         isTimerRunning.toggle()
+        updateTimerRunner()
     }
     
     public func setTimerPreset(minutes: Int) {
         isTimerRunning = false
         timerTotalSeconds = minutes * 60
         timerRemainingSeconds = minutes * 60
+        updateTimerRunner()
+    }
+    
+    private func updateTimerRunner() {
+        if isTimerRunning {
+            if timerCancellable == nil {
+                timerCancellable = Timer.publish(every: 1.0, on: .main, in: .common)
+                    .autoconnect()
+                    .sink { [weak self] _ in
+                        guard let self = self, self.isTimerRunning else { return }
+                        if self.timerRemainingSeconds > 0 {
+                            self.timerRemainingSeconds -= 1
+                        } else {
+                            self.isTimerRunning = false
+                            self.updateTimerRunner()
+                            NSSound.beep()
+                        }
+                    }
+            }
+        } else {
+            timerCancellable?.cancel()
+            timerCancellable = nil
+        }
     }
     
     // MARK: - File Shelf Controls
