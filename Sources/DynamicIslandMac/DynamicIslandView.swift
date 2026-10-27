@@ -179,7 +179,7 @@ public struct DynamicIslandView: View {
             case .notes:
                 return 216
             case .devices:
-                return 205
+                return 236
             case .shelf:
                 return 200
             }
@@ -212,7 +212,7 @@ public struct DynamicIslandView: View {
         case .compact:
             return 6 // Proportional concave outward fillet
         case .expanded:
-            return 9
+            return 14 // Pronounced authentic Apple notch concave ears (cekungan atas)
         }
     }
     
@@ -243,14 +243,14 @@ public struct DynamicIslandView: View {
                             case .compact:
                                 compactContent
                                     .transition(.asymmetric(
-                                        insertion: .opacity.animation(.easeInOut(duration: 0.16).delay(0.10)),
+                                        insertion: .opacity.animation(.easeInOut(duration: 0.16).delay(0.06)),
                                         removal: .opacity.animation(.easeInOut(duration: 0.08))
                                     ))
                             case .expanded:
                                 expandedContent
                                     .transition(.asymmetric(
-                                        insertion: .opacity.combined(with: .scale(scale: 0.97)).animation(.easeInOut(duration: 0.18).delay(0.08)),
-                                        removal: .opacity.combined(with: .scale(scale: 0.95)).animation(.easeInOut(duration: 0.10))
+                                        insertion: .opacity.animation(.easeInOut(duration: 0.16).delay(0.04)),
+                                        removal: .opacity.animation(.easeInOut(duration: 0.08))
                                     ))
                             }
                         }
@@ -946,13 +946,13 @@ public struct DynamicIslandView: View {
     // MARK: - Tab 3: Reminders & Notes (iOS Reminders Style)
     private var notesTabView: some View {
         VStack(spacing: 7) {
-            // Input field with Frosted White Capsule (Gaya B)
+            // Input field with Dark Elegant Container & Pure White Text
             HStack(spacing: 8) {
                 ZStack(alignment: .leading) {
                     if state.newTodoText.isEmpty {
                         Text("Add a reminder or note...")
                             .font(.system(size: 12, weight: .medium, design: .rounded))
-                            .foregroundColor(Color(red: 0.25, green: 0.25, blue: 0.28))
+                            .foregroundColor(.white.opacity(0.55))
                     }
                     
                     TextField("", text: $state.newTodoText, onCommit: {
@@ -960,7 +960,7 @@ public struct DynamicIslandView: View {
                     })
                     .textFieldStyle(.plain)
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundColor(Color(red: 0.08, green: 0.08, blue: 0.10))
+                    .foregroundColor(.white)
                 }
                 
                 Button(action: {
@@ -987,12 +987,11 @@ public struct DynamicIslandView: View {
             .padding(.vertical, 5)
             .background(
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .fill(Color.white.opacity(0.92))
+                    .fill(Color.white.opacity(0.10))
                     .overlay(
                         RoundedRectangle(cornerRadius: 11, style: .continuous)
-                            .stroke(Color.white, lineWidth: 1.0)
+                            .stroke(Color.white.opacity(0.16), lineWidth: 1.0)
                     )
-                    .shadow(color: Color.black.opacity(0.18), radius: 4, x: 0, y: 2)
             )
             
             // Scrollable List
