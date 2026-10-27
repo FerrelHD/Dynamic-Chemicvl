@@ -131,66 +131,33 @@ public struct DynamicIslandView: View {
     
     // MARK: - Dynamic Adaptive Dimensions (Content-Hugging & Responsive)
     private var islandWidth: CGFloat {
-        if state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD {
-            return 232 // Compact, elegant 3-column pill (matching reference image)
-        }
-        if state.isShowingVolumeHUD {
-            return 250
-        }
-        if state.isShowingCapsLockHUD {
-            return 195
-        }
-        switch state.mode {
-        case .compact:
-            if state.isTimerRunning {
-                return 170
-            } else if state.isPlaying {
-                // Responsively adapt width to track title length (min 180, max 230)
-                let titleLen = CGFloat(state.trackTitle.count)
-                return max(180, min(230, 150 + titleLen * 3.0))
-            } else {
-                return 136 // Sleek, perfectly proportioned Apple compact notch
-            }
-        case .expanded:
-            return 395 // Balanced proportion on 13" and larger screens
-        }
+        state.currentDimensions.width
     }
     
     private var islandHeight: CGFloat {
-        if state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD {
-            return 38 // Exact sleek HUD pill height matching reference
-        }
-        if state.isShowingVolumeHUD || state.isShowingCapsLockHUD {
-            return 38
-        }
-        switch state.mode {
-        case .compact:
-            if state.isTimerRunning || state.isPlaying {
-                return 30
-            }
-            return 28 // Sleek, flush with macOS menu bar height + subtle curve
-        case .expanded:
-            return 230 // Uniform standardized height for all tabs (zero vertical jumping)
-        }
+        state.currentDimensions.height
     }
     
     private var bottomRadius: CGFloat {
-        if state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD {
-            return 16 // Continuous smooth squircle corners matching reference
+        if state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD {
+            return 18 // Soft, spacious continuous squircle corners for HUD
         }
-        if state.isShowingVolumeHUD || state.isShowingCapsLockHUD {
+        if state.isShowingCapsLockHUD {
             return 16
         }
         switch state.mode {
         case .compact:
             return 14 // Sleek Apple notch corner radius for compact height
         case .expanded:
-            return 20 // Refined squircle curvature matching idle notch aesthetic
+            return 26 // Continuous G2-like squircle curvature matching authentic macOS Monterey/Sonoma notch
         }
     }
     
     private var earRadius: CGFloat {
-        return 6 // Elegant, subtle, identical authentic concave fillet in all modes
+        if state.mode == .expanded {
+            return 12 // Authentic, flared Apple concave ear fillets for expanded canvas
+        }
+        return 9 // Subtle, organic concave ears in compact & HUD mode
     }
     
     public var body: some View {
@@ -200,9 +167,10 @@ public struct DynamicIslandView: View {
                 ZStack(alignment: .top) {
                     NotchShape(earRadius: earRadius, bottomRadius: bottomRadius)
                         .fill(Color.black)
+                        .shadow(color: Color.black.opacity(0.35), radius: 6, x: 0, y: 3)
                         .overlay(
                             NotchOutlineShape(earRadius: earRadius, bottomRadius: bottomRadius)
-                                .stroke(isDropTargeted ? Color.green.opacity(0.8) : Color.white.opacity(0.12), lineWidth: isDropTargeted ? 1.5 : 0.8)
+                                .stroke(isDropTargeted ? Color.green.opacity(0.85) : Color.white.opacity(0.14), lineWidth: isDropTargeted ? 1.5 : 0.8)
                         )
                     
                     Group {
@@ -233,8 +201,9 @@ public struct DynamicIslandView: View {
                         }
                     }
                 }
-                .frame(width: islandWidth, height: islandHeight, alignment: .top)
+                .clipShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
                 .contentShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
+                .frame(width: islandWidth, height: islandHeight, alignment: .top)
                 .onTapGesture {
                     if state.mode == .compact {
                         state.toggleExpand()
@@ -361,45 +330,45 @@ public struct DynamicIslandView: View {
         subtitle: String,
         trailingText: String
     ) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             // 1. Left: Dynamic Circular Progress Ring with Center Icon
             ZStack {
                 Circle()
-                    .stroke(Color.white.opacity(0.14), lineWidth: 2.4)
+                    .stroke(Color.white.opacity(0.14), lineWidth: 2.6)
                 
                 Circle()
                     .trim(from: 0, to: CGFloat(max(0.04, min(1.0, ringProgress))))
-                    .stroke(ringColor, style: StrokeStyle(lineWidth: 2.4, lineCap: .round))
+                    .stroke(ringColor, style: StrokeStyle(lineWidth: 2.6, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                 
                 Image(systemName: iconName)
-                    .font(.system(size: 10.5, weight: .bold))
+                    .font(.system(size: 11, weight: .bold))
                     .foregroundColor(iconColor)
             }
-            .frame(width: 23, height: 23)
+            .frame(width: 25, height: 25)
             
             // 2. Middle: Title + Subtitle
             VStack(alignment: .leading, spacing: 1.5) {
                 Text(title)
-                    .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
                     .lineLimit(1)
                 
                 Text(subtitle)
-                    .font(.system(size: 9.5, weight: .medium, design: .rounded))
-                    .foregroundColor(.white.opacity(0.65))
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundColor(.white.opacity(0.68))
                     .lineLimit(1)
             }
             
-            Spacer(minLength: 4)
+            Spacer(minLength: 6)
             
             // 3. Right: Prominent Percentage or Status
             Text(trailingText)
-                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .font(.system(size: 17.5, weight: .semibold, design: .rounded))
                 .foregroundColor(.white)
                 .lineLimit(1)
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .offset(y: 2) // optical vertical center alignment for top-bezel notch
     }
@@ -856,8 +825,19 @@ public struct DynamicIslandView: View {
         .buttonStyle(.plain)
     }
     
-    // MARK: - Tab 2: Now Playing (Authentic iOS Dynamic Island Media Player)
+    // MARK: - Tab 2: Now Playing (Authentic iOS Dynamic Island Media Player & Apple Music Lyrics)
     private var musicTabView: some View {
+        Group {
+            if state.isLyricsEnabled {
+                lyricsSplitView
+            } else {
+                normalMusicPlayerView
+            }
+        }
+    }
+    
+    // MARK: - Normal Player View (Single-column iOS dynamic island music player)
+    private var normalMusicPlayerView: some View {
         VStack(spacing: 12) {
             // Row 1: Artwork, Title/Artist, and Neon Waveform
             HStack(spacing: 12) {
@@ -866,33 +846,33 @@ public struct DynamicIslandView: View {
                         Image(nsImage: art)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
-                            .frame(width: 50, height: 50)
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .frame(width: 48, height: 48)
+                            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
                     } else {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        RoundedRectangle(cornerRadius: 11, style: .continuous)
                             .fill(LinearGradient(
                                 colors: [Color(red: 0.95, green: 0.25, blue: 0.45), Color(red: 0.48, green: 0.15, blue: 0.85)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             ))
-                            .frame(width: 50, height: 50)
+                            .frame(width: 48, height: 48)
                         
                         Image(systemName: "music.note")
-                            .font(.system(size: 22, weight: .bold, design: .rounded))
+                            .font(.system(size: 20, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
                     }
                 }
-                .frame(width: 50, height: 50)
+                .frame(width: 48, height: 48)
                 .shadow(color: .black.opacity(0.35), radius: 5, x: 0, y: 2)
                 
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 2.5) {
                     Text(state.trackTitle)
-                        .font(.system(size: 14.5, weight: .bold, design: .rounded))
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                         .lineLimit(1)
                     
                     Text(state.artistName)
-                        .font(.system(size: 12.5, weight: .medium, design: .rounded))
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
                         .foregroundColor(.white.opacity(0.68))
                         .lineLimit(1)
                 }
@@ -900,60 +880,35 @@ public struct DynamicIslandView: View {
                 Spacer(minLength: 8)
                 
                 // Animated Waveform Indicator
-                waveformView(height: 19)
+                waveformView(height: 18)
             }
             .padding(.top, 2)
             
-            // Row 2: Single-Row Scrubber Bar with Elapsed & Countdown Remaining
-            HStack(spacing: 8) {
-                Text(state.currentTime)
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.65))
-                    .frame(minWidth: 32, alignment: .leading)
-                
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule()
-                            .fill(Color.white.opacity(0.20))
-                            .frame(height: 5)
-                        
-                        Capsule()
-                            .fill(Color.white)
-                            .frame(width: max(0, geo.size.width * CGFloat(state.playbackProgress)), height: 5)
-                    }
-                    .frame(height: 5)
-                    .frame(maxHeight: .infinity, alignment: .center)
-                }
-                .frame(height: 14)
-                
-                Text(state.remainingTime)
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.65))
-                    .frame(minWidth: 36, alignment: .trailing)
-            }
+            // Row 2: Interactive Scrubber Bar with Knob & Realtime Seeking
+            scrubberBarView()
             
-            // Row 3: Playback Controls (Centered Flat White + AirPlay on Right)
+            // Row 3: Playback Controls (Centered) + Secondary Actions (Lyrics & AirPlay on Right)
             HStack(spacing: 0) {
                 Spacer()
                 
                 HStack(spacing: 36) {
                     Button(action: { state.previousTrack() }) {
                         Image(systemName: "backward.fill")
-                            .font(.system(size: 19, weight: .bold))
+                            .font(.system(size: 18, weight: .bold))
                             .foregroundColor(.white)
                     }
                     .buttonStyle(.plain)
                     
                     Button(action: { state.togglePlayPause() }) {
                         Image(systemName: state.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 28, weight: .bold))
+                            .font(.system(size: 26, weight: .bold))
                             .foregroundColor(.white)
                     }
                     .buttonStyle(.plain)
                     
                     Button(action: { state.nextTrack() }) {
                         Image(systemName: "forward.fill")
-                            .font(.system(size: 19, weight: .bold))
+                            .font(.system(size: 18, weight: .bold))
                             .foregroundColor(.white)
                     }
                     .buttonStyle(.plain)
@@ -961,19 +916,249 @@ public struct DynamicIslandView: View {
                 
                 Spacer()
                 
-                // AirPlay / Audio Output Route
-                Button(action: {
-                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.sound") {
-                        NSWorkspace.shared.open(url)
+                HStack(spacing: 12) {
+                    // Apple Music Synchronized Lyrics Toggle Button
+                    Button(action: { state.toggleLyrics() }) {
+                        Image(systemName: "quote.bubble.fill")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(state.isLyricsEnabled ? Color(red: 1.0, green: 0.22, blue: 0.38) : Color.white.opacity(0.70))
+                            .padding(4)
+                            .background(
+                                Circle()
+                                    .fill(state.isLyricsEnabled ? Color.white.opacity(0.18) : Color.clear)
+                            )
                     }
-                }) {
-                    Image(systemName: "airplayaudio")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.85))
+                    .buttonStyle(.plain)
+                    
+                    // AirPlay / Audio Output Route
+                    Button(action: {
+                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.sound") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }) {
+                        Image(systemName: "airplayaudio")
+                            .font(.system(size: 15.5, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.75))
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
             .padding(.top, 2)
+        }
+    }
+    
+    // MARK: - Apple Music Lyrics Split View (Left: Compact Controls | Right: Synchronized Lyrics)
+    private var lyricsSplitView: some View {
+        HStack(spacing: 18) {
+            // SISI KIRI: Compact Player Column (~200 pt)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 10) {
+                    ZStack {
+                        if let art = state.artworkImage {
+                            Image(nsImage: art)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 44, height: 44)
+                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        } else {
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(LinearGradient(
+                                    colors: [Color(red: 0.95, green: 0.25, blue: 0.45), Color(red: 0.48, green: 0.15, blue: 0.85)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ))
+                                .frame(width: 44, height: 44)
+                            
+                            Image(systemName: "music.note")
+                                .font(.system(size: 18, weight: .bold, design: .rounded))
+                                .foregroundColor(.white)
+                        }
+                    }
+                    .frame(width: 44, height: 44)
+                    .shadow(color: .black.opacity(0.35), radius: 4, x: 0, y: 2)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(state.trackTitle)
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                        
+                        Text(state.artistName)
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.68))
+                            .lineLimit(1)
+                    }
+                }
+                
+                // Mini Scrubber Bar
+                scrubberBarView()
+                
+                // Controls Row
+                HStack(spacing: 18) {
+                    Button(action: { state.previousTrack() }) {
+                        Image(systemName: "backward.fill")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Button(action: { state.togglePlayPause() }) {
+                        Image(systemName: state.isPlaying ? "pause.fill" : "play.fill")
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Button(action: { state.nextTrack() }) {
+                        Image(systemName: "forward.fill")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Spacer()
+                    
+                    // Lyrics Toggle (Active Pink Pill)
+                    Button(action: { state.toggleLyrics() }) {
+                        HStack(spacing: 3) {
+                            Image(systemName: "quote.bubble.fill")
+                                .font(.system(size: 11, weight: .bold))
+                            Text("Lyrics")
+                                .font(.system(size: 10, weight: .bold, design: .rounded))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3.5)
+                        .background(Color(red: 1.0, green: 0.22, blue: 0.38))
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .frame(width: 205)
+            
+            // Divider
+            Rectangle()
+                .fill(Color.white.opacity(0.12))
+                .frame(width: 1)
+                .frame(maxHeight: .infinity)
+            
+            // SISI KANAN: Apple Music Karaoke Scrolling Lyrics (~275 pt)
+            lyricsScrollingPane
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .padding(.vertical, 4)
+    }
+    
+    // MARK: - Apple Music Karaoke Scrolling Lyrics
+    private var lyricsScrollingPane: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if state.isLoadingLyrics {
+                VStack(spacing: 8) {
+                    ProgressView()
+                        .scaleEffect(0.85)
+                    Text("Searching lyrics...")
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundColor(.white.opacity(0.55))
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let error = state.lyricsErrorMessage, state.lyricsLines.isEmpty {
+                VStack(spacing: 6) {
+                    Image(systemName: "music.mic")
+                        .font(.system(size: 20))
+                        .foregroundColor(.white.opacity(0.40))
+                    Text(error)
+                        .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                        .foregroundColor(.white.opacity(0.55))
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollViewReader { proxy in
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(alignment: .leading, spacing: 14) {
+                            Color.clear.frame(height: 25)
+                            
+                            ForEach(Array(state.lyricsLines.enumerated()), id: \.element.id) { idx, line in
+                                let isCurrent = (state.currentLyricIndex == idx)
+                                Button(action: {
+                                    state.seekTo(line.timestamp)
+                                }) {
+                                    Text(line.text)
+                                        .font(.system(size: isCurrent ? 14 : 12, weight: isCurrent ? .bold : .medium, design: .rounded))
+                                        .foregroundColor(isCurrent ? .white : .white.opacity(0.35))
+                                        .scaleEffect(isCurrent ? 1.03 : 1.0, anchor: .leading)
+                                        .multilineTextAlignment(.leading)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                .buttonStyle(.plain)
+                                .id(idx)
+                            }
+                            
+                            Color.clear.frame(height: 45)
+                        }
+                        .padding(.horizontal, 6)
+                    }
+                    .onChange(of: state.currentLyricIndex) { newIdx in
+                        if let newIdx = newIdx {
+                            withAnimation(.easeInOut(duration: 0.35)) {
+                                proxy.scrollTo(newIdx, anchor: .center)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // MARK: - Reusable Interactive Scrubber Bar
+    private func scrubberBarView() -> some View {
+        HStack(spacing: 7) {
+            Text(state.currentTime)
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .foregroundColor(.white.opacity(0.65))
+                .frame(minWidth: 32, alignment: .leading)
+            
+            GeometryReader { geo in
+                let barWidth = geo.size.width
+                let progress = max(0, min(1.0, state.playbackProgress))
+                let currentWidth = barWidth * CGFloat(progress)
+                
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.white.opacity(0.20))
+                        .frame(height: 4.5)
+                    
+                    Capsule()
+                        .fill(Color.white)
+                        .frame(width: max(0, currentWidth), height: 4.5)
+                    
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 9, height: 9)
+                        .shadow(color: Color.black.opacity(0.4), radius: 2, x: 0, y: 1)
+                        .offset(x: max(0, min(barWidth - 9, currentWidth - 4.5)))
+                }
+                .frame(height: 14)
+                .frame(maxHeight: .infinity, alignment: .center)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { gesture in
+                            let locationX = max(0, min(barWidth, gesture.location.x))
+                            let pct = Double(locationX / barWidth)
+                            let maxDur = state.totalDurationSeconds > 0 ? state.totalDurationSeconds : 180.0
+                            let seekSeconds = pct * maxDur
+                            state.seekTo(seekSeconds)
+                        }
+                )
+            }
+            .frame(height: 14)
+            
+            Text(state.remainingTime)
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .foregroundColor(.white.opacity(0.65))
+                .frame(minWidth: 36, alignment: .trailing)
         }
     }
     

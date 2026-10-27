@@ -37,8 +37,8 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         }
         
         // Check if inside the curved notch path (including concave ear fillets)
-        let earRadius: CGFloat = 6
-        let bottomRadius: CGFloat = (state.mode == .expanded) ? 20 : ((state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD) ? 16 : 14)
+        let earRadius: CGFloat = (state.mode == .expanded) ? 12 : 9
+        let bottomRadius: CGFloat = (state.mode == .expanded) ? 26 : ((state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD) ? 18 : 14)
         let notchPath = NotchShape(earRadius: earRadius, bottomRadius: bottomRadius).path(in: notchRect)
         
         // If click is in the transparent cutout corners outside the notch curve, pass through
@@ -139,7 +139,7 @@ public class DynamicIslandPanel: NSPanel {
             // Expand immediately to target expanded dimensions:
             // Zero animator -> zero buffer stretching ("narik") -> zero clipping!
             // Provide 24pt extra canvas width (12pt on each side) so top ear fillets flare smoothly into the bezel
-            let targetW: CGFloat = 395 + 24
+            let targetW: CGFloat = dims.width + 24
             let targetH: CGFloat = dims.height
             let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
             let targetY = screenRect.maxY - targetH

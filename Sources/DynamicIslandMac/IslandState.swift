@@ -92,13 +92,13 @@ public class IslandState: ObservableObject {
             return (width: 48, height: 4)
         }
         if isShowingBatteryHUD || isShowingWifiHUD || isShowingBluetoothHUD {
-            return (width: 232, height: 38)
+            return (width: 268, height: 42)
         }
         if isShowingVolumeHUD {
-            return (width: 250, height: 38)
+            return (width: 268, height: 42)
         }
         if isShowingCapsLockHUD {
-            return (width: 195, height: 38)
+            return (width: 200, height: 40)
         }
         switch mode {
         case .compact:
@@ -111,7 +111,21 @@ public class IslandState: ObservableObject {
                 return (width: 136, height: 28) // Sleek, perfectly proportioned Apple compact notch
             }
         case .expanded:
-            return (width: 395, height: 230) // Standardized uniform height for all tabs (zero jitter)
+            if activeTab == .music && isLyricsEnabled {
+                return (width: 540, height: 225) // Luxurious Split View for Apple Music Lyrics
+            }
+            switch activeTab {
+            case .control:
+                return (width: 395, height: 230)
+            case .music:
+                return (width: 395, height: 180) // Eliminates dead black void, perfectly hugs music player
+            case .notes:
+                return (width: 395, height: 200)
+            case .devices:
+                return (width: 395, height: 195)
+            case .shelf:
+                return (width: 395, height: 175) // Eliminates the 140pt black void, perfectly hugs drop card
+            }
         }
     }
     
@@ -169,6 +183,16 @@ public class IslandState: ObservableObject {
     @Published public var totalDuration: String = "0:00"
     @Published public var remainingTime: String = "-0:00"
     @Published public var artworkImage: NSImage? = nil
+    @Published public var currentPositionSeconds: Double = 0.0
+    @Published public var totalDurationSeconds: Double = 0.0
+    
+    // Apple Music Style Synchronized Lyrics
+    @Published public var isLyricsEnabled: Bool = false
+    @Published public var lyricsLines: [LyricLine] = []
+    @Published public var currentLyricIndex: Int? = nil
+    @Published public var isLoadingLyrics: Bool = false
+    @Published public var lyricsErrorMessage: String? = nil
+    private var lastLoadedLyricsTrack: String = ""
     
     // Waveform simulation
     @Published public var waveHeights: [CGFloat] = [0.2, 0.5, 0.3, 0.7, 0.4, 0.6, 0.3]
@@ -217,10 +241,14 @@ public class IslandState: ObservableObject {
         MediaService.shared.startMonitoring { [weak self] info in
             guard let self = self else { return }
             let wasPlaying = self.isPlaying
+            let trackChanged = (self.trackTitle != info.title || self.artistName != info.artist)
+            
             self.isPlaying = info.isPlaying
             self.trackTitle = info.title
             self.artistName = info.artist
             self.albumName = info.album
+            self.currentPositionSeconds = info.position
+            self.totalDurationSeconds = info.duration
             
             if self.isPlaying != wasPlaying {
                 self.updateWaveformTimer()
@@ -228,8 +256,16 @@ public class IslandState: ObservableObject {
             
             if let artData = info.artworkData {
                 self.artworkImage = NSImage(data: artData)
-            } else {
-                self.artworkImage = nil
+            } else if trackChanged || self.artworkImage == nil {
+                if !info.title.isEmpty && info.title != "No Media Playing" {
+                    MediaService.shared.fetchOnlineArtwork(title: info.title, artist: info.artist) { [weak self] onlineData in
+                        if let onlineData = onlineData {
+                            self?.artworkImage = NSImage(data: onlineData)
+                        }
+                    }
+                } else {
+                    self.artworkImage = nil
+                }
             }
             
             if info.duration > 0 {
@@ -243,6 +279,18 @@ public class IslandState: ObservableObject {
                 self.currentTime = "0:00"
                 self.totalDuration = "0:00"
                 self.remainingTime = "-0:00"
+            }
+            
+            if trackChanged {
+                self.lastLoadedLyricsTrack = ""
+                if self.isLyricsEnabled {
+                    self.loadLyrics(force: true)
+                } else {
+                    self.lyricsLines = []
+                    self.currentLyricIndex = nil
+                }
+            } else {
+                self.updateActiveLyricIndex(for: info.position)
             }
         }
         
@@ -521,6 +569,64 @@ public class IslandState: ObservableObject {
     
     public func previousTrack() {
         MediaService.shared.previousTrack()
+    }
+    
+    public func seekTo(_ seconds: Double) {
+        currentPositionSeconds = max(0, min(totalDurationSeconds > 0 ? totalDurationSeconds : seconds, seconds))
+        if totalDurationSeconds > 0 {
+            playbackProgress = max(0, min(1.0, currentPositionSeconds / totalDurationSeconds))
+            currentTime = formatTime(Int(currentPositionSeconds))
+            let rem = max(0, Int(totalDurationSeconds - currentPositionSeconds))
+            remainingTime = "-\(formatTime(rem))"
+        }
+        updateActiveLyricIndex(for: currentPositionSeconds)
+        MediaService.shared.seek(to: currentPositionSeconds)
+    }
+    
+    // MARK: - Synchronized Lyrics Engine
+    public func toggleLyrics() {
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+            isLyricsEnabled.toggle()
+        }
+        if isLyricsEnabled {
+            loadLyrics()
+        }
+    }
+    
+    public func loadLyrics(force: Bool = false) {
+        guard !trackTitle.isEmpty && trackTitle != "No Media Playing" else { return }
+        let currentTrackKey = "\(trackTitle)_\(artistName)"
+        if !force && lastLoadedLyricsTrack == currentTrackKey && !lyricsLines.isEmpty { return }
+        
+        lastLoadedLyricsTrack = currentTrackKey
+        isLoadingLyrics = true
+        lyricsErrorMessage = nil
+        
+        LyricsService.shared.fetchLyrics(title: trackTitle, artist: artistName) { [weak self] result in
+            guard let self = self else { return }
+            self.isLoadingLyrics = false
+            switch result {
+            case .success(let lines):
+                self.lyricsLines = lines
+                self.lyricsErrorMessage = nil
+                self.updateActiveLyricIndex(for: self.currentPositionSeconds)
+            case .failure:
+                self.lyricsLines = []
+                self.lyricsErrorMessage = "No lyrics found for this track"
+            }
+        }
+    }
+    
+    public func updateActiveLyricIndex(for position: Double) {
+        guard !lyricsLines.isEmpty else {
+            if currentLyricIndex != nil { currentLyricIndex = nil }
+            return
+        }
+        let target = position + 0.35 // slight perceptual lead
+        let idx = lyricsLines.lastIndex(where: { $0.timestamp <= target })
+        if currentLyricIndex != idx {
+            currentLyricIndex = idx
+        }
     }
     
     // MARK: - On-Demand Waveform Animation (Zero CPU Idle)

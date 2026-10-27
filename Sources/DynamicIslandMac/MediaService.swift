@@ -7,12 +7,15 @@ public class MediaService {
     // Tipe fungsi C dari MediaRemote.framework
     private typealias MRGetNowPlayingInfoFn = @convention(c) (DispatchQueue, @escaping ([String: Any]) -> Void) -> Void
     private typealias MRSendCommandFn = @convention(c) (Int, AnyObject?) -> Bool
+    private typealias MRSetElapsedTimeFn = @convention(c) (Double) -> Void
     
     private var getNowPlayingInfoPtr: MRGetNowPlayingInfoFn?
     private var sendCommandPtr: MRSendCommandFn?
+    private var setElapsedTimePtr: MRSetElapsedTimeFn?
     
     private var isPolling = false
     private let queryQueue = DispatchQueue(label: "com.dynamicisland.mediaquery", qos: .utility)
+    private var onlineArtworkCache: [String: Data] = [:]
     
     // Command codes
     public let cmdPlay: Int = 0
@@ -30,6 +33,9 @@ public class MediaService {
             }
             if let ptr = CFBundleGetFunctionPointerForName(bundle, "MRMediaRemoteSendCommand" as CFString) {
                 self.sendCommandPtr = unsafeBitCast(ptr, to: MRSendCommandFn.self)
+            }
+            if let ptr = CFBundleGetFunctionPointerForName(bundle, "MRMediaRemoteSetElapsedTime" as CFString) {
+                self.setElapsedTimePtr = unsafeBitCast(ptr, to: MRSetElapsedTimeFn.self)
             }
         }
     }
@@ -118,5 +124,61 @@ public class MediaService {
         if let send = sendCommandPtr {
             _ = send(cmdPreviousTrack, nil)
         }
+    }
+    
+    public func seek(to seconds: Double) {
+        if let setElapsed = self.setElapsedTimePtr {
+            setElapsed(seconds)
+        }
+    }
+    
+    // MARK: - Fallback HD Album / Video Artwork Fetcher (iTunes Public CDN)
+    public func fetchOnlineArtwork(title: String, artist: String, completion: @escaping (Data?) -> Void) {
+        let clean = LyricsService.cleanTrackTitle(title)
+        guard !clean.isEmpty && clean != "No Media Playing" else {
+            completion(nil)
+            return
+        }
+        let cacheKey = "\(clean.lowercased())_\(artist.lowercased())"
+        if let cached = onlineArtworkCache[cacheKey] {
+            completion(cached)
+            return
+        }
+        
+        let query = "\(clean) \(artist)"
+        guard let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: "https://itunes.apple.com/search?term=\(encoded)&entity=song&limit=1") else {
+            completion(nil)
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 5.0
+        
+        URLSession.shared.dataTask(with: request) { [weak self] data, _, _ in
+            guard let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let results = json["results"] as? [[String: Any]],
+                  let first = results.first,
+                  let artUrlStr = first["artworkUrl100"] as? String else {
+                DispatchQueue.main.async { completion(nil) }
+                return
+            }
+            
+            let hdArtUrlStr = artUrlStr.replacingOccurrences(of: "100x100bb.jpg", with: "600x600bb.jpg")
+            guard let hdUrl = URL(string: hdArtUrlStr) else {
+                DispatchQueue.main.async { completion(nil) }
+                return
+            }
+            
+            URLSession.shared.dataTask(with: hdUrl) { imgData, _, _ in
+                if let imgData = imgData {
+                    self?.onlineArtworkCache[cacheKey] = imgData
+                    DispatchQueue.main.async { completion(imgData) }
+                } else {
+                    DispatchQueue.main.async { completion(nil) }
+                }
+            }.resume()
+        }.resume()
     }
 }
