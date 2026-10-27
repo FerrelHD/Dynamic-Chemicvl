@@ -36,6 +36,8 @@ public class DynamicIslandPanel: NSPanel {
     private var hideDebounceTimer: Timer?
     private var revealDwellTimer: Timer?
     private var screenChangeObserver: Any?
+    private var spaceChangeObserver: Any?
+    private var appActivateObserver: Any?
     private var stateCancellable: AnyCancellable?
     
     public init() {
@@ -61,6 +63,7 @@ public class DynamicIslandPanel: NSPanel {
         self.hidesOnDeactivate = false
         self.ignoresMouseEvents = false
         
+        setupFullScreenObservers()
         updateFrame(animated: false)
         
         // Listen to IslandState changes to dynamically resize the physical NSWindow
@@ -76,7 +79,43 @@ public class DynamicIslandPanel: NSPanel {
             object: nil,
             queue: .main
         ) { [weak self] _ in
+            self?.checkFullScreenState()
             self?.repositionToTopCenter()
+        }
+    }
+    
+    // MARK: - Automatic Fullscreen Detection (Auto-Hide in Fullscreen, Auto-Standby on Desktop)
+    private func setupFullScreenObservers() {
+        let center = NSWorkspace.shared.notificationCenter
+        spaceChangeObserver = center.addObserver(
+            forName: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.checkFullScreenState()
+        }
+        
+        appActivateObserver = center.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.checkFullScreenState()
+        }
+        
+        checkFullScreenState()
+    }
+    
+    private func checkFullScreenState() {
+        guard let screen = self.screen ?? NSScreen.main else { return }
+        // In macOS fullscreen mode, the menu bar is hidden and visibleFrame fills to the top bezel
+        let isFullScreen = (screen.visibleFrame.maxY >= (screen.frame.maxY - 2))
+        if IslandState.shared.isFullScreenAppActive != isFullScreen {
+            DispatchQueue.main.async {
+                withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
+                    IslandState.shared.isFullScreenAppActive = isFullScreen
+                }
+            }
         }
     }
     
@@ -198,6 +237,8 @@ public class DynamicIslandPanel: NSPanel {
     }
     
     public func updateFrame(animated: Bool = true) {
+        checkFullScreenState()
+        
         guard let screen = self.screen ?? NSScreen.main else { return }
         
         let screenRect = screen.frame
@@ -206,21 +247,15 @@ public class DynamicIslandPanel: NSPanel {
         let panelWidth = dims.width
         let panelHeight = dims.height
         
-        let xPos = floor(screenRect.midX - (panelWidth / 2))
+        // Exact mathematical dead-center alignment across all screen resolutions
+        let xPos = floor(screenRect.minX + ((screenRect.width - panelWidth) / 2.0))
         let yPos = screenRect.maxY - panelHeight
         let newFrame = NSRect(x: xPos, y: yPos, width: panelWidth, height: panelHeight)
         
         guard self.frame != newFrame else { return }
         
-        if animated {
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.28
-                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                self.animator().setFrame(newFrame, display: true)
-            }
-        } else {
-            self.setFrame(newFrame, display: true)
-        }
+        // Direct setFrame guarantees rock-solid dead-center accuracy without AppKit animator drift
+        self.setFrame(newFrame, display: true)
     }
     
     public func repositionToTopCenter() {
