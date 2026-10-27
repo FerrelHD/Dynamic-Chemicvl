@@ -143,13 +143,13 @@ public struct DynamicIslandView: View {
         switch state.mode {
         case .compact:
             if state.isTimerRunning {
-                return 165
+                return 220
             } else if state.isPlaying {
-                // Responsively adapt width to track title length (min 195, max 245)
+                // Responsively adapt width to track title length (min 260, max 330)
                 let titleLen = CGFloat(state.trackTitle.count)
-                return max(195, min(245, 165 + titleLen * 3.0))
+                return max(260, min(330, 220 + titleLen * 3.5))
             } else {
-                return 136 // Perfectly proportioned for centered clock
+                return 280 // Perfectly proportioned MacBook Hardware Notch
             }
         case .expanded:
             return 395 // Balanced proportion on 13" and larger screens
@@ -165,7 +165,7 @@ public struct DynamicIslandView: View {
         }
         switch state.mode {
         case .compact:
-            return 34
+            return 50 // Matching authentic charging notch depth
         case .expanded:
             // Dynamic content-aware height: eliminates dead space per tab!
             switch state.activeTab {
@@ -190,7 +190,7 @@ public struct DynamicIslandView: View {
         }
         switch state.mode {
         case .compact:
-            return 14 // Sleek bottom corner radius for compact notch
+            return 18 // Matching charging HUD's continuous squircle curvature
         case .expanded:
             return 22 // iOS continuous squircle curvature
         }
@@ -205,7 +205,7 @@ public struct DynamicIslandView: View {
         }
         switch state.mode {
         case .compact:
-            return 6
+            return 8 // Matching charging HUD's outward concave tangent fillet
         case .expanded:
             return 9
         }
