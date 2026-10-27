@@ -38,12 +38,15 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         }
         
         // Check if inside the curved notch path (including concave ear fillets)
-        let earRadius: CGFloat = (state.mode == .expanded) ? 19 : ((state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD) ? 8 : 6)
+        let earRadius: CGFloat = (state.mode == .expanded) ? 11 : ((state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD) ? 8 : 6)
         let bottomRadius: CGFloat = (state.mode == .expanded) ? 24 : ((state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD) ? 18 : 14)
-        let notchPath = NotchShape(earRadius: earRadius, bottomRadius: bottomRadius).path(in: notchRect)
+        
+        let pointInNotch = CGPoint(x: localPoint.x - notchX, y: localPoint.y)
+        let localNotchRect = CGRect(origin: .zero, size: CGSize(width: dims.width, height: dims.height))
+        let notchPath = NotchShape(earRadius: earRadius, bottomRadius: bottomRadius).path(in: localNotchRect)
         
         // If click is in the transparent cutout corners outside the notch curve, pass through
-        guard notchPath.contains(localPoint) else {
+        guard notchPath.contains(pointInNotch) else {
             return nil
         }
         
@@ -134,16 +137,16 @@ public class DynamicIslandPanel: NSPanel {
         let state = IslandState.shared
         let dims = state.currentDimensions
         
+        let canvasPadding: CGFloat = 32.0 // 16pt margin on left and right for ear fillets & shadow
+        let targetW: CGFloat = dims.width + canvasPadding
+        let targetH: CGFloat = dims.height
+        let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
+        let targetY = screenRect.maxY - targetH
+        let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)
+        
         if state.mode == .expanded {
             collapseTimer?.invalidate()
             collapseTimer = nil
-            
-            // Expand immediately to target expanded dimensions:
-            let targetW: CGFloat = dims.width
-            let targetH: CGFloat = dims.height
-            let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
-            let targetY = screenRect.maxY - targetH
-            let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)
             
             if self.frame != targetFrame {
                 super.setFrame(targetFrame, display: false)
@@ -170,7 +173,8 @@ public class DynamicIslandPanel: NSPanel {
         guard let screen = self.screen ?? NSScreen.main else { return }
         let screenRect = screen.frame
         let dims = IslandState.shared.currentDimensions
-        let targetW = dims.width
+        let canvasPadding: CGFloat = 32.0
+        let targetW = dims.width + canvasPadding
         let targetH = dims.height
         let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let targetY = screenRect.maxY - targetH

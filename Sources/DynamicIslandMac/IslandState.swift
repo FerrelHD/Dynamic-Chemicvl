@@ -112,19 +112,19 @@ public class IslandState: ObservableObject {
             }
         case .expanded:
             if activeTab == .music && isLyricsEnabled {
-                return (width: 680, height: 245) // Spacious Responsive Split View for Apple Music Lyrics
+                return (width: 700, height: 245) // Spacious Responsive Split View for Apple Music Lyrics
             }
             switch activeTab {
             case .control:
-                return (width: 412, height: 236)
+                return (width: 448, height: 236)
             case .music:
-                return (width: 412, height: 232) // Ample, comfortable breathing room (zero bottom cramping!)
+                return (width: 448, height: 232) // Ample, comfortable breathing room (zero horizontal/vertical cramping!)
             case .notes:
-                return (width: 412, height: 224)
+                return (width: 448, height: 224)
             case .devices:
-                return (width: 412, height: 216)
+                return (width: 448, height: 216)
             case .shelf:
-                return (width: 412, height: 195) // Spacious, comfortable file drop card
+                return (width: 448, height: 195) // Spacious, comfortable file drop card
             }
         }
     }

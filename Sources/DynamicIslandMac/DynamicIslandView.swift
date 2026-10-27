@@ -162,7 +162,7 @@ public struct DynamicIslandView: View {
     
     private var earRadius: CGFloat {
         if state.mode == .expanded {
-            return 19 // Authentic Apple concave ear fillets for expanded canvas
+            return 11 // Authentic Apple concave ear fillets that preserve full content width
         }
         if state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD {
             return 8
@@ -215,8 +215,8 @@ public struct DynamicIslandView: View {
                             }
                         }
                     }
+                    .clipShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
                 }
-                .clipShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
                 .contentShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
                 .frame(width: islandWidth, height: islandHeight, alignment: .top)
                 .onTapGesture {
