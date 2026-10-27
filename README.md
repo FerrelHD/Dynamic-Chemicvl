@@ -113,16 +113,16 @@ Or open the repository in **VS Code**, press **`Cmd + Shift + B`**, and select *
 
 | Shortcut / Trigger | Action |
 | :--- | :--- |
-| **`Option + Space`** | Global Toggle Expand / Minimize Dynamic Island |
-| **`Hover Top Screen Edge`** | Smoothly reveal / peek Dynamic Island (in Hover Peek mode) |
-| **`Click Island Notch`** | Expand / Collapse Island |
-| **`Click Outside`** | Automatically collapse back to compact notch |
+| **`Option + Space`** | Primary Global Toggle to Expand / Collapse Dynamic Island |
+| **`Click Top Notch Lip`** | Expand / Collapse Island directly from screen bezel |
+| **`Click Outside`** | Automatically collapse back into tucked bezel lip & click app |
 | **`F11 / F12`** | Trigger sleek iOS Volume HUD |
 | **`Caps Lock`** | Trigger Floating Caps Lock HUD indicator |
 | **`Plug / Unplug MagSafe`** | Trigger Battery & MagSafe Charging HUD |
 | **`Shelf Tab > Clipboard`** | View & 1-click re-copy recent clipboard history |
 | **`Shelf Tab > Files`** | Drag & drop temporary file shelf |
-| **`Menu Bar (🏝️) Right-Click`** | Toggle **Hover Peek Mode** on/off, Hide Island, Quit |
+| **`Menu Bar (🏝️) Left-Click`** | Instant toggle Expand / Collapse Dynamic Island |
+| **`Menu Bar (🏝️) Right-Click`** | Context menu: Show/Hide Island, Quit Dynamic Island |
 
 ---
 

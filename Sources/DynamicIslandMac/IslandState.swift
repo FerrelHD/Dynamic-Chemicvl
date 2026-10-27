@@ -42,10 +42,9 @@ public class IslandState: ObservableObject {
     private let hoverPeekStorageKey = "DynamicIsland_HoverPeekEnabled"
     
     public var isIslandVisible: Bool {
-        if !isHoverPeekEnabled { return true }
         if mode == .expanded { return true }
         if isShowingVolumeHUD || isShowingBatteryHUD || isShowingCapsLockHUD { return true }
-        return isHoverRevealed
+        return false
     }
     
     // Volume HUD overlay
@@ -223,11 +222,6 @@ public class IslandState: ObservableObject {
         refreshControlStatus()
         
         let willExpand = (mode == .compact)
-        if willExpand {
-            // Aktifkan aplikasi agar keyboard bisa mengetik di Notes!
-            NSApp.activate(ignoringOtherApps: true)
-        }
-        
         withAnimation(.spring(response: 0.34, dampingFraction: 0.74)) {
             mode = willExpand ? .expanded : .compact
         }

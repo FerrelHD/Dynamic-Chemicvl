@@ -192,6 +192,12 @@ public struct DynamicIslandView: View {
                                 .stroke(Color.white.opacity(0.14), lineWidth: 0.5)
                         )
                         .frame(width: 48, height: 4)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
+                                state.isHoverRevealed = true
+                            }
+                        }
                         .shadow(color: Color.black.opacity(0.35), radius: 2, x: 0, y: 1)
                         .transition(.opacity)
                 }
