@@ -285,8 +285,17 @@ public class DynamicIslandPanel: NSPanel {
         
         guard self.frame != newFrame else { return }
         
-        // Direct setFrame guarantees rock-solid dead-center accuracy without AppKit animator drift
-        self.setFrame(newFrame, display: true)
+        // Coordinated animation prevents abrupt clipping between expanding and minimizing
+        if animated {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.28
+                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                context.allowsImplicitAnimation = true
+                self.animator().setFrame(newFrame, display: true)
+            }
+        } else {
+            self.setFrame(newFrame, display: true)
+        }
     }
     
     public func repositionToTopCenter() {
