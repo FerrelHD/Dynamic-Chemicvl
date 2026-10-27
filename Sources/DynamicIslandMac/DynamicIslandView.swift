@@ -428,51 +428,54 @@ public struct DynamicIslandView: View {
     private var compactContent: some View {
         ZStack {
             if state.isTimerRunning {
-                HStack(spacing: 5.5) {
+                HStack(spacing: 7) {
                     Image(systemName: "timer")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .font(.system(size: 13.5, weight: .bold, design: .rounded))
                         .foregroundColor(.orange)
                     
                     Text(state.timerFormattedString)
-                        .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                        .font(.system(size: 15.5, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                .padding(.top, 4)
             } else if state.isPlaying {
-                HStack(spacing: 7) {
+                HStack(spacing: 9) {
                     if let art = state.artworkImage {
                         Image(nsImage: art)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
-                            .frame(width: 16, height: 16)
-                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                            .frame(width: 22, height: 22)
+                            .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
                     } else {
                         Image(systemName: "music.note")
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
                             .foregroundColor(.pink)
                     }
                     
                     Text(state.trackTitle)
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
                         .foregroundColor(.white)
                         .lineLimit(1)
                     
-                    waveformView(height: 12)
+                    waveformView(height: 14)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                .padding(.horizontal, 10)
+                .padding(.horizontal, 14)
+                .padding(.top, 4)
             } else {
                 // Dead-Center Clock: Both icon and digits sit exactly at mathematical and optical center
-                HStack(spacing: 5.5) {
+                HStack(spacing: 7) {
                     Image(systemName: "clock.fill")
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .font(.system(size: 13.5, weight: .semibold, design: .rounded))
                         .foregroundColor(.white.opacity(0.85))
                     
                     Text(currentShortTime)
-                        .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                        .font(.system(size: 16.5, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                .padding(.top, 4)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
