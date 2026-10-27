@@ -256,7 +256,7 @@ public struct DynamicIslandView: View {
                         }
                     }
                 }
-                .frame(width: islandWidth, height: islandHeight)
+                .frame(width: islandWidth, height: islandHeight, alignment: .top)
                 .contentShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
                 .onTapGesture {
                     state.toggleExpand()
