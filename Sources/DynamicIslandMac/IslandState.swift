@@ -42,6 +42,10 @@ public class IslandState: ObservableObject {
     @Published public var isFullScreenAppActive: Bool = false
     private let hoverPeekStorageKey = "DynamicIsland_HoverPeekEnabled"
     
+    // Seamless Black Menu Bar (Match Notch)
+    @Published public var isSeamlessMenuBarEnabled: Bool = false
+    private let seamlessMenuBarStorageKey = "DynamicIsland_SeamlessMenuBarEnabled"
+    
     public var isIslandVisible: Bool {
         if mode == .expanded { return true }
         if isShowingVolumeHUD || isShowingBatteryHUD || isShowingCapsLockHUD { return true }
@@ -161,6 +165,12 @@ public class IslandState: ObservableObject {
             self.isHoverPeekEnabled = UserDefaults.standard.bool(forKey: hoverPeekStorageKey)
         } else {
             self.isHoverPeekEnabled = true
+        }
+        
+        if UserDefaults.standard.object(forKey: seamlessMenuBarStorageKey) != nil {
+            self.isSeamlessMenuBarEnabled = UserDefaults.standard.bool(forKey: seamlessMenuBarStorageKey)
+        } else {
+            self.isSeamlessMenuBarEnabled = MenuBarTintService.shared.isSeamlessActive
         }
         
         if let vol = AudioService.shared.getSystemVolume() {
@@ -527,6 +537,31 @@ public class IslandState: ObservableObject {
     
     public func clearClipboard() {
         clipboardHistory.removeAll()
+    }
+    
+    // MARK: - Seamless Menu Bar Control
+    public func toggleSeamlessMenuBar() {
+        if isSeamlessMenuBarEnabled {
+            let success = MenuBarTintService.shared.restoreOriginalWallpaper()
+            if success {
+                isSeamlessMenuBarEnabled = false
+                UserDefaults.standard.set(false, forKey: seamlessMenuBarStorageKey)
+            }
+        } else {
+            let success = MenuBarTintService.shared.applySeamlessMenuBar()
+            if success {
+                isSeamlessMenuBarEnabled = true
+                UserDefaults.standard.set(true, forKey: seamlessMenuBarStorageKey)
+            }
+        }
+    }
+    
+    public func restoreOriginalWallpaper() {
+        let success = MenuBarTintService.shared.restoreOriginalWallpaper()
+        if success {
+            isSeamlessMenuBarEnabled = false
+            UserDefaults.standard.set(false, forKey: seamlessMenuBarStorageKey)
+        }
     }
     
     private func formatTime(_ seconds: Int) -> String {
