@@ -341,7 +341,7 @@ public struct DynamicIslandView: View {
                         .fill(Color.white)
                         .frame(width: max(0, geo.size.width * CGFloat(state.currentVolume) / 100.0), height: 6)
                 }
-                .frame(height: geo.size.height)
+                .frame(height: geo.size.height, alignment: .center)
             }
             .frame(height: 6)
             
@@ -351,6 +351,8 @@ public struct DynamicIslandView: View {
                 .frame(width: 36, alignment: .trailing)
         }
         .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        .offset(y: 2) // optical vertical center alignment inside top-bezel notch
     }
     
     private var volumeIcon: String {

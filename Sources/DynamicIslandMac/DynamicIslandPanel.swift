@@ -138,8 +138,8 @@ public class DynamicIslandPanel: NSPanel {
             
             // Expand immediately to target expanded dimensions:
             // Zero animator -> zero buffer stretching ("narik") -> zero clipping!
-            // SwiftUI's .spring will smoothly animate the notch inside this transparent frame.
-            let targetW: CGFloat = 395
+            // Provide 24pt extra canvas width (12pt on each side) so top ear fillets flare smoothly into the bezel
+            let targetW: CGFloat = 395 + 24
             let targetH: CGFloat = dims.height
             let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
             let targetY = screenRect.maxY - targetH
@@ -151,10 +151,10 @@ public class DynamicIslandPanel: NSPanel {
         } else {
             // Compact mode or HUD:
             // If the window was previously expanded (height > dims.height + 10),
-            // wait 0.32s for SwiftUI's spring collapse animation to finish cleanly before shrinking the window frame.
+            // wait 0.28s for SwiftUI's collapse animation to finish cleanly before shrinking the window frame.
             if self.frame.height > dims.height + 10 {
                 if collapseTimer == nil {
-                    collapseTimer = Timer.scheduledTimer(withTimeInterval: 0.32, repeats: false) { [weak self] _ in
+                    collapseTimer = Timer.scheduledTimer(withTimeInterval: 0.28, repeats: false) { [weak self] _ in
                         self?.collapseTimer = nil
                         guard IslandState.shared.mode == .compact else { return }
                         self?.applyCompactFrame()
@@ -170,7 +170,8 @@ public class DynamicIslandPanel: NSPanel {
         guard let screen = self.screen ?? NSScreen.main else { return }
         let screenRect = screen.frame
         let dims = IslandState.shared.currentDimensions
-        let targetW = dims.width
+        // Provide 24pt extra canvas width so ear fillets flare out gracefully without edge clipping
+        let targetW = dims.width + 24
         let targetH = dims.height
         let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let targetY = screenRect.maxY - targetH

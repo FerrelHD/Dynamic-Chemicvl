@@ -15,3 +15,4 @@ public enum SpiderEyesAssets {
         return NSImage(data: data)
     }()
 }
+
