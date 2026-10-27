@@ -324,25 +324,20 @@ public struct DynamicIslandView: View {
         .padding(.horizontal, 14)
     }
     
-    // MARK: - 1. Compact View (Centered Clock & Responsive Media Pill)
+    // MARK: - 1. Compact View (Centered Clock, Timer, & Responsive Media)
     private var compactContent: some View {
-        HStack(spacing: 0) {
-            Spacer()
-            
+        ZStack {
             if state.isTimerRunning {
-                HStack(spacing: 6) {
+                HStack(spacing: 5.5) {
                     Image(systemName: "timer")
                         .font(.system(size: 11, weight: .bold, design: .rounded))
                         .foregroundColor(.orange)
                     
                     Text(state.timerFormattedString)
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .font(.system(size: 12.5, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
-                    
-                    Image(systemName: "timer")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundColor(.clear)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             } else if state.isPlaying {
                 HStack(spacing: 7) {
                     if let art = state.artworkImage {
@@ -364,27 +359,23 @@ public struct DynamicIslandView: View {
                     
                     waveformView(height: 12)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                .padding(.horizontal, 10)
             } else {
-                // Symmetrically Balanced: Numbers are DEAD-CENTER in the capsule
-                HStack(spacing: 6) {
+                // Dead-Center Clock: Both icon and digits sit exactly at mathematical and optical center
+                HStack(spacing: 5.5) {
                     Image(systemName: "clock.fill")
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
                         .foregroundColor(.white.opacity(0.85))
                     
                     Text(currentShortTime)
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .font(.system(size: 12.5, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
-                    
-                    // Invisible mirror icon so the clock digits sit at the exact dead center
-                    Image(systemName: "clock.fill")
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundColor(.clear)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             }
-            
-            Spacer()
         }
-        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     // MARK: - 2. Expanded View (iOS Responsive Card)
