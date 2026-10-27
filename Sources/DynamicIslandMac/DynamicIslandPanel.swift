@@ -122,20 +122,23 @@ public class DynamicIslandPanel: NSPanel {
         // 1. Direct window server inspection of the frontmost app's window bounds
         var isFullScreen = false
         if let frontApp = NSWorkspace.shared.frontmostApplication {
-            let frontPID = frontApp.processIdentifier
-            let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
-            if let list = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] {
-                for win in list {
-                    if let pid = win[kCGWindowOwnerPID as String] as? pid_t, pid == frontPID,
-                       let layer = win[kCGWindowLayer as String] as? Int, layer == 0,
-                       let bounds = win[kCGWindowBounds as String] as? [String: Any],
-                       let w = bounds["Width"] as? CGFloat,
-                       let h = bounds["Height"] as? CGFloat {
-                        // If frontmost app has a window covering the full screen, it is fullscreen!
-                        if w >= screenW && h >= screenH {
-                            isFullScreen = true
-                            break
+            // Ignore Finder desktop itself so Desktop space is never flagged as fullscreen
+            if frontApp.bundleIdentifier != "com.apple.finder" {
+                let frontPID = frontApp.processIdentifier
+                let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+                if let list = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] {
+                    var unionRect = CGRect.null
+                    for win in list {
+                        if let pid = win[kCGWindowOwnerPID as String] as? pid_t, pid == frontPID,
+                           let layer = win[kCGWindowLayer as String] as? Int, layer == 0,
+                           let boundsDict = win[kCGWindowBounds as String] as? [String: Any],
+                           let rect = CGRect(dictionaryRepresentation: boundsDict as CFDictionary) {
+                            unionRect = unionRect.union(rect)
                         }
+                    }
+                    // If frontmost app has windows covering the full screen, it is fullscreen!
+                    if unionRect.width >= (screenW - 2) && unionRect.height >= (screenH - 2) && unionRect.minY <= 1 {
+                        isFullScreen = true
                     }
                 }
             }
@@ -149,10 +152,11 @@ public class DynamicIslandPanel: NSPanel {
         }
         
         if IslandState.shared.isFullScreenAppActive != isFullScreen {
-            DispatchQueue.main.async {
+            DispatchQueue.main.async { [weak self] in
                 withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
                     IslandState.shared.isFullScreenAppActive = isFullScreen
                 }
+                self?.updateFrame(animated: false)
             }
         }
     }
