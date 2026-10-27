@@ -34,7 +34,6 @@ public class DynamicIslandPanel: NSPanel {
     private var mouseMoveMonitor: Any?
     private var localMouseMoveMonitor: Any?
     private var hideDebounceTimer: Timer?
-    private var revealDwellTimer: Timer?
     private var screenChangeObserver: Any?
     private var spaceChangeObserver: Any?
     private var appActivateObserver: Any?
@@ -205,8 +204,8 @@ public class DynamicIslandPanel: NSPanel {
             guard state.isHoverPeekEnabled else { return }
             
             if state.mode == .expanded || state.isShowingVolumeHUD || state.isShowingBatteryHUD || state.isShowingCapsLockHUD {
-                self?.revealDwellTimer?.invalidate()
-                self?.revealDwellTimer = nil
+                self?.hideDebounceTimer?.invalidate()
+                self?.hideDebounceTimer = nil
                 return
             }
             
@@ -222,51 +221,31 @@ public class DynamicIslandPanel: NSPanel {
             // Active zone: keep revealed while cursor is inside or directly surrounding the notch
             let inActiveZone = (mouseLoc.y >= topY - 56) && (abs(mouseLoc.x - midX) <= 160)
             
-            if state.isHoverRevealed {
-                self?.revealDwellTimer?.invalidate()
-                self?.revealDwellTimer = nil
-                
-                if inActiveZone {
-                    self?.hideDebounceTimer?.invalidate()
-                    self?.hideDebounceTimer = nil
-                } else {
-                    if self?.hideDebounceTimer == nil {
-                        self?.hideDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: false) { [weak self] _ in
-                            self?.hideDebounceTimer = nil
-                            let currentLoc = NSEvent.mouseLocation
-                            let stillInZone = (currentLoc.y >= topY - 56) && (abs(currentLoc.x - midX) <= 160)
-                            if !stillInZone && state.mode != .expanded {
-                                DispatchQueue.main.async {
-                                    withAnimation(.spring(response: 0.32, dampingFraction: 0.80)) {
-                                        state.isHoverRevealed = false
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            } else {
+            if inTriggerZone || (state.isHoverRevealed && inActiveZone) {
                 self?.hideDebounceTimer?.invalidate()
                 self?.hideDebounceTimer = nil
                 
-                if inTriggerZone {
-                    if self?.revealDwellTimer == nil {
-                        self?.revealDwellTimer = Timer.scheduledTimer(withTimeInterval: 0.20, repeats: false) { [weak self] _ in
-                            self?.revealDwellTimer = nil
-                            let currentLoc = NSEvent.mouseLocation
-                            let stillInTrigger = (currentLoc.y >= topY - 16) && (abs(currentLoc.x - midX) <= 140)
-                            if stillInTrigger && !state.isHoverRevealed && state.mode != .expanded {
-                                DispatchQueue.main.async {
-                                    withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
-                                        state.isHoverRevealed = true
-                                    }
+                if !state.isHoverRevealed {
+                    DispatchQueue.main.async {
+                        withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
+                            state.isHoverRevealed = true
+                        }
+                    }
+                }
+            } else if state.isHoverRevealed {
+                if self?.hideDebounceTimer == nil {
+                    self?.hideDebounceTimer = Timer.scheduledTimer(withTimeInterval: 0.30, repeats: false) { [weak self] _ in
+                        self?.hideDebounceTimer = nil
+                        let currentLoc = NSEvent.mouseLocation
+                        let stillInZone = (currentLoc.y >= topY - 56) && (abs(currentLoc.x - midX) <= 160)
+                        if !stillInZone && state.mode != .expanded {
+                            DispatchQueue.main.async {
+                                withAnimation(.spring(response: 0.32, dampingFraction: 0.80)) {
+                                    state.isHoverRevealed = false
                                 }
                             }
                         }
                     }
-                } else {
-                    self?.revealDwellTimer?.invalidate()
-                    self?.revealDwellTimer = nil
                 }
             }
         }
