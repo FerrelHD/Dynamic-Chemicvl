@@ -21,9 +21,21 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
     }
     
     public override func hitTest(_ point: NSPoint) -> NSView? {
-        // Since the window frame is physically tight to the visible island,
-        // any point inside bounds is interactive.
         guard self.bounds.contains(point) else { return nil }
+        
+        // Strict Geometric Path Hit-Testing:
+        // Convert AppKit coordinates (bottom-left origin) to SwiftUI (top-left origin)
+        let swiftUIPoint = CGPoint(x: point.x, y: self.bounds.height - point.y)
+        
+        let earRadius: CGFloat = (state.mode == .expanded) ? 9 : 6
+        let bottomRadius: CGFloat = (state.mode == .expanded) ? 18 : 12
+        let notchPath = NotchShape(earRadius: earRadius, bottomRadius: bottomRadius).path(in: self.bounds)
+        
+        // If click is in the transparent corners outside the black notch curve, pass through to windows below
+        guard notchPath.contains(swiftUIPoint) else {
+            return nil
+        }
+        
         return super.hitTest(point)
     }
     
@@ -294,9 +306,9 @@ public class DynamicIslandPanel: NSPanel {
         // Coordinated animation prevents abrupt clipping between expanding and minimizing
         if animated {
             NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.32
+                context.duration = 0.30
                 // Fluid Apple cubic-bezier ease-out matches SwiftUI spring acceleration
-                context.timingFunction = CAMediaTimingFunction(controlPoints: 0.25, 1.0, 0.5, 1.0)
+                context.timingFunction = CAMediaTimingFunction(controlPoints: 0.20, 1.0, 0.40, 1.0)
                 context.allowsImplicitAnimation = true
                 self.animator().setFrame(newFrame, display: true)
             }
