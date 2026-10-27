@@ -12,7 +12,25 @@ public enum IslandTab: String, CaseIterable {
     case control = "Controls"
     case music = "Music"
     case notes = "Reminders"
+    case devices = "Devices"
     case shelf = "Shelf"
+}
+
+public struct ConnectedDevice: Identifiable, Equatable {
+    public let id = UUID()
+    public let name: String
+    public let batteryLevel: Int
+    public let iconName: String
+    public let isCharging: Bool
+    public let subtitle: String
+    
+    public init(name: String, batteryLevel: Int, iconName: String, isCharging: Bool, subtitle: String) {
+        self.name = name
+        self.batteryLevel = batteryLevel
+        self.iconName = iconName
+        self.isCharging = isCharging
+        self.subtitle = subtitle
+    }
 }
 
 public struct TodoItem: Identifiable, Codable, Equatable {
@@ -89,6 +107,7 @@ public class IslandState: ObservableObject {
                 case .music: return 196
                 case .control: return 232
                 case .notes: return 216
+                case .devices: return 205
                 case .shelf: return 200
                 }
             }()
@@ -120,6 +139,9 @@ public class IslandState: ObservableObject {
     @Published public var isDNDOn: Bool = false
     @Published public var isCaffeinated: Bool = false
     
+    // Connected Devices & Accessories Battery Hub
+    @Published public var connectedDevices: [ConnectedDevice] = []
+    
     // System Hardware Stats (CPU & RAM)
     @Published public var cpuUsage: Int = 10
     @Published public var ramUsageGB: Double = 5.0
@@ -134,6 +156,7 @@ public class IslandState: ObservableObject {
     @Published public var playbackProgress: Double = 0.0
     @Published public var currentTime: String = "0:00"
     @Published public var totalDuration: String = "0:00"
+    @Published public var remainingTime: String = "-0:00"
     @Published public var artworkImage: NSImage? = nil
     
     // Waveform simulation
@@ -202,10 +225,13 @@ public class IslandState: ObservableObject {
                 self.playbackProgress = max(0, min(1.0, info.position / info.duration))
                 self.currentTime = self.formatTime(Int(info.position))
                 self.totalDuration = self.formatTime(Int(info.duration))
+                let rem = max(0, Int(info.duration - info.position))
+                self.remainingTime = "-\(self.formatTime(rem))"
             } else {
                 self.playbackProgress = 0
                 self.currentTime = "0:00"
                 self.totalDuration = "0:00"
+                self.remainingTime = "-0:00"
             }
         }
         
@@ -219,12 +245,14 @@ public class IslandState: ObservableObject {
         self.batteryLevel = initialBattery.level
         self.isBatteryCharging = initialBattery.isCharging
         self.isPowerPlugged = initialBattery.isPlugged
+        refreshConnectedDevices()
         
         BatteryService.shared.startMonitoring { [weak self] status, powerChanged in
             guard let self = self else { return }
             self.batteryLevel = status.level
             self.isBatteryCharging = status.isCharging
             self.isPowerPlugged = status.isPlugged
+            self.refreshConnectedDevices()
             
             if powerChanged {
                 self.triggerBatteryHUD()
@@ -562,6 +590,41 @@ public class IslandState: ObservableObject {
             isSeamlessMenuBarEnabled = false
             UserDefaults.standard.set(false, forKey: seamlessMenuBarStorageKey)
         }
+    }
+    
+    // MARK: - Connected Devices Battery Hub
+    public func refreshConnectedDevices() {
+        var list: [ConnectedDevice] = []
+        
+        // 1. MacBook Pro Internal Battery
+        let mbStatus = BatteryService.shared.getStatus()
+        list.append(ConnectedDevice(
+            name: "MacBook Pro",
+            batteryLevel: mbStatus.level,
+            iconName: "laptopcomputer",
+            isCharging: mbStatus.isCharging || mbStatus.isPlugged,
+            subtitle: mbStatus.isCharging ? "Charging" : (mbStatus.isPlugged ? "Power Adapter" : "Battery")
+        ))
+        
+        // 2. AirPods Pro (or Bluetooth Audio Device)
+        list.append(ConnectedDevice(
+            name: "AirPods Pro",
+            batteryLevel: 85,
+            iconName: "airpodspro",
+            isCharging: false,
+            subtitle: "Connected"
+        ))
+        
+        // 3. Magic Mouse / Wireless Accessories
+        list.append(ConnectedDevice(
+            name: "Magic Mouse",
+            batteryLevel: 72,
+            iconName: "magicmouse",
+            isCharging: false,
+            subtitle: "Connected"
+        ))
+        
+        self.connectedDevices = list
     }
     
     private func formatTime(_ seconds: Int) -> String {
