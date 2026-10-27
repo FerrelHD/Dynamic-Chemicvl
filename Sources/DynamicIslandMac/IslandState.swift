@@ -83,7 +83,7 @@ public class IslandState: ObservableObject {
             return (width: 48, height: 4)
         }
         if isShowingBatteryHUD {
-            return (width: 350, height: 54)
+            return (width: 192, height: 34)
         }
         if isShowingVolumeHUD {
             return (width: 260, height: 36)
