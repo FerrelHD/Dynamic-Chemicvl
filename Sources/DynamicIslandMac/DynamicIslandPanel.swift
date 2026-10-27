@@ -55,8 +55,8 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         }()
         
         let capsuleX = (bounds.width - capsuleWidth) / 2
-        let capsuleY = bounds.height - 4 - capsuleHeight
-        let activeRect = NSRect(x: capsuleX - 4, y: capsuleY - 4, width: capsuleWidth + 8, height: capsuleHeight + 8)
+        let capsuleY = bounds.height - capsuleHeight
+        let activeRect = NSRect(x: capsuleX - 4, y: capsuleY - 2, width: capsuleWidth + 8, height: capsuleHeight + 4)
         
         if activeRect.contains(point) {
             return super.hitTest(point)
@@ -136,7 +136,7 @@ public class DynamicIslandPanel: NSPanel {
             }()
             
             let capsuleX = screen.frame.midX - (capsuleWidth / 2)
-            let capsuleY = screen.frame.maxY - capsuleHeight - 8
+            let capsuleY = screen.frame.maxY - capsuleHeight
             let capsuleRect = CGRect(x: capsuleX, y: capsuleY, width: capsuleWidth, height: capsuleHeight)
             
             // If click is outside the active card frame, minimize immediately
@@ -222,8 +222,8 @@ public class DynamicIslandPanel: NSPanel {
         let panelHeight: CGFloat = 260
         
         let xPos = floor(screenRect.midX - (panelWidth / 2))
-        // Suspended with ~8pt margin below macOS menu bar
-        let yPos = screenRect.maxY - panelHeight - 8
+        // Flush with top bezel of screen: 0pt margin!
+        let yPos = screenRect.maxY - panelHeight
         
         self.setFrame(NSRect(x: xPos, y: yPos, width: panelWidth, height: panelHeight), display: true)
     }

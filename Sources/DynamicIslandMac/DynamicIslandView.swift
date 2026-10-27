@@ -1,6 +1,75 @@
 import SwiftUI
 import AppKit
 
+// MARK: - MacBook Hardware Notch Cutout Shape (Flush with Top Bezel)
+public struct NotchShape: Shape {
+    public var bottomRadius: CGFloat
+    
+    public var animatableData: CGFloat {
+        get { bottomRadius }
+        set { bottomRadius = newValue }
+    }
+    
+    public init(bottomRadius: CGFloat) {
+        self.bottomRadius = bottomRadius
+    }
+    
+    public func path(in rect: CGRect) -> Path {
+        let r = max(0, min(bottomRadius, min(rect.width / 2, rect.height)))
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - r))
+        path.addArc(
+            tangent1End: CGPoint(x: rect.maxX, y: rect.maxY),
+            tangent2End: CGPoint(x: rect.maxX - r, y: rect.maxY),
+            radius: r
+        )
+        path.addLine(to: CGPoint(x: rect.minX + r, y: rect.maxY))
+        path.addArc(
+            tangent1End: CGPoint(x: rect.minX, y: rect.maxY),
+            tangent2End: CGPoint(x: rect.minX, y: rect.maxY - r),
+            radius: r
+        )
+        path.closeSubpath()
+        return path
+    }
+}
+
+public struct NotchOutlineShape: Shape {
+    public var bottomRadius: CGFloat
+    
+    public var animatableData: CGFloat {
+        get { bottomRadius }
+        set { bottomRadius = newValue }
+    }
+    
+    public init(bottomRadius: CGFloat) {
+        self.bottomRadius = bottomRadius
+    }
+    
+    public func path(in rect: CGRect) -> Path {
+        let r = max(0, min(bottomRadius, min(rect.width / 2, rect.height)))
+        var path = Path()
+        // Leaves the top edge unstroked so it seamlessly flows out of the black bezel!
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY - r))
+        path.addArc(
+            tangent1End: CGPoint(x: rect.minX, y: rect.maxY),
+            tangent2End: CGPoint(x: rect.minX + r, y: rect.maxY),
+            radius: r
+        )
+        path.addLine(to: CGPoint(x: rect.maxX - r, y: rect.maxY))
+        path.addArc(
+            tangent1End: CGPoint(x: rect.maxX, y: rect.maxY),
+            tangent2End: CGPoint(x: rect.maxX, y: rect.maxY - r),
+            radius: r
+        )
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        return path
+    }
+}
+
 public struct DynamicIslandView: View {
     @ObservedObject var state: IslandState
     @State private var isDropTargeted = false
@@ -60,13 +129,13 @@ public struct DynamicIslandView: View {
     
     private var cornerRadius: CGFloat {
         if state.isShowingVolumeHUD || state.isShowingBatteryHUD || state.isShowingCapsLockHUD {
-            return 18
+            return 16
         }
         switch state.mode {
         case .compact:
-            return islandHeight / 2 // Perfect pill
+            return 14 // Sleek bottom corner radius for compact notch
         case .expanded:
-            return 26 // iOS continuous squircle curvature
+            return 22 // iOS continuous squircle curvature
         }
     }
     
@@ -74,11 +143,11 @@ public struct DynamicIslandView: View {
         VStack(spacing: 0) {
             ZStack(alignment: .top) {
                 if state.isIslandVisible {
-                    // MARK: - OLED Jet-Black Pill with iOS Specular Rim
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    // MARK: - OLED Jet-Black MacBook Notch (Flush with Top Bezel)
+                    NotchShape(bottomRadius: cornerRadius)
                         .fill(Color.black)
                         .overlay(
-                            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            NotchOutlineShape(bottomRadius: cornerRadius)
                                 .stroke(Color.white.opacity(0.12), lineWidth: 0.8)
                         )
                         .shadow(color: Color.black.opacity(0.55), radius: 16, x: 0, y: 8)
@@ -106,7 +175,7 @@ public struct DynamicIslandView: View {
                             }
                         )
                         .frame(width: islandWidth, height: islandHeight)
-                        .contentShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                        .contentShape(NotchShape(bottomRadius: cornerRadius))
                         .onTapGesture {
                             state.toggleExpand()
                         }
@@ -115,14 +184,14 @@ public struct DynamicIslandView: View {
                             removal: .move(edge: .top).combined(with: .opacity)
                         ))
                 } else {
-                    // MARK: - Tucked Handle (3.5pt Micro-Pill at Top Bezel)
-                    Capsule()
-                        .fill(Color.black.opacity(0.82))
+                    // MARK: - Tucked Handle (Micro-Notch Flush with Top Bezel)
+                    NotchShape(bottomRadius: 3)
+                        .fill(Color.black.opacity(0.85))
                         .overlay(
-                            Capsule()
+                            NotchOutlineShape(bottomRadius: 3)
                                 .stroke(Color.white.opacity(0.14), lineWidth: 0.5)
                         )
-                        .frame(width: 44, height: 3.5)
+                        .frame(width: 48, height: 4)
                         .shadow(color: Color.black.opacity(0.35), radius: 2, x: 0, y: 1)
                         .transition(.opacity)
                 }
@@ -139,7 +208,7 @@ public struct DynamicIslandView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .padding(.top, 4)
+        .padding(.top, 0)
     }
     
     // MARK: - iOS Volume HUD (Hardware keys trigger)
@@ -379,7 +448,7 @@ public struct DynamicIslandView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.top, 4)
+            .padding(.top, 7)
             
             Divider()
                 .background(Color.white.opacity(0.15))
