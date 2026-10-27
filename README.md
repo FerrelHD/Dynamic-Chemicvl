@@ -8,6 +8,7 @@ A lightweight, battery-friendly (idle CPU 0.0%, ~20 MB RAM, 1.8 MB binary) nativ
 
 1. **📱 MacBook Hardware Notch Design (Concave Ears & Camera Dot):**
    - **0-Pixel Flush Gap**: Sits seamlessly flush against the top physical bezel of your display, mirroring Apple's authentic MacBook Pro notch cutout.
+   - **Unified Hardware Silhouette**: Both idle mode (280 x 50 pt) and charging mode (350 x 54 pt) share the exact same hardware silhouette with a wide flat base and fluid continuous squircle corners (`bottomRadius = 18`).
    - **Concave Outward Ears**: Fluid tangent fillets (`earRadius = 8`) connecting the top horizontal screen bezel down into the vertical sides of the notch.
    - **Hardware Camera Dot Cutout**: Subtle dark sensor lens detailing with glass reflection at top center.
    - Specular bottom and side rim outline while merging natively into the black screen bezel at the top.
