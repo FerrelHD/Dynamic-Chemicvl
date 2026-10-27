@@ -24,15 +24,13 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         guard self.bounds.contains(point) else { return nil }
         
         // Strict Geometric Path Hit-Testing:
-        // Convert AppKit coordinates (bottom-left origin) to SwiftUI (top-left origin)
-        let swiftUIPoint = CGPoint(x: point.x, y: self.bounds.height - point.y)
-        
-        let earRadius: CGFloat = (state.mode == .expanded) ? 9 : 6
-        let bottomRadius: CGFloat = (state.mode == .expanded) ? 18 : 12
+        // In flipped NSHostingView, point.y is already 0 at top matching SwiftUI coordinates
+        let earRadius: CGFloat = (state.mode == .expanded) ? 14 : 6
+        let bottomRadius: CGFloat = (state.mode == .expanded) ? 22 : 14
         let notchPath = NotchShape(earRadius: earRadius, bottomRadius: bottomRadius).path(in: self.bounds)
         
         // If click is in the transparent corners outside the black notch curve, pass through to windows below
-        guard notchPath.contains(swiftUIPoint) else {
+        guard notchPath.contains(point) else {
             return nil
         }
         
