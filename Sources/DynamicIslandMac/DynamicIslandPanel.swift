@@ -185,6 +185,12 @@ public class DynamicIslandPanel: NSPanel {
     public func startClickOutsideMonitoring(state: IslandState) {
         let checkClickOutside: (NSEvent) -> Void = { [weak self] _ in
             guard state.mode == .expanded else { return }
+            
+            // Shelf Pinned Mode: While on Shelf tab, keep open so user can click and drag files from Finder
+            if state.activeTab == .shelf {
+                return
+            }
+            
             let mouseLoc = NSEvent.mouseLocation
             
             guard let screen = self?.screen ?? NSScreen.main else { return }
