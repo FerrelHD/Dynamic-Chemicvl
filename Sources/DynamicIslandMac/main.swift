@@ -32,33 +32,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let button = statusItem?.button else { return }
         
         button.title = "🏝️"
-        button.target = self
-        button.action = #selector(statusBarButtonClicked(_:))
-        button.sendAction(on: [.leftMouseUp, .rightMouseUp])
-    }
-    
-    @objc private func statusBarButtonClicked(_ sender: NSStatusBarButton) {
-        guard let event = NSApp.currentEvent else { return }
         
-        if event.type == .rightMouseUp {
-            // Right Click: Context Menu
-            showStatusContextMenu()
-        } else {
-            // Left Click: Toggle Island
-            IslandState.shared.toggleExpand()
-        }
-    }
-    
-    private func showStatusContextMenu() {
         let menu = NSMenu()
         menu.delegate = self
+        statusItem?.menu = menu
+    }
+    
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
         
         let isExpanded = IslandState.shared.mode == .expanded
         let toggleItem = NSMenuItem(
             title: isExpanded ? "Collapse Dynamic Island" : "Expand Dynamic Island",
             action: #selector(toggleIslandAction),
-            keyEquivalent: "d"
+            keyEquivalent: " "
         )
+        toggleItem.keyEquivalentModifierMask = [.option]
         toggleItem.target = self
         menu.addItem(toggleItem)
         
@@ -73,12 +62,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         
         menu.addItem(NSMenuItem.separator())
         
+        let isSeamless = IslandState.shared.isSeamlessMenuBarEnabled
         let seamlessItem = NSMenuItem(
             title: "Seamless Black Menu Bar (Match Notch)",
             action: #selector(toggleSeamlessMenuBarAction),
             keyEquivalent: "b"
         )
-        seamlessItem.state = IslandState.shared.isSeamlessMenuBarEnabled ? .on : .off
+        seamlessItem.state = isSeamless ? .on : .off
         seamlessItem.target = self
         menu.addItem(seamlessItem)
         
@@ -99,13 +89,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         )
         quitItem.target = self
         menu.addItem(quitItem)
-        
-        statusItem?.menu = menu
-        statusItem?.button?.performClick(nil)
-    }
-    
-    func menuDidClose(_ menu: NSMenu) {
-        statusItem?.menu = nil
     }
     
     @objc private func toggleIslandAction() {
