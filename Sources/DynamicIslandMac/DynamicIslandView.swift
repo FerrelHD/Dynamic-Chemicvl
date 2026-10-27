@@ -220,7 +220,7 @@ public struct DynamicIslandView: View {
                         .fill(Color.black)
                         .overlay(
                             NotchOutlineShape(earRadius: earRadius, bottomRadius: bottomRadius)
-                                .stroke(Color.white.opacity(0.12), lineWidth: 0.8)
+                                .stroke(isDropTargeted ? Color.green.opacity(0.8) : Color.white.opacity(0.12), lineWidth: isDropTargeted ? 1.5 : 0.8)
                         )
                     
                     // Subtle Hardware Camera Dot Cutout at Top Center
@@ -248,10 +248,16 @@ public struct DynamicIslandView: View {
                             switch state.mode {
                             case .compact:
                                 compactContent
-                                    .transition(.opacity)
+                                    .transition(.asymmetric(
+                                        insertion: .opacity.animation(.easeInOut(duration: 0.16).delay(0.10)),
+                                        removal: .opacity.animation(.easeInOut(duration: 0.08))
+                                    ))
                             case .expanded:
                                 expandedContent
-                                    .transition(.opacity)
+                                    .transition(.asymmetric(
+                                        insertion: .opacity.combined(with: .scale(scale: 0.97)).animation(.easeInOut(duration: 0.18).delay(0.08)),
+                                        removal: .opacity.combined(with: .scale(scale: 0.95)).animation(.easeInOut(duration: 0.10))
+                                    ))
                             }
                         }
                     }
@@ -293,6 +299,45 @@ public struct DynamicIslandView: View {
         .animation(.spring(response: 0.28, dampingFraction: 0.80), value: state.isShowingCapsLockHUD)
         .animation(.spring(response: 0.28, dampingFraction: 0.80), value: state.shelfSegment)
         .padding(.top, 0)
+        .onDrop(of: ["public.file-url"], isTargeted: $isDropTargeted) { providers in
+            handleDroppedFiles(providers)
+            return true
+        }
+        .onChange(of: isDropTargeted) { targeted in
+            if targeted && state.mode == .compact {
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.76)) {
+                    state.activeTab = .shelf
+                    state.mode = .expanded
+                }
+            }
+        }
+    }
+    
+    private func handleDroppedFiles(_ providers: [NSItemProvider]) {
+        var loadedUrls: [URL] = []
+        let group = DispatchGroup()
+        
+        for provider in providers {
+            group.enter()
+            provider.loadItem(forTypeIdentifier: "public.file-url", options: nil) { item, _ in
+                defer { group.leave() }
+                if let data = item as? Data, let url = URL(dataRepresentation: data, relativeTo: nil) {
+                    loadedUrls.append(url)
+                } else if let url = item as? URL {
+                    loadedUrls.append(url)
+                }
+            }
+        }
+        
+        group.notify(queue: .main) {
+            state.addFiles(loadedUrls)
+            if state.mode == .compact {
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.76)) {
+                    state.activeTab = .shelf
+                    state.mode = .expanded
+                }
+            }
+        }
     }
     
     // MARK: - iOS Volume HUD (Hardware keys trigger)
@@ -1130,24 +1175,7 @@ public struct DynamicIslandView: View {
             }
         }
         .onDrop(of: ["public.file-url"], isTargeted: $isDropTargeted) { providers in
-            var loadedUrls: [URL] = []
-            let group = DispatchGroup()
-            
-            for provider in providers {
-                group.enter()
-                provider.loadItem(forTypeIdentifier: "public.file-url", options: nil) { item, _ in
-                    defer { group.leave() }
-                    if let data = item as? Data, let url = URL(dataRepresentation: data, relativeTo: nil) {
-                        loadedUrls.append(url)
-                    } else if let url = item as? URL {
-                        loadedUrls.append(url)
-                    }
-                }
-            }
-            
-            group.notify(queue: .main) {
-                state.addFiles(loadedUrls)
-            }
+            handleDroppedFiles(providers)
             return true
         }
     }
