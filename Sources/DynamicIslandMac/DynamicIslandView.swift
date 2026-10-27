@@ -460,11 +460,9 @@ public struct DynamicIslandView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 .padding(.horizontal, 10)
             } else {
-                // Dead-Center Clock: Both icon and digits sit exactly at mathematical and optical center
-                HStack(spacing: 5.5) {
-                    Image(systemName: "clock.fill")
-                        .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-                        .foregroundColor(.white.opacity(0.85))
+                // Living Notch Idle State: Animated Mascot Eyes + Digital Clock (Nusa-Inspired)
+                HStack(spacing: 7) {
+                    MascotEyesView(state: state)
                     
                     Text(currentShortTime)
                         .font(.system(size: 13, weight: .bold, design: .rounded))
@@ -1363,5 +1361,89 @@ public struct DynamicIslandView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
         return formatter.string(from: Date())
+    }
+}
+
+// MARK: - Nusa-Inspired Living Mascot Eyes View
+public struct MascotEyesView: View {
+    @ObservedObject var state: IslandState
+    
+    @State private var isBlinking: Bool = false
+    @State private var lookOffsetX: CGFloat = 0
+    @State private var lookOffsetY: CGFloat = 0
+    
+    // Timer for organic natural blinking (every 3.6s)
+    private let blinkTimer = Timer.publish(every: 3.6, on: .main, in: .common).autoconnect()
+    // Timer for organic glancing (every 4.8s)
+    private let glanceTimer = Timer.publish(every: 4.8, on: .main, in: .common).autoconnect()
+    
+    public init(state: IslandState = .shared) {
+        self.state = state
+    }
+    
+    public var body: some View {
+        HStack(spacing: 4.5) {
+            singleEyeView
+            singleEyeView
+        }
+        .offset(x: lookOffsetX, y: lookOffsetY)
+        .onReceive(blinkTimer) { _ in
+            triggerBlink()
+        }
+        .onReceive(glanceTimer) { _ in
+            triggerGlance()
+        }
+    }
+    
+    private var singleEyeView: some View {
+        ZStack {
+            if isBlinking {
+                Capsule()
+                    .fill(Color.white)
+                    .frame(width: 6, height: 1.5)
+            } else if state.isHoverRevealed {
+                // Cheerful smiley squint arc when cursor approaches
+                Circle()
+                    .trim(from: 0.15, to: 0.85)
+                    .stroke(Color.white, style: StrokeStyle(lineWidth: 2.0, lineCap: .round))
+                    .frame(width: 6.5, height: 6.5)
+                    .rotationEffect(.degrees(180))
+            } else {
+                Capsule()
+                    .fill(Color.white)
+                    .frame(width: 6, height: 10.5)
+            }
+        }
+        .shadow(color: Color(red: 0.10, green: 0.72, blue: 1.0).opacity(0.70), radius: 3.5, x: 0, y: 0)
+        .shadow(color: Color(red: 0.48, green: 0.30, blue: 1.0).opacity(0.40), radius: 6.0, x: 0, y: 0)
+        .animation(.easeInOut(duration: 0.12), value: isBlinking)
+        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: lookOffsetX)
+    }
+    
+    private func triggerBlink() {
+        guard !state.isHoverRevealed else { return }
+        withAnimation(.easeInOut(duration: 0.10)) {
+            isBlinking = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.13) {
+            withAnimation(.easeInOut(duration: 0.12)) {
+                isBlinking = false
+            }
+        }
+    }
+    
+    private func triggerGlance() {
+        guard !state.isHoverRevealed else {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                lookOffsetX = 0
+                lookOffsetY = 0
+            }
+            return
+        }
+        let offsets: [CGFloat] = [0, -2.5, 2.5, 0, -2.0, 2.0, 0]
+        let chosen = offsets.randomElement() ?? 0
+        withAnimation(.spring(response: 0.40, dampingFraction: 0.70)) {
+            lookOffsetX = chosen
+        }
     }
 }
