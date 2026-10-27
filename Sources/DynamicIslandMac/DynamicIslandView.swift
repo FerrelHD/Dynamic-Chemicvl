@@ -143,13 +143,13 @@ public struct DynamicIslandView: View {
         switch state.mode {
         case .compact:
             if state.isTimerRunning {
-                return 175
+                return 170
             } else if state.isPlaying {
-                // Responsively adapt width to track title length (min 195, max 245)
+                // Responsively adapt width to track title length (min 180, max 230)
                 let titleLen = CGFloat(state.trackTitle.count)
-                return max(195, min(245, 165 + titleLen * 3.0))
+                return max(180, min(230, 150 + titleLen * 3.0))
             } else {
-                return 150 // Sleek, perfectly proportioned Apple compact notch
+                return 136 // Sleek, perfectly proportioned Apple compact notch
             }
         case .expanded:
             return 395 // Balanced proportion on 13" and larger screens
@@ -165,7 +165,10 @@ public struct DynamicIslandView: View {
         }
         switch state.mode {
         case .compact:
-            return 34 // Sleek, flush with macOS menu bar height
+            if state.isTimerRunning || state.isPlaying {
+                return 30
+            }
+            return 28 // Sleek, flush with macOS menu bar height + subtle curve
         case .expanded:
             // Dynamic content-aware height: generous breathing room and no clipping
             switch state.activeTab {
@@ -222,17 +225,6 @@ public struct DynamicIslandView: View {
                             NotchOutlineShape(earRadius: earRadius, bottomRadius: bottomRadius)
                                 .stroke(isDropTargeted ? Color.green.opacity(0.8) : Color.white.opacity(0.12), lineWidth: isDropTargeted ? 1.5 : 0.8)
                         )
-                    
-                    // Subtle Hardware Camera Dot Cutout at Top Center
-                    Circle()
-                        .fill(Color(red: 0.08, green: 0.12, blue: 0.18))
-                        .frame(width: 5.5, height: 5.5)
-                        .overlay(
-                            Circle()
-                                .fill(Color(red: 0.20, green: 0.32, blue: 0.50).opacity(0.5))
-                                .frame(width: 2.5, height: 2.5)
-                        )
-                        .padding(.top, 4.5)
                     
                     Group {
                         if state.isShowingVolumeHUD {
@@ -544,8 +536,10 @@ public struct DynamicIslandView: View {
                                 Text("\(badge)")
                                     .font(.system(size: 8.5, weight: .bold, design: .rounded))
                                     .foregroundColor(.white)
-                                    .padding(.horizontal, 4)
-                                    .padding(.vertical, 1)
+                                    .lineLimit(1)
+                                    .fixedSize(horizontal: true, vertical: true)
+                                    .frame(minWidth: 14, minHeight: 14)
+                                    .padding(.horizontal, 3)
                                     .background(state.activeTab == tab ? Color.white.opacity(0.32) : Color.white.opacity(0.18))
                                     .clipShape(Capsule())
                             }
