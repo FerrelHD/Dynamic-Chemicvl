@@ -65,6 +65,57 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         let dims = state.currentDimensions
         return NSSize(width: dims.width, height: dims.height)
     }
+    
+    // MARK: - 2-Finger Trackpad Horizontal Swipe Tab Navigation
+    private var accumulatedScrollDeltaX: CGFloat = 0.0
+    private var lastScrollTabSwitchTime: Date = Date.distantPast
+    
+    public override func scrollWheel(with event: NSEvent) {
+        guard state.mode == .expanded else {
+            super.scrollWheel(with: event)
+            return
+        }
+        
+        let dx = event.scrollingDeltaX
+        let dy = event.scrollingDeltaY
+        
+        // Detect dominant horizontal trackpad 2-finger swipe
+        if abs(dx) > abs(dy) && abs(dx) > 1.2 {
+            accumulatedScrollDeltaX += dx
+            
+            let now = Date()
+            let threshold: CGFloat = 32.0
+            
+            if now.timeIntervalSince(lastScrollTabSwitchTime) > 0.28 {
+                if accumulatedScrollDeltaX > threshold {
+                    accumulatedScrollDeltaX = 0
+                    lastScrollTabSwitchTime = now
+                    DispatchQueue.main.async {
+                        self.state.previousTab()
+                    }
+                    return
+                } else if accumulatedScrollDeltaX < -threshold {
+                    accumulatedScrollDeltaX = 0
+                    lastScrollTabSwitchTime = now
+                    DispatchQueue.main.async {
+                        self.state.nextTab()
+                    }
+                    return
+                }
+            }
+            
+            if event.phase == .ended || event.phase == .cancelled {
+                accumulatedScrollDeltaX = 0
+            }
+            return
+        }
+        
+        if event.phase == .ended || event.phase == .cancelled {
+            accumulatedScrollDeltaX = 0
+        }
+        
+        super.scrollWheel(with: event)
+    }
 }
 
 public class DynamicIslandPanel: NSPanel {
