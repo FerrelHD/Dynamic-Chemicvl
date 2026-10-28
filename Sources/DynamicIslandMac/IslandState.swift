@@ -254,6 +254,7 @@ public class IslandState: ObservableObject {
     private var playbackTickerCancellable: AnyCancellable?
     private var playbackAnchorPosition: Double = 0.0
     private var playbackAnchorTime: Date = Date()
+    private var lastSeekTimestamp: Date = .distantPast
     
     // Focus / Pomodoro Timer
     @Published public var timerRemainingSeconds: Int = 25 * 60
@@ -370,11 +371,15 @@ public class IslandState: ObservableObject {
             }
             
             // Sync anchor if track changed, stopped, or drifted more than 0.6s
-            let currentEstimated = self.playbackAnchorPosition + (self.isPlaying ? Date().timeIntervalSince(self.playbackAnchorTime) : 0)
-            if trackChanged || !self.isPlaying || abs(currentEstimated - info.position) > 0.6 {
-                self.playbackAnchorPosition = info.position
-                self.playbackAnchorTime = Date()
-                self.currentPositionSeconds = info.position
+            // Ignore stale in-flight OS position updates for 0.8s immediately following a manual seek
+            let timeSinceSeek = Date().timeIntervalSince(self.lastSeekTimestamp)
+            if timeSinceSeek >= 0.8 {
+                let currentEstimated = self.playbackAnchorPosition + (self.isPlaying ? Date().timeIntervalSince(self.playbackAnchorTime) : 0)
+                if trackChanged || !self.isPlaying || abs(currentEstimated - info.position) > 0.6 {
+                    self.playbackAnchorPosition = info.position
+                    self.playbackAnchorTime = Date()
+                    self.currentPositionSeconds = info.position
+                }
             }
             
             if self.totalDurationSeconds.isFinite && !self.totalDurationSeconds.isNaN && self.totalDurationSeconds > 0 {
@@ -852,6 +857,10 @@ public class IslandState: ObservableObject {
         guard seconds.isFinite && !seconds.isNaN else { return }
         let validDuration = (totalDurationSeconds.isFinite && !totalDurationSeconds.isNaN && totalDurationSeconds > 0) ? totalDurationSeconds : 0
         currentPositionSeconds = max(0, min(validDuration > 0 ? validDuration : seconds, seconds))
+        playbackAnchorPosition = currentPositionSeconds
+        playbackAnchorTime = Date()
+        lastSeekTimestamp = Date()
+        
         if validDuration > 0 {
             playbackProgress = max(0, min(1.0, currentPositionSeconds / validDuration))
             currentTime = formatTime(safeSeconds(currentPositionSeconds))

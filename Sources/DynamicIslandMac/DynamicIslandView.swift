@@ -1347,7 +1347,10 @@ public struct DynamicIslandView: View {
                             let pct = max(0.0, min(1.0, Double(locationX / barWidth)))
                             let seekSeconds = pct * maxDur
                             state.seekTo(seekSeconds)
-                            isScrubbingAudio = false
+                            // Buffer 0.15s visual anchor so the knob hands off seamlessly to the internal ticker
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                                isScrubbingAudio = false
+                            }
                         }
                 )
             }
