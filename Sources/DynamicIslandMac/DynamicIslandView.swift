@@ -1194,18 +1194,6 @@ public struct DynamicIslandView: View {
                 }
                 .padding(.horizontal, 6)
             }
-            .mask(
-                LinearGradient(
-                    gradient: Gradient(stops: [
-                        .init(color: .clear, location: 0.0),
-                        .init(color: .black, location: 0.16),
-                        .init(color: .black, location: 0.84),
-                        .init(color: .clear, location: 1.0)
-                    ]),
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            )
             .onChange(of: state.currentLyricIndex) { newIdx in
                 if let newIdx = newIdx {
                     withAnimation(.spring(response: 0.54, dampingFraction: 0.88)) {
