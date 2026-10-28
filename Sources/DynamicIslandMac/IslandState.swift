@@ -146,9 +146,9 @@ public class IslandState: ObservableObject {
             return (width: 170, height: 30)
         } else if isPlaying {
             let titleLen = CGFloat(trackTitle.count)
-            return (width: max(180, min(230, 150 + titleLen * 3.0)), height: 30)
+            return (width: max(185, min(270, 155 + titleLen * 3.4)), height: 30)
         } else {
-            return (width: 136, height: 28) // Sleek, perfectly proportioned Apple compact notch
+            return (width: 142, height: 28) // Sleek Apple compact notch with comfortable horizontal breathing room
         }
     }
     

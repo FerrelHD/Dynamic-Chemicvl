@@ -523,7 +523,7 @@ public struct DynamicIslandView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             } else if state.isPlaying {
-                HStack(spacing: 7) {
+                HStack(spacing: 8) {
                     if let art = state.artworkImage {
                         Image(nsImage: art)
                             .resizable()
@@ -544,10 +544,10 @@ public struct DynamicIslandView: View {
                     waveformView(height: 12)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                .padding(.horizontal, 10)
+                .padding(.horizontal, 14)
             } else {
                 // Living Notch Idle State: Animated Spider-Man Mascot Eyes + Digital Clock
-                HStack(spacing: 7) {
+                HStack(spacing: 8) {
                     SpiderMascotEyesView(state: state)
                     
                     Text(currentShortTime)
@@ -555,6 +555,7 @@ public struct DynamicIslandView: View {
                         .foregroundColor(.white)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                .padding(.horizontal, 12)
             }
         }
         .frame(height: 28, alignment: .center)

@@ -30,7 +30,8 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         
         let dims = state.currentDimensions
         let notchX = (self.bounds.width - dims.width) / 2.0
-        let notchRect = CGRect(x: notchX, y: 0, width: dims.width, height: dims.height)
+        let notchY = self.isFlipped ? 0 : (self.bounds.height - dims.height)
+        let notchRect = CGRect(x: notchX, y: notchY, width: dims.width, height: dims.height)
         
         // If click is outside the active notch frame, pass through immediately
         guard notchRect.contains(localPoint) else {
@@ -41,7 +42,7 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         let earRadius: CGFloat = (state.mode == .expanded) ? 11 : ((state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD) ? 8 : 6)
         let bottomRadius: CGFloat = (state.mode == .expanded) ? 24 : ((state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD) ? 18 : 14)
         
-        let pointInNotch = CGPoint(x: localPoint.x - notchX, y: localPoint.y)
+        let pointInNotch = CGPoint(x: localPoint.x - notchX, y: localPoint.y - notchY)
         let localNotchRect = CGRect(origin: .zero, size: CGSize(width: dims.width, height: dims.height))
         let notchPath = NotchShape(earRadius: earRadius, bottomRadius: bottomRadius).path(in: localNotchRect)
         
@@ -82,9 +83,8 @@ public class DynamicIslandPanel: NSPanel {
         let screenRect = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
         let dims = IslandState.shared.currentDimensions
         let canvasPadding: CGFloat = 32.0
-        let canvasBottomPadding: CGFloat = 8.0
         let targetW: CGFloat = dims.width + canvasPadding
-        let targetH: CGFloat = dims.height + canvasBottomPadding
+        let targetH: CGFloat = 52.0 // Constant physical canvas height to prevent top bezel clipping
         let xPos = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let yPos = screenRect.maxY - targetH
         let initialRect = NSRect(x: xPos, y: yPos, width: targetW, height: targetH)
@@ -212,9 +212,8 @@ public class DynamicIslandPanel: NSPanel {
         let screenRect = screen.frame
         let dims = IslandState.shared.compactDimensions
         let canvasPadding: CGFloat = 32.0
-        let canvasBottomPadding: CGFloat = 8.0
         let targetW: CGFloat = dims.width + canvasPadding
-        let targetH: CGFloat = dims.height + canvasBottomPadding
+        let targetH: CGFloat = 52.0 // Constant physical canvas height
         let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let targetY = screenRect.maxY - targetH
         let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)
@@ -232,9 +231,8 @@ public class DynamicIslandPanel: NSPanel {
         let screenRect = screen.frame
         let dims = IslandState.shared.currentDimensions
         let canvasPadding: CGFloat = 32.0
-        let canvasBottomPadding: CGFloat = 8.0
         let targetW = dims.width + canvasPadding
-        let targetH = dims.height + canvasBottomPadding
+        let targetH: CGFloat = 52.0 // Constant physical canvas height to eliminate Y-shift glitch during HUDs
         let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let targetY = screenRect.maxY - targetH
         let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)
