@@ -149,9 +149,6 @@ public struct DynamicIslandView: View {
     }
     
     private var bottomRadius: CGFloat {
-        if !state.isIslandVisible {
-            return 3
-        }
         if state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD {
             return 18 // Soft, spacious continuous squircle corners for HUD
         }
@@ -167,9 +164,6 @@ public struct DynamicIslandView: View {
     }
     
     private var earRadius: CGFloat {
-        if !state.isIslandVisible {
-            return 2
-        }
         if state.mode == .expanded {
             return 11 // Authentic Apple concave ear fillets that preserve full content width
         }
@@ -184,14 +178,14 @@ public struct DynamicIslandView: View {
             // MARK: - OLED Jet-Black MacBook Notch (Seamless Bezel Integration & Morphing)
             ZStack(alignment: .top) {
                 NotchShape(earRadius: earRadius, bottomRadius: bottomRadius)
-                    .fill(Color.black.opacity(state.isIslandVisible ? 1.0 : 0.85))
+                    .fill(Color.black)
                     .overlay(
                         NotchOutlineShape(earRadius: earRadius, bottomRadius: bottomRadius)
                             .stroke(
                                 isDropTargeted
                                     ? Color.green.opacity(0.85)
                                     : Color.white.opacity(0.14),
-                                lineWidth: isDropTargeted ? 1.5 : (state.isIslandVisible ? 0.6 : 0.5)
+                                lineWidth: isDropTargeted ? 1.5 : 0.6
                             )
                     )
                 
@@ -229,6 +223,8 @@ public struct DynamicIslandView: View {
             .frame(width: islandWidth, height: islandHeight, alignment: .top)
             .clipShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
             .contentShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
+            .scaleEffect(y: state.isIslandVisible ? 1.0 : 0.45, anchor: .top)
+            .opacity(state.isIslandVisible ? 1.0 : 0.0)
             .onTapGesture {
                 if !state.isIslandVisible {
                     withAnimation(.spring(response: 0.32, dampingFraction: 0.80)) {
