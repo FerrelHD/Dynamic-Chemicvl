@@ -154,22 +154,22 @@ public class IslandState: ObservableObject {
     
     public var expandedDimensions: (width: CGFloat, height: CGFloat) {
         if isShowingSettings {
-            return (width: 448, height: 218) // Clean spacious settings pane with custom numerical sliders
+            return (width: 448, height: 252) // Spacious settings pane: sliders, presets, actions, and comfortable page dots
         }
         if activeTab == .music && isLyricsEnabled {
-            return (width: 700, height: 228) // Spacious Responsive Split View for Apple Music Lyrics
+            return (width: 700, height: 236) // Spacious Responsive Split View for Apple Music Lyrics
         }
         switch activeTab {
         case .devices:
-            return (width: 448, height: 198) // 4 device cards + battery info pill with bottom clearance
+            return (width: 448, height: 212) // 4 device cards + battery info pill with generous bottom clearance
         case .music:
-            return (width: 448, height: 175) // Content-hugging: artwork, scrubber & playback controls
+            return (width: 448, height: 186) // Content-hugging: artwork, smooth scrubber & centered playback controls
         case .control:
-            return (width: 448, height: 206) // Controls center: 5 tiles, CPU/RAM meters, volume slider
+            return (width: 448, height: 216) // Controls center: 5 tiles, CPU/RAM meters, volume slider
         case .notes:
-            return (width: 448, height: 202) // Reminders / To-do list with clean footer divider and spacing
+            return (width: 448, height: 214) // Reminders / To-do list with clean footer divider and spacing
         case .shelf:
-            return (width: 448, height: 198) // File shelf & clipboard
+            return (width: 448, height: 212) // File shelf & clipboard
         }
     }
     

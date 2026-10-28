@@ -597,7 +597,7 @@ public struct DynamicIslandView: View {
         }
         .padding(.horizontal, 24)
         .padding(.top, 14)
-        .padding(.bottom, 6)
+        .padding(.bottom, 14)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .contentShape(Rectangle())
         .gesture(
@@ -628,6 +628,8 @@ public struct DynamicIslandView: View {
                         .frame(width: isCurrent ? 14 : 5, height: 5)
                         .shadow(color: isCurrent ? Color.white.opacity(0.35) : Color.clear, radius: 2)
                         .animation(state.animationStyle.springAnimation, value: isCurrent)
+                        .frame(width: isCurrent ? 20 : 16, height: 18)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
@@ -652,11 +654,12 @@ public struct DynamicIslandView: View {
                         Circle()
                             .fill(state.isShowingSettings ? Color.white.opacity(0.22) : Color.clear)
                     )
+                    .frame(width: 20, height: 18)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }
-        .frame(height: 12)
-        .padding(.bottom, 2)
+        .frame(height: 18)
     }
     
     // MARK: - Tab 1: Control Center (iOS Style Tiles)
