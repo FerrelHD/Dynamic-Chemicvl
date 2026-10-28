@@ -619,7 +619,7 @@ public struct DynamicIslandView: View {
             .transition(.opacity)
             .id(state.isShowingSettings ? "settings" : state.activeTab.rawValue)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .padding(.horizontal, (state.activeTab == .music && state.isLyricsEnabled) ? 32 : 24)
+            .padding(.horizontal, 24) // Standardized 24pt horizontal margin matching Devices tab across all tabs
             .padding(.top, (state.activeTab == .music && state.isLyricsEnabled) ? 22 : 14)
             .padding(.bottom, 36) // Generous clearance ensuring tab content never touches the dots
             
@@ -981,7 +981,6 @@ public struct DynamicIslandView: View {
                 
                 // Animated Waveform Indicator (Pure White)
                 waveformView(height: 16)
-                    .padding(.trailing, 4)
             }
             .padding(.top, 2)
             
@@ -1044,7 +1043,6 @@ public struct DynamicIslandView: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    .padding(.trailing, 4)
                 }
             }
             .frame(maxWidth: .infinity)
