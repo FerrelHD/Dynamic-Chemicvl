@@ -1361,11 +1361,15 @@ public struct DynamicIslandView: View {
             }
             .frame(height: 86)
             
+            Divider()
+                .background(Color.white.opacity(0.10))
+                .padding(.vertical, 2)
+            
             // Footer Info
             HStack {
                 let remaining = state.todos.filter { !$0.isDone }.count
                 Text("\(remaining) task\(remaining == 1 ? "" : "s") remaining")
-                    .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
                     .foregroundColor(.white.opacity(0.60))
                 
                 Spacer()
@@ -1373,12 +1377,14 @@ public struct DynamicIslandView: View {
                 if state.todos.contains(where: { $0.isDone }) {
                     Button(action: { state.clearCompletedTodos() }) {
                         Text("Clear Completed")
-                            .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
                             .foregroundColor(Color.orange)
                     }
                     .buttonStyle(.plain)
                 }
             }
+            .padding(.top, 2)
+            .padding(.bottom, 4)
         }
     }
     
@@ -1413,10 +1419,11 @@ public struct DynamicIslandView: View {
                     .background(Color(red: 0.18, green: 0.85, blue: 0.38).opacity(0.15))
                     .clipShape(Capsule())
             }
-            .padding(.horizontal, 9)
-            .padding(.vertical, 5)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
             .background(Color.white.opacity(0.06))
             .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .padding(.bottom, 6)
         }
     }
     

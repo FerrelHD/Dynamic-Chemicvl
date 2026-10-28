@@ -161,13 +161,13 @@ public class IslandState: ObservableObject {
         }
         switch activeTab {
         case .devices:
-            return (width: 448, height: 202) // Content-hugging: 4 device cards + battery info pill (zero dead space)
+            return (width: 448, height: 216) // Comfortable spacing: 4 device cards + battery info pill with bottom clearance
         case .music:
             return (width: 448, height: 185) // Content-hugging: artwork, scrubber & playback controls
         case .control:
             return (width: 448, height: 230) // Controls center: 5 tiles, CPU/RAM meters, volume slider
         case .notes:
-            return (width: 448, height: 215) // Reminders / To-do list
+            return (width: 448, height: 218) // Reminders / To-do list with clean footer divider and spacing
         case .shelf:
             return (width: 448, height: 210) // File shelf & clipboard
         }
