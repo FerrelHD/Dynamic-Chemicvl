@@ -1749,11 +1749,24 @@ public struct DynamicIslandView: View {
             }
             .padding(.top, 2)
             
-            // Section 1: Animation Feel
-            VStack(alignment: .leading, spacing: 5) {
-                Text("ANIMATION FEEL")
-                    .font(.system(size: 9.5, weight: .bold, design: .rounded))
-                    .foregroundColor(.white.opacity(0.50))
+            // Section 1: Animation Presets & Live Numerical Sliders
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("ANIMATION PHYSICS")
+                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                        .foregroundColor(.white.opacity(0.50))
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        state.resetAnimationDefaults()
+                    }) {
+                        Text("Reset Defaults")
+                            .font(.system(size: 9, weight: .semibold, design: .rounded))
+                            .foregroundColor(Color.orange.opacity(0.85))
+                    }
+                    .buttonStyle(.plain)
+                }
                 
                 HStack(spacing: 6) {
                     ForEach(AnimationStyle.allCases) { style in
@@ -1761,23 +1774,76 @@ public struct DynamicIslandView: View {
                         Button(action: {
                             state.setAnimationStyle(style)
                         }) {
-                            HStack(spacing: 5) {
+                            HStack(spacing: 4) {
                                 Image(systemName: style == .bouncy ? "sparkles" : (style == .smooth ? "waveform.path" : "bolt.fill"))
-                                    .font(.system(size: 11, weight: .bold))
+                                    .font(.system(size: 10, weight: .bold))
                                 Text(style.rawValue)
-                                    .font(.system(size: 11.5, weight: isSelected ? .bold : .medium, design: .rounded))
+                                    .font(.system(size: 11, weight: isSelected ? .bold : .medium, design: .rounded))
                             }
                             .foregroundColor(isSelected ? .white : .white.opacity(0.65))
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 6)
+                            .padding(.vertical, 5)
                             .background(
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                RoundedRectangle(cornerRadius: 7, style: .continuous)
                                     .fill(isSelected ? Color(red: 0.0, green: 0.48, blue: 1.0) : Color.white.opacity(0.08))
                             )
                         }
                         .buttonStyle(.plain)
                     }
                 }
+                
+                // Numerical Physics Sliders
+                VStack(spacing: 5) {
+                    HStack(spacing: 8) {
+                        Text("Bounciness")
+                            .font(.system(size: 10, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.75))
+                            .frame(width: 65, alignment: .leading)
+                        
+                        Slider(
+                            value: Binding(
+                                get: { state.customBounciness },
+                                set: { state.setCustomBounciness($0) }
+                            ),
+                            in: 0.45...1.00,
+                            step: 0.01
+                        )
+                        .accentColor(Color.pink)
+                        
+                        Text(String(format: "%.2f", state.customBounciness))
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundColor(.white)
+                            .frame(width: 32, alignment: .trailing)
+                    }
+                    
+                    HStack(spacing: 8) {
+                        Text("Duration")
+                            .font(.system(size: 10, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.75))
+                            .frame(width: 65, alignment: .leading)
+                        
+                        Slider(
+                            value: Binding(
+                                get: { state.customDuration },
+                                set: { state.setCustomDuration($0) }
+                            ),
+                            in: 0.20...0.55,
+                            step: 0.01
+                        )
+                        .accentColor(Color.blue)
+                        
+                        Text(String(format: "%.2fs", state.customDuration))
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundColor(.white)
+                            .frame(width: 32, alignment: .trailing)
+                    }
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(Color.white.opacity(0.05))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
             
             // Section 2: Behavior & Quick Actions

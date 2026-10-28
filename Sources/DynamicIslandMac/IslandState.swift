@@ -154,7 +154,7 @@ public class IslandState: ObservableObject {
     
     public var expandedDimensions: (width: CGFloat, height: CGFloat) {
         if isShowingSettings {
-            return (width: 448, height: 205) // Clean compact settings pane
+            return (width: 448, height: 218) // Clean spacious settings pane with custom numerical sliders
         }
         if activeTab == .music && isLyricsEnabled {
             return (width: 700, height: 228) // Spacious Responsive Split View for Apple Music Lyrics
@@ -278,12 +278,31 @@ public class IslandState: ObservableObject {
     @Published public var animationStyle: AnimationStyle = .bouncy
     private let animStyleStorageKey = "notchflow_anim_style"
     
+    // Live Customizable Numerical Animation Physics
+    @Published public var customBounciness: Double = 0.68 // Damping fraction: 0.45 (bouncy) .. 1.00 (rigid)
+    @Published public var customDuration: Double = 0.35   // Response duration: 0.20s (snappy) .. 0.55s (slow)
+    private let customBouncinessKey = "notchflow_custom_bounciness"
+    private let customDurationKey = "notchflow_custom_duration"
+    
+    public var activeSpringAnimation: Animation {
+        return .spring(response: customDuration, dampingFraction: customBounciness)
+    }
+    
     public init() {
         loadTodos()
         
         if let savedAnim = UserDefaults.standard.string(forKey: animStyleStorageKey),
            let style = AnimationStyle(rawValue: savedAnim) {
             self.animationStyle = style
+        }
+        
+        if UserDefaults.standard.object(forKey: customBouncinessKey) != nil {
+            let val = UserDefaults.standard.double(forKey: customBouncinessKey)
+            if val >= 0.45 && val <= 1.00 { self.customBounciness = val }
+        }
+        if UserDefaults.standard.object(forKey: customDurationKey) != nil {
+            let val = UserDefaults.standard.double(forKey: customDurationKey)
+            if val >= 0.20 && val <= 0.55 { self.customDuration = val }
         }
         
         if UserDefaults.standard.object(forKey: hoverPeekStorageKey) != nil {
@@ -452,7 +471,7 @@ public class IslandState: ObservableObject {
             isHoverRevealed = true
             onModeChangedToExpanded?()
         }
-        withAnimation(animationStyle.springAnimation) {
+        withAnimation(activeSpringAnimation) {
             if willExpand {
                 mode = .expanded
             } else {
@@ -463,7 +482,7 @@ public class IslandState: ObservableObject {
     }
     
     public func minimize() {
-        withAnimation(animationStyle.springAnimation) {
+        withAnimation(activeSpringAnimation) {
             self.mode = .compact
             self.isShowingSettings = false
         }
@@ -474,7 +493,7 @@ public class IslandState: ObservableObject {
         let all = IslandTab.allCases
         guard let idx = all.firstIndex(of: activeTab) else { return }
         let nextIdx = (idx + 1) % all.count
-        withAnimation(animationStyle.springAnimation) {
+        withAnimation(activeSpringAnimation) {
             isShowingSettings = false
             activeTab = all[nextIdx]
         }
@@ -484,17 +503,43 @@ public class IslandState: ObservableObject {
         let all = IslandTab.allCases
         guard let idx = all.firstIndex(of: activeTab) else { return }
         let prevIdx = (idx - 1 + all.count) % all.count
-        withAnimation(animationStyle.springAnimation) {
+        withAnimation(activeSpringAnimation) {
             isShowingSettings = false
             activeTab = all[prevIdx]
         }
     }
     
     public func setAnimationStyle(_ style: AnimationStyle) {
-        withAnimation(style.springAnimation) {
-            self.animationStyle = style
+        self.animationStyle = style
+        switch style {
+        case .bouncy:
+            setCustomBounciness(0.65)
+            setCustomDuration(0.38)
+        case .smooth:
+            setCustomBounciness(0.82)
+            setCustomDuration(0.35)
+        case .snappy:
+            setCustomBounciness(0.86)
+            setCustomDuration(0.25)
         }
         UserDefaults.standard.set(style.rawValue, forKey: animStyleStorageKey)
+    }
+    
+    public func setCustomBounciness(_ value: Double) {
+        customBounciness = max(0.45, min(1.00, value))
+        UserDefaults.standard.set(customBounciness, forKey: customBouncinessKey)
+    }
+    
+    public func setCustomDuration(_ value: Double) {
+        customDuration = max(0.20, min(0.55, value))
+        UserDefaults.standard.set(customDuration, forKey: customDurationKey)
+    }
+    
+    public func resetAnimationDefaults() {
+        setCustomBounciness(0.68)
+        setCustomDuration(0.35)
+        self.animationStyle = .bouncy
+        UserDefaults.standard.set(animationStyle.rawValue, forKey: animStyleStorageKey)
     }
     
     // MARK: - Hover Peek Mode Action
