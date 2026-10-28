@@ -373,7 +373,7 @@ public struct DynamicIslandView: View {
                     .frame(width: 38, alignment: .trailing)
             }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 24)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .offset(y: 2) // optical vertical center alignment inside top-bezel notch
     }
@@ -433,7 +433,7 @@ public struct DynamicIslandView: View {
                 .foregroundColor(.white)
                 .lineLimit(1)
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 24)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .offset(y: 2) // optical vertical center alignment for top-bezel notch
     }
@@ -535,7 +535,7 @@ public struct DynamicIslandView: View {
             
             Spacer()
         }
-        .padding(.horizontal, 18)
+        .padding(.horizontal, 24)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .offset(y: 2)
     }
