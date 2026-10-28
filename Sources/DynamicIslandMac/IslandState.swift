@@ -1271,13 +1271,13 @@ public class IslandState: ObservableObject {
         return nil
     }
     
-    private func safeSeconds(_ val: Double) -> Int {
+    public func safeSeconds(_ val: Double) -> Int {
         guard val.isFinite, !val.isNaN, val >= 0 else { return 0 }
         if val > 86400 * 365 { return 0 } // Clamp to reasonable duration
         return Int(val)
     }
     
-    private func formatTime(_ seconds: Int) -> String {
+    public func formatTime(_ seconds: Int) -> String {
         let s = max(0, seconds)
         let m = s / 60
         let sec = s % 60

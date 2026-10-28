@@ -132,6 +132,8 @@ public struct DynamicIslandView: View {
     @ObservedObject var state: IslandState
     @State private var isDropTargeted = false
     @State private var isGenieClearing = false
+    @State private var isScrubbingAudio = false
+    @State private var localScrubProgress: Double = 0.0
     
     public init(state: IslandState = .shared) {
         self.state = state
@@ -1245,8 +1247,27 @@ public struct DynamicIslandView: View {
     
     // MARK: - Reusable Interactive Scrubber Bar
     private func scrubberBarView() -> some View {
-        HStack(spacing: 7) {
-            Text(state.currentTime)
+        let displayProgress = isScrubbingAudio ? localScrubProgress : max(0, min(1.0, state.playbackProgress))
+        let maxDur = (state.totalDurationSeconds.isFinite && !state.totalDurationSeconds.isNaN && state.totalDurationSeconds > 0) ? state.totalDurationSeconds : 180.0
+        let displayCurrentTime: String = {
+            if isScrubbingAudio {
+                let currentSecs = displayProgress * maxDur
+                return state.formatTime(state.safeSeconds(currentSecs))
+            } else {
+                return state.currentTime
+            }
+        }()
+        let displayRemainingTime: String = {
+            if isScrubbingAudio {
+                let remSecs = max(0, maxDur - (displayProgress * maxDur))
+                return "-\(state.formatTime(state.safeSeconds(remSecs)))"
+            } else {
+                return state.remainingTime
+            }
+        }()
+        
+        return HStack(spacing: 7) {
+            Text(displayCurrentTime)
                 .font(.system(size: 11, weight: .semibold, design: .rounded))
                 .monospacedDigit()
                 .foregroundColor(.white.opacity(0.65))
@@ -1254,41 +1275,49 @@ public struct DynamicIslandView: View {
             
             GeometryReader { geo in
                 let barWidth = geo.size.width
-                let progress = max(0, min(1.0, state.playbackProgress))
-                let currentWidth = barWidth * CGFloat(progress)
+                let currentWidth = barWidth * CGFloat(displayProgress)
                 
                 ZStack(alignment: .leading) {
+                    // Full track capsule
                     Capsule()
                         .fill(Color.white.opacity(0.20))
                         .frame(height: 4.5)
                     
+                    // Progress fill capsule
                     Capsule()
                         .fill(Color.white)
                         .frame(width: max(0, currentWidth), height: 4.5)
                     
+                    // Scrubbing thumb knob (elevates gently while scrubbing)
                     Circle()
                         .fill(Color.white)
-                        .frame(width: 9, height: 9)
+                        .frame(width: isScrubbingAudio ? 12 : 9.5, height: isScrubbingAudio ? 12 : 9.5)
                         .shadow(color: Color.black.opacity(0.4), radius: 2, x: 0, y: 1)
-                        .offset(x: max(0, min(barWidth - 9, currentWidth - 4.5)))
+                        .offset(x: max(0, min(barWidth - (isScrubbingAudio ? 12 : 9.5), currentWidth - (isScrubbingAudio ? 6 : 4.75))))
                 }
-                .frame(height: 14)
+                .frame(height: 28)
                 .frame(maxHeight: .infinity, alignment: .center)
                 .contentShape(Rectangle())
                 .gesture(
                     DragGesture(minimumDistance: 0)
                         .onChanged { gesture in
+                            isScrubbingAudio = true
                             let locationX = max(0, min(barWidth, gesture.location.x))
-                            let pct = Double(locationX / barWidth)
-                            let maxDur = state.totalDurationSeconds > 0 ? state.totalDurationSeconds : 180.0
+                            let pct = max(0.0, min(1.0, Double(locationX / barWidth)))
+                            localScrubProgress = pct
+                        }
+                        .onEnded { gesture in
+                            let locationX = max(0, min(barWidth, gesture.location.x))
+                            let pct = max(0.0, min(1.0, Double(locationX / barWidth)))
                             let seekSeconds = pct * maxDur
                             state.seekTo(seekSeconds)
+                            isScrubbingAudio = false
                         }
                 )
             }
-            .frame(height: 14)
+            .frame(height: 28)
             
-            Text(state.remainingTime)
+            Text(displayRemainingTime)
                 .font(.system(size: 11, weight: .semibold, design: .rounded))
                 .monospacedDigit()
                 .foregroundColor(.white.opacity(0.65))
