@@ -115,6 +115,9 @@ public class DynamicIslandPanel: NSPanel {
         IslandState.shared.onModeChangedToExpanded = { [weak self] in
             self?.expandWindowImmediately()
         }
+        IslandState.shared.onHoverRevealed = { [weak self] in
+            self?.applyRevealedCompactFrame()
+        }
         updateWindowFrameForCurrentState()
         
         // Responsive screen change tracking (multi-monitor, resolution changes)
@@ -186,6 +189,29 @@ public class DynamicIslandPanel: NSPanel {
                 collapseWorkItem = nil
                 applyCompactFrame()
             }
+        }
+    }
+    
+    public func applyRevealedCompactFrame() {
+        collapseWorkItem?.cancel()
+        collapseWorkItem = nil
+        
+        guard let screen = self.screen ?? NSScreen.main else { return }
+        let screenRect = screen.frame
+        let dims = IslandState.shared.compactDimensions
+        let canvasPadding: CGFloat = 32.0
+        let canvasBottomPadding: CGFloat = 8.0
+        let targetW: CGFloat = dims.width + canvasPadding
+        let targetH: CGFloat = dims.height + canvasBottomPadding
+        let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
+        let targetY = screenRect.maxY - targetH
+        let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)
+        
+        if self.frame != targetFrame {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            super.setFrame(targetFrame, display: true)
+            CATransaction.commit()
         }
     }
     
@@ -275,7 +301,10 @@ public class DynamicIslandPanel: NSPanel {
         
         if IslandState.shared.isFullScreenAppActive != isFullScreen {
             DispatchQueue.main.async { [weak self] in
-                withAnimation(.spring(response: 0.30, dampingFraction: 0.78)) {
+                if !isFullScreen {
+                    self?.applyRevealedCompactFrame()
+                }
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.80)) {
                     IslandState.shared.isFullScreenAppActive = isFullScreen
                 }
                 self?.updateFrame(animated: false)
@@ -352,8 +381,9 @@ public class DynamicIslandPanel: NSPanel {
                 self?.hideDebounceTimer = nil
                 
                 if !state.isHoverRevealed {
-                    DispatchQueue.main.async {
-                        withAnimation(.easeInOut(duration: 0.20)) {
+                    DispatchQueue.main.async { [weak self] in
+                        self?.applyRevealedCompactFrame()
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.80)) {
                             state.isHoverRevealed = true
                         }
                     }
@@ -365,10 +395,11 @@ public class DynamicIslandPanel: NSPanel {
                         let currentLoc = NSEvent.mouseLocation
                         let stillInZone = (currentLoc.y >= topY - 56) && (abs(currentLoc.x - midX) <= 160)
                         if !stillInZone && state.mode != .expanded {
-                            DispatchQueue.main.async {
-                                withAnimation(.easeInOut(duration: 0.20)) {
+                            DispatchQueue.main.async { [weak self] in
+                                withAnimation(.spring(response: 0.32, dampingFraction: 0.80)) {
                                     state.isHoverRevealed = false
                                 }
+                                self?.updateWindowFrameForCurrentState()
                             }
                         }
                     }

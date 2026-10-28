@@ -154,15 +154,45 @@ public class MediaService {
             return
         }
         
-        let query = "\(clean) \(artist)"
+        var candidates: [String] = []
+        // 1. Clean title itself (essential for YouTube where title is "Artist - Song" and artist is uploader channel)
+        candidates.append(clean)
+        
+        // 2. Clean + artist if artist is not empty/generic
+        let hasArtistInTitle = clean.lowercased().contains(artist.lowercased())
+        if !hasArtistInTitle && !artist.isEmpty && artist != "System Audio" {
+            candidates.append("\(clean) \(artist)")
+        }
+        
+        // 3. Inverted "Artist - Song"
+        if clean.contains(" - ") {
+            let parts = clean.components(separatedBy: " - ")
+            if parts.count >= 2 {
+                let p0 = parts[0].trimmingCharacters(in: .whitespaces)
+                let p1 = parts[1].trimmingCharacters(in: .whitespaces)
+                candidates.append("\(p0) \(p1)")
+                candidates.append("\(p1) \(p0)")
+            }
+        }
+        
+        searchITunesArtwork(candidates: candidates, index: 0, cacheKey: cacheKey, completion: completion)
+    }
+    
+    private func searchITunesArtwork(candidates: [String], index: Int, cacheKey: String, completion: @escaping (Data?) -> Void) {
+        guard index < candidates.count else {
+            DispatchQueue.main.async { completion(nil) }
+            return
+        }
+        
+        let query = candidates[index]
         guard let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
               let url = URL(string: "https://itunes.apple.com/search?term=\(encoded)&entity=song&limit=1") else {
-            completion(nil)
+            searchITunesArtwork(candidates: candidates, index: index + 1, cacheKey: cacheKey, completion: completion)
             return
         }
         
         var request = URLRequest(url: url)
-        request.timeoutInterval = 5.0
+        request.timeoutInterval = 4.0
         
         URLSession.shared.dataTask(with: request) { [weak self] data, _, _ in
             guard let data = data,
@@ -170,22 +200,22 @@ public class MediaService {
                   let results = json["results"] as? [[String: Any]],
                   let first = results.first,
                   let artUrlStr = first["artworkUrl100"] as? String else {
-                DispatchQueue.main.async { completion(nil) }
+                self?.searchITunesArtwork(candidates: candidates, index: index + 1, cacheKey: cacheKey, completion: completion)
                 return
             }
             
             let hdArtUrlStr = artUrlStr.replacingOccurrences(of: "100x100bb.jpg", with: "600x600bb.jpg")
             guard let hdUrl = URL(string: hdArtUrlStr) else {
-                DispatchQueue.main.async { completion(nil) }
+                self?.searchITunesArtwork(candidates: candidates, index: index + 1, cacheKey: cacheKey, completion: completion)
                 return
             }
             
-            URLSession.shared.dataTask(with: hdUrl) { imgData, _, _ in
-                if let imgData = imgData {
+            URLSession.shared.dataTask(with: hdUrl) { [weak self] imgData, _, _ in
+                if let imgData = imgData, !imgData.isEmpty {
                     self?.onlineArtworkCache[cacheKey] = imgData
                     DispatchQueue.main.async { completion(imgData) }
                 } else {
-                    DispatchQueue.main.async { completion(nil) }
+                    self?.searchITunesArtwork(candidates: candidates, index: index + 1, cacheKey: cacheKey, completion: completion)
                 }
             }.resume()
         }.resume()

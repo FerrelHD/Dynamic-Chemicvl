@@ -72,7 +72,14 @@ public class IslandState: ObservableObject {
     
     // Hover Peek & Fullscreen Auto-Hide Mode
     @Published public var isHoverPeekEnabled: Bool = true
-    @Published public var isHoverRevealed: Bool = false
+    public var onHoverRevealed: (() -> Void)?
+    @Published public var isHoverRevealed: Bool = false {
+        didSet {
+            if isHoverRevealed {
+                onHoverRevealed?()
+            }
+        }
+    }
     @Published public var isFullScreenAppActive: Bool = false
     private let hoverPeekStorageKey = "DynamicIsland_HoverPeekEnabled"
     
@@ -98,6 +105,15 @@ public class IslandState: ObservableObject {
         if !isIslandVisible {
             return (width: 48, height: 4)
         }
+        switch mode {
+        case .compact:
+            return compactDimensions
+        case .expanded:
+            return expandedDimensions
+        }
+    }
+    
+    public var compactDimensions: (width: CGFloat, height: CGFloat) {
         if isShowingBatteryHUD || isShowingWifiHUD || isShowingBluetoothHUD {
             return (width: 280, height: 42)
         }
@@ -107,18 +123,13 @@ public class IslandState: ObservableObject {
         if isShowingCapsLockHUD {
             return (width: 220, height: 40)
         }
-        switch mode {
-        case .compact:
-            if isTimerRunning {
-                return (width: 170, height: 30)
-            } else if isPlaying {
-                let titleLen = CGFloat(trackTitle.count)
-                return (width: max(180, min(230, 150 + titleLen * 3.0)), height: 30)
-            } else {
-                return (width: 136, height: 28) // Sleek, perfectly proportioned Apple compact notch
-            }
-        case .expanded:
-            return expandedDimensions
+        if isTimerRunning {
+            return (width: 170, height: 30)
+        } else if isPlaying {
+            let titleLen = CGFloat(trackTitle.count)
+            return (width: max(180, min(230, 150 + titleLen * 3.0)), height: 30)
+        } else {
+            return (width: 136, height: 28) // Sleek, perfectly proportioned Apple compact notch
         }
     }
     
@@ -250,13 +261,13 @@ public class IslandState: ObservableObject {
             self.albumName = info.album
             self.totalDurationSeconds = info.duration
             
-            if let artData = info.artworkData {
-                self.artworkImage = NSImage(data: artData)
+            if let artData = info.artworkData, !artData.isEmpty, let img = NSImage(data: artData) {
+                self.artworkImage = img
             } else if trackChanged || self.artworkImage == nil {
                 if !info.title.isEmpty && info.title != "No Media Playing" {
                     MediaService.shared.fetchOnlineArtwork(title: info.title, artist: info.artist) { [weak self] onlineData in
-                        if let onlineData = onlineData {
-                            self?.artworkImage = NSImage(data: onlineData)
+                        if let onlineData = onlineData, let img = NSImage(data: onlineData) {
+                            self?.artworkImage = img
                         }
                     }
                 } else {

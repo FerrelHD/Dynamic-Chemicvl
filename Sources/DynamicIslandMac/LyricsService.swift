@@ -16,26 +16,44 @@ public class LyricsService {
     
     private var lyricsCache: [String: [LyricLine]] = [:]
     
+    // Pre-compiled regular expressions for high-performance audio metadata parsing
+    private static let bracketRegex = try? NSRegularExpression(
+        pattern: #"\s*[\(\[][^\)\]]*(?:performance|practice|dance|stage|clip|visualizer|official|video|audio|mv|lyrics?|hd|4k|m\/v|feat|ft\.)[^\)\]]*[\)\]]"#,
+        options: .caseInsensitive
+    )
+    private static let trailingVideoRegex = try? NSRegularExpression(
+        pattern: #"(?i)\s*(?:performance\s*video|music\s*video|special\s*clip|dance\s*practice|official\s*(?:music\s*video|mv|video|audio)|m\/v|mv|audio|lyrics)\s*$"#,
+        options: []
+    )
+    private static let koreanRegex = try? NSRegularExpression(
+        pattern: #"\s*\([^)]*[\uac00-\ud7a3]+[^)]*\)"#,
+        options: []
+    )
+    private static let quotesRegex = try? NSRegularExpression(
+        pattern: #"[\"\'\`]"#,
+        options: .caseInsensitive
+    )
+    private static let lrcLineRegex = try? NSRegularExpression(
+        pattern: #"^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)$"#
+    )
+    
     public static func cleanTrackTitle(_ raw: String) -> String {
         var title = raw
+        
         // 1. Strip brackets and parentheses containing video/audio keywords
-        let pattern1 = #"\s*[\(\[][^\)\]]*(?:performance|practice|dance|stage|clip|visualizer|official|video|audio|mv|lyrics?|hd|4k|m\/v|feat|ft\.)[^\)\]]*[\)\]]"#
-        if let regex = try? NSRegularExpression(pattern: pattern1, options: .caseInsensitive) {
+        if let regex = bracketRegex {
             title = regex.stringByReplacingMatches(in: title, options: [], range: NSRange(location: 0, length: title.utf16.count), withTemplate: "")
         }
         // 2. Strip trailing video keywords
-        let pattern2 = #"(?i)\s*(?:performance\s*video|music\s*video|special\s*clip|dance\s*practice|official\s*(?:music\s*video|mv|video|audio)|m\/v|mv|audio|lyrics)\s*$"#
-        if let regex = try? NSRegularExpression(pattern: pattern2, options: .caseInsensitive) {
+        if let regex = trailingVideoRegex {
             title = regex.stringByReplacingMatches(in: title, options: [], range: NSRange(location: 0, length: title.utf16.count), withTemplate: "")
         }
         // 3. Strip non-Latin/Korean transliteration in parentheses, e.g. "(뉴진스)"
-        let patternKorean = #"\s*\([^)]*[\uac00-\ud7a3]+[^)]*\)"#
-        if let regex = try? NSRegularExpression(pattern: patternKorean, options: []) {
+        if let regex = koreanRegex {
             title = regex.stringByReplacingMatches(in: title, options: [], range: NSRange(location: 0, length: title.utf16.count), withTemplate: "")
         }
         // 4. Strip single and double quotes
-        let pattern3 = #"[\"\'\`]"#
-        if let regex = try? NSRegularExpression(pattern: pattern3, options: .caseInsensitive) {
+        if let regex = quotesRegex {
             title = regex.stringByReplacingMatches(in: title, options: [], range: NSRange(location: 0, length: title.utf16.count), withTemplate: "")
         }
         return title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -55,23 +73,27 @@ public class LyricsService {
         }
         
         var candidates: [String] = []
+        // Candidate 1: The cleaned title itself (Essential for YouTube where artist is the channel name)
+        candidates.append(clean)
+        
         let hasArtistInTitle = clean.lowercased().contains(artist.lowercased())
-        if hasArtistInTitle {
-            candidates.append(clean)
-        } else {
+        if !hasArtistInTitle && !artist.isEmpty && artist != "System Audio" {
             candidates.append("\(clean) \(artist)")
+            candidates.append("\(artist) \(clean)")
         }
         
         if clean.contains(" - ") {
             let parts = clean.components(separatedBy: " - ")
             if parts.count >= 2 {
-                candidates.append("\(parts[1].trimmingCharacters(in: .whitespaces)) \(parts[0].trimmingCharacters(in: .whitespaces))")
+                let p0 = parts[0].trimmingCharacters(in: .whitespaces)
+                let p1 = parts[1].trimmingCharacters(in: .whitespaces)
+                candidates.append("\(p0) \(p1)")
+                candidates.append("\(p1) \(p0)")
+                candidates.append(p1)
             }
         }
         
-        if !hasArtistInTitle {
-            candidates.append("\(artist) \(clean)")
-        } else {
+        if hasArtistInTitle {
             let stripped = clean.replacingOccurrences(of: artist, with: "", options: .caseInsensitive).trimmingCharacters(in: .whitespaces)
             if !stripped.isEmpty {
                 candidates.append("\(stripped) \(artist)")
@@ -140,8 +162,7 @@ public class LyricsService {
     public static func parseLRC(_ lrc: String) -> [LyricLine] {
         var lines: [LyricLine] = []
         let rawLines = lrc.components(separatedBy: "\n")
-        let pattern = #"^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)$"#
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        guard let regex = lrcLineRegex else { return [] }
         
         for raw in rawLines {
             let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -146,6 +146,9 @@ public struct DynamicIslandView: View {
     }
     
     private var bottomRadius: CGFloat {
+        if !state.isIslandVisible {
+            return 3
+        }
         if state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD {
             return 18 // Soft, spacious continuous squircle corners for HUD
         }
@@ -161,6 +164,9 @@ public struct DynamicIslandView: View {
     }
     
     private var earRadius: CGFloat {
+        if !state.isIslandVisible {
+            return 2
+        }
         if state.mode == .expanded {
             return 11 // Authentic Apple concave ear fillets that preserve full content width
         }
@@ -172,21 +178,21 @@ public struct DynamicIslandView: View {
     
     public var body: some View {
         VStack(spacing: 0) {
-            if state.isIslandVisible {
-                // MARK: - OLED Jet-Black MacBook Notch (Seamless Bezel Integration)
-                ZStack(alignment: .top) {
-                    NotchShape(earRadius: earRadius, bottomRadius: bottomRadius)
-                        .fill(Color.black)
-                        .overlay(
-                            NotchOutlineShape(earRadius: earRadius, bottomRadius: bottomRadius)
-                                .stroke(
-                                    isDropTargeted
-                                        ? Color.green.opacity(0.85)
-                                        : Color.white.opacity(0.14),
-                                    lineWidth: isDropTargeted ? 1.5 : 0.6
-                                )
-                        )
-                    
+            // MARK: - OLED Jet-Black MacBook Notch (Seamless Bezel Integration & Morphing)
+            ZStack(alignment: .top) {
+                NotchShape(earRadius: earRadius, bottomRadius: bottomRadius)
+                    .fill(Color.black.opacity(state.isIslandVisible ? 1.0 : 0.85))
+                    .overlay(
+                        NotchOutlineShape(earRadius: earRadius, bottomRadius: bottomRadius)
+                            .stroke(
+                                isDropTargeted
+                                    ? Color.green.opacity(0.85)
+                                    : Color.white.opacity(0.14),
+                                lineWidth: isDropTargeted ? 1.5 : (state.isIslandVisible ? 0.6 : 0.5)
+                            )
+                    )
+                
+                if state.isIslandVisible {
                     if state.isShowingVolumeHUD {
                         volumeHUDContent
                             .transition(.opacity)
@@ -206,50 +212,34 @@ public struct DynamicIslandView: View {
                         switch state.mode {
                         case .compact:
                             compactContent
-                                .transition(.asymmetric(
-                                    insertion: .opacity.animation(.easeInOut(duration: 0.15).delay(0.12)),
-                                    removal: .opacity.animation(.easeInOut(duration: 0.06))
-                                ))
+                                .transition(.opacity.animation(.easeInOut(duration: 0.18)))
                         case .expanded:
                             expandedContent
                                 .transition(.asymmetric(
-                                    insertion: .opacity.animation(.easeInOut(duration: 0.18).delay(0.12)),
-                                    removal: .opacity.animation(.easeInOut(duration: 0.06))
+                                    insertion: .opacity.animation(.easeInOut(duration: 0.20).delay(0.10)),
+                                    removal: .opacity.animation(.easeInOut(duration: 0.08))
                                 ))
                         }
                     }
                 }
-                .frame(width: islandWidth, height: islandHeight, alignment: .top)
-                .clipShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
-                .contentShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
-                .onTapGesture {
-                    if state.mode == .compact {
-                        state.toggleExpand()
+            }
+            .frame(width: islandWidth, height: islandHeight, alignment: .top)
+            .clipShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
+            .contentShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
+            .onTapGesture {
+                if !state.isIslandVisible {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.80)) {
+                        state.isHoverRevealed = true
                     }
+                } else if state.mode == .compact {
+                    state.toggleExpand()
                 }
-                .transition(.opacity)
-            } else {
-                // MARK: - Tucked Handle (Micro-Notch Flush with Top Bezel)
-                NotchShape(earRadius: 2, bottomRadius: 3)
-                    .fill(Color.black.opacity(0.85))
-                    .overlay(
-                        NotchOutlineShape(earRadius: 2, bottomRadius: 3)
-                            .stroke(Color.white.opacity(0.14), lineWidth: 0.5)
-                    )
-                    .frame(width: 48, height: 4)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        withAnimation(.easeInOut(duration: 0.20)) {
-                            state.isHoverRevealed = true
-                        }
-                    }
-                    .transition(.opacity)
             }
             
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .animation(.easeInOut(duration: 0.22), value: state.isIslandVisible)
+        .animation(.spring(response: 0.32, dampingFraction: 0.80), value: state.isIslandVisible)
         .animation(.easeInOut(duration: 0.16), value: state.activeTab)
         .animation(.easeInOut(duration: 0.18), value: state.isPlaying)
         .animation(.easeInOut(duration: 0.20), value: state.isShowingVolumeHUD)
