@@ -358,6 +358,14 @@ public class DynamicIslandPanel: NSPanel {
         return IslandState.shared.mode == .expanded
     }
     
+    public override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "q" {
+            NSApp.terminate(nil)
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+    
     // MARK: - Click-Outside Detection to Minimize
     public func startClickOutsideMonitoring(state: IslandState) {
         let checkClickOutside: (NSEvent) -> Void = { [weak self] event in

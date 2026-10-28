@@ -880,10 +880,16 @@ public struct DynamicIslandView: View {
         ZStack {
             if state.isLyricsEnabled {
                 lyricsSplitView
-                    .transition(.opacity.animation(.easeInOut(duration: 0.20)))
+                    .transition(.asymmetric(
+                        insertion: .opacity.animation(.easeInOut(duration: 0.22).delay(0.08)),
+                        removal: .opacity.animation(.easeInOut(duration: 0.16))
+                    ))
             } else {
                 normalMusicPlayerView
-                    .transition(.opacity.animation(.easeInOut(duration: 0.20)))
+                    .transition(.asymmetric(
+                        insertion: .opacity.animation(.easeInOut(duration: 0.20)),
+                        removal: .opacity.animation(.easeInOut(duration: 0.14))
+                    ))
             }
         }
     }
@@ -1122,6 +1128,7 @@ public struct DynamicIslandView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .padding(.vertical, 4)
+        .clipped()
     }
     
     // MARK: - Apple Music Karaoke Scrolling Lyrics

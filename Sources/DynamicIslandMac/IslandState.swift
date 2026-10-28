@@ -742,7 +742,10 @@ public class IslandState: ObservableObject {
             isLyricsEnabled.toggle()
         }
         if isLyricsEnabled {
-            loadLyrics()
+            // Slight deferral so network request/loading state doesn't hitch the opening spring animation frame
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+                self?.loadLyrics()
+            }
         }
     }
     
@@ -784,23 +787,35 @@ public class IslandState: ObservableObject {
         }
     }
     
-    // MARK: - On-Demand Waveform Animation (Zero CPU Idle)
+    // MARK: - On-Demand Harmonic Waveform Animation (~120 BPM Organic Beats, Zero CPU Idle when Paused)
     private func updateWaveformTimer() {
         if isPlaying {
             if waveformCancellable == nil {
-                waveformCancellable = Timer.publish(every: 0.14, on: .main, in: .common)
+                waveformCancellable = Timer.publish(every: 0.08, on: .main, in: .common)
                     .autoconnect()
                     .sink { [weak self] _ in
                         guard let self = self, self.isPlaying else { return }
-                        withAnimation(.easeInOut(duration: 0.13)) {
-                            self.waveHeights = (0..<7).map { _ in CGFloat.random(in: 0.25...1.0) }
+                        let t = Date().timeIntervalSinceReferenceDate
+                        let envelope: [Double] = [0.60, 0.80, 0.95, 1.0, 0.95, 0.80, 0.60]
+                        let beatPulse = 0.75 + 0.25 * sin(t * 8.0) // ~120 BPM rhythmic pulse
+                        let heights = (0..<7).map { i -> CGFloat in
+                            let phase = Double(i) * 0.85
+                            let w1 = sin(t * 7.5 + phase) * 0.40
+                            let w2 = cos(t * 3.8 - phase * 0.5) * 0.25
+                            let raw = (0.50 + w1 + w2) * envelope[i] * beatPulse
+                            return CGFloat(min(max(raw, 0.20), 1.0))
+                        }
+                        withAnimation(.easeInOut(duration: 0.08)) {
+                            self.waveHeights = heights
                         }
                     }
             }
         } else {
             waveformCancellable?.cancel()
             waveformCancellable = nil
-            self.waveHeights = Array(repeating: 0.25, count: 7)
+            withAnimation(.easeInOut(duration: 0.25)) {
+                self.waveHeights = Array(repeating: 0.25, count: 7)
+            }
         }
     }
     
