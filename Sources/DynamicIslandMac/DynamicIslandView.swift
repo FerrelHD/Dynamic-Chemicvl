@@ -563,9 +563,9 @@ public struct DynamicIslandView: View {
         .frame(maxWidth: .infinity, alignment: .top)
     }
     
-    // MARK: - 2. Expanded View (Apple Minimal Card with Swipe & Page Dots)
+    // MARK: - 2. Expanded View (Apple Minimal Card with Swipe & Pinned Page Dots)
     private var expandedContent: some View {
-        VStack(spacing: 6) {
+        ZStack(alignment: .bottom) {
             // Tab Contents (Spacious Content-first presentation)
             Group {
                 if state.isShowingSettings {
@@ -587,16 +587,16 @@ public struct DynamicIslandView: View {
             }
             .transition(.opacity)
             .id(state.isShowingSettings ? "settings" : state.activeTab.rawValue)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .padding(.horizontal, 24)
+            .padding(.top, 14)
+            .padding(.bottom, 36) // Generous clearance ensuring tab content never touches the dots
             
-            Spacer(minLength: 2)
-            
-            // Minimal Apple-Style Page Dots & Settings (••• ⚙️)
+            // Minimal Apple-Style Page Dots & Settings (••• ⚙️) Pinned Permanently at Bottom
             pageDotsBar
+                .padding(.bottom, 18) // Exact anchor from Control tab across all tabs
         }
-        .padding(.horizontal, 24)
-        .padding(.top, 14)
-        .padding(.bottom, 18)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle())
         .gesture(
             DragGesture(minimumDistance: 25)
