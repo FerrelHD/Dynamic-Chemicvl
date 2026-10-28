@@ -112,6 +112,9 @@ public class DynamicIslandPanel: NSPanel {
         
         setupFullScreenObservers()
         setupStateObserver()
+        IslandState.shared.onModeChangedToExpanded = { [weak self] in
+            self?.expandWindowImmediately()
+        }
         updateWindowFrameForCurrentState()
         
         // Responsive screen change tracking (multi-monitor, resolution changes)
@@ -135,27 +138,31 @@ public class DynamicIslandPanel: NSPanel {
             }
     }
     
-    public func updateWindowFrameForCurrentState() {
+    public func expandWindowImmediately() {
         guard let screen = self.screen ?? NSScreen.main else { return }
+        collapseWorkItem?.cancel()
+        collapseWorkItem = nil
         let screenRect = screen.frame
-        let state = IslandState.shared
-        let dims = state.currentDimensions
-        
-        let canvasPadding: CGFloat = 32.0 // 16pt margin on left and right for ear fillets
-        let canvasBottomPadding: CGFloat = 8.0 // 8pt margin at bottom so bottom stroke/corners never clip
+        let dims = IslandState.shared.currentDimensions
+        let canvasPadding: CGFloat = 32.0
+        let canvasBottomPadding: CGFloat = 8.0
         let targetW: CGFloat = dims.width + canvasPadding
         let targetH: CGFloat = dims.height + canvasBottomPadding
         let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let targetY = screenRect.maxY - targetH
         let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)
         
+        if self.frame != targetFrame {
+            super.setFrame(targetFrame, display: false)
+        }
+    }
+    
+    public func updateWindowFrameForCurrentState() {
+        let state = IslandState.shared
+        let dims = state.currentDimensions
+        
         if state.mode == .expanded {
-            collapseWorkItem?.cancel()
-            collapseWorkItem = nil
-            
-            if self.frame != targetFrame {
-                super.setFrame(targetFrame, display: false)
-            }
+            expandWindowImmediately()
         } else {
             // Compact mode or HUD:
             // If the window was previously expanded, wait 0.35s for SwiftUI's spring animation to finish

@@ -206,10 +206,16 @@ public struct DynamicIslandView: View {
                         switch state.mode {
                         case .compact:
                             compactContent
-                                .transition(.opacity)
+                                .transition(.asymmetric(
+                                    insertion: .opacity.animation(.easeInOut(duration: 0.15).delay(0.12)),
+                                    removal: .opacity.animation(.easeInOut(duration: 0.06))
+                                ))
                         case .expanded:
                             expandedContent
-                                .transition(.opacity)
+                                .transition(.asymmetric(
+                                    insertion: .opacity.animation(.easeInOut(duration: 0.18).delay(0.12)),
+                                    removal: .opacity.animation(.easeInOut(duration: 0.06))
+                                ))
                         }
                     }
                 }

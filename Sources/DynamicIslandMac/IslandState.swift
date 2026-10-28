@@ -54,7 +54,14 @@ public class IslandState: ObservableObject {
     public static let shared = IslandState()
     
     // UI State: Saran 1 (Klik untuk Buka, Klik di Luar untuk Tutup)
-    @Published public var mode: IslandMode = .compact
+    public var onModeChangedToExpanded: (() -> Void)?
+    @Published public var mode: IslandMode = .compact {
+        didSet {
+            if mode == .expanded {
+                onModeChangedToExpanded?()
+            }
+        }
+    }
     @Published public var activeTab: IslandTab = .devices {
         didSet {
             if activeTab == .devices {
