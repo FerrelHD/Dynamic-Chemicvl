@@ -43,7 +43,7 @@ public class HotKeyService {
         )
         
         InstallEventHandler(
-            GetApplicationEventTarget(),
+            GetEventDispatcherTarget(),
             hotKeyEventHandler,
             1,
             &eventType,
@@ -57,7 +57,7 @@ public class HotKeyService {
             UInt32(kVK_Space),
             UInt32(optionKey),
             hotKeyID,
-            GetApplicationEventTarget(),
+            GetEventDispatcherTarget(),
             0,
             &hotKeyRef
         )

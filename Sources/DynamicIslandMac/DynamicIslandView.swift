@@ -239,9 +239,10 @@ public struct DynamicIslandView: View {
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .animation(.spring(response: 0.32, dampingFraction: 0.80), value: state.isIslandVisible)
-        .animation(.spring(response: 0.32, dampingFraction: 0.80), value: state.activeTab)
-        .animation(.spring(response: 0.35, dampingFraction: 0.82), value: state.isLyricsEnabled)
+        .animation(state.animationStyle.springAnimation, value: state.isIslandVisible)
+        .animation(state.animationStyle.springAnimation, value: state.activeTab)
+        .animation(state.animationStyle.springAnimation, value: state.isLyricsEnabled)
+        .animation(state.animationStyle.springAnimation, value: state.isShowingSettings)
         .animation(.easeInOut(duration: 0.18), value: state.isPlaying)
         .animation(.easeInOut(duration: 0.20), value: state.isShowingVolumeHUD)
         .animation(.easeInOut(duration: 0.20), value: state.isShowingBatteryHUD)
@@ -567,7 +568,8 @@ public struct DynamicIslandView: View {
             HStack(spacing: 2) {
                 ForEach(IslandTab.allCases, id: \.self) { tab in
                     Button(action: {
-                        withAnimation(.spring(response: 0.32, dampingFraction: 0.80)) {
+                        withAnimation(state.animationStyle.springAnimation) {
+                            state.isShowingSettings = false
                             state.activeTab = tab
                         }
                     }) {
@@ -575,7 +577,7 @@ public struct DynamicIslandView: View {
                             tabIcon(for: tab)
                             
                             Text(tab.rawValue)
-                                .font(.system(size: 10.5, weight: state.activeTab == tab ? .bold : .medium, design: .rounded))
+                                .font(.system(size: 10.5, weight: (state.activeTab == tab && !state.isShowingSettings) ? .bold : .medium, design: .rounded))
                                 .lineLimit(1)
                                 .fixedSize(horizontal: true, vertical: false)
                             
@@ -587,7 +589,7 @@ public struct DynamicIslandView: View {
                                     .fixedSize(horizontal: true, vertical: true)
                                     .frame(minWidth: 13, minHeight: 13)
                                     .padding(.horizontal, 2)
-                                    .background(state.activeTab == tab ? Color.white.opacity(0.32) : Color.white.opacity(0.18))
+                                    .background((state.activeTab == tab && !state.isShowingSettings) ? Color.white.opacity(0.32) : Color.white.opacity(0.18))
                                     .clipShape(Capsule())
                             }
                         }
@@ -595,24 +597,39 @@ public struct DynamicIslandView: View {
                         .padding(.horizontal, 5)
                         .background(
                             ZStack {
-                                if state.activeTab == tab {
+                                if state.activeTab == tab && !state.isShowingSettings {
                                     Capsule()
                                         .fill(Color.white.opacity(0.20))
                                         .shadow(color: Color.black.opacity(0.25), radius: 3, x: 0, y: 1)
                                 }
                             }
                         )
-                        .foregroundColor(state.activeTab == tab ? .white : .white.opacity(0.60))
+                        .foregroundColor((state.activeTab == tab && !state.isShowingSettings) ? .white : .white.opacity(0.60))
                     }
                     .buttonStyle(.plain)
                 }
                 
                 Spacer(minLength: 2)
                 
+                // Settings button
+                Button(action: {
+                    withAnimation(state.animationStyle.springAnimation) {
+                        state.isShowingSettings.toggle()
+                    }
+                }) {
+                    Image(systemName: state.isShowingSettings ? "xmark" : "gearshape.fill")
+                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                        .foregroundColor(state.isShowingSettings ? .white : .white.opacity(0.65))
+                        .padding(5.5)
+                        .background(Circle().fill(state.isShowingSettings ? Color.white.opacity(0.25) : Color.white.opacity(0.12)))
+                }
+                .buttonStyle(.plain)
+                
                 // Collapse button
                 Button(action: {
-                    withAnimation(.easeInOut(duration: 0.22)) {
+                    withAnimation(state.animationStyle.springAnimation) {
                         state.mode = .compact
+                        state.isShowingSettings = false
                     }
                 }) {
                     Image(systemName: "chevron.up")
@@ -630,23 +647,27 @@ public struct DynamicIslandView: View {
             
             // Tab Contents (Simple Responsive Crossfade)
             Group {
-                switch state.activeTab {
-                case .control:
-                    controlTabView
-                case .music:
-                    musicTabView
-                case .notes:
-                    notesTabView
-                case .devices:
-                    devicesTabView
-                case .shelf:
-                    shelfTabView
+                if state.isShowingSettings {
+                    settingsTabView
+                } else {
+                    switch state.activeTab {
+                    case .control:
+                        controlTabView
+                    case .music:
+                        musicTabView
+                    case .notes:
+                        notesTabView
+                    case .devices:
+                        devicesTabView
+                    case .shelf:
+                        shelfTabView
+                    }
                 }
             }
             .transition(.opacity)
-            .id(state.activeTab)
+            .id(state.isShowingSettings ? "settings" : state.activeTab.rawValue)
         }
-        .padding(.horizontal, 18)
+        .padding(.horizontal, 24)
         .padding(.bottom, 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
@@ -1008,15 +1029,14 @@ public struct DynamicIslandView: View {
             .frame(maxWidth: .infinity)
             .padding(.top, 2)
         }
-        .padding(.horizontal, 4)
     }
     
     // MARK: - Apple Music Lyrics Split View (Left: Compact Controls | Right: Synchronized Lyrics)
     private var lyricsSplitView: some View {
-        HStack(spacing: 18) {
-            // SISI KIRI: Player Column (~340 pt)
+        HStack(spacing: 20) {
+            // SISI KIRI: Player Column (~275 pt, perfectly proportioned with ample room for lyrics on right)
             VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 12) {
+                HStack(spacing: 11) {
                     ZStack {
                         if let art = state.artworkImage {
                             Image(nsImage: art)
@@ -1043,12 +1063,12 @@ public struct DynamicIslandView: View {
                     
                     VStack(alignment: .leading, spacing: 2.5) {
                         Text(state.trackTitle)
-                            .font(.system(size: 13.5, weight: .bold, design: .rounded))
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
                             .lineLimit(1)
                         
                         Text(state.artistName)
-                            .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
                             .foregroundColor(.white.opacity(0.68))
                             .lineLimit(1)
                     }
@@ -1060,24 +1080,24 @@ public struct DynamicIslandView: View {
                 scrubberBarView()
                 
                 // Controls Row
-                HStack(spacing: 16) {
+                HStack(spacing: 12) {
                     Button(action: { state.previousTrack() }) {
                         Image(systemName: "backward.fill")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.system(size: 15, weight: .bold))
                             .foregroundColor(.white)
                     }
                     .buttonStyle(.plain)
                     
                     Button(action: { state.togglePlayPause() }) {
                         Image(systemName: state.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 24, weight: .bold))
+                            .font(.system(size: 22, weight: .bold))
                             .foregroundColor(.white)
                     }
                     .buttonStyle(.plain)
                     
                     Button(action: { state.nextTrack() }) {
                         Image(systemName: "forward.fill")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.system(size: 15, weight: .bold))
                             .foregroundColor(.white)
                     }
                     .buttonStyle(.plain)
@@ -1088,15 +1108,15 @@ public struct DynamicIslandView: View {
                     Button(action: { state.toggleLyrics() }) {
                         HStack(spacing: 5) {
                             Image(systemName: "quote.bubble.fill")
-                                .font(.system(size: 12, weight: .bold))
+                                .font(.system(size: 11.5, weight: .bold))
                             Text("Lyrics")
-                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .font(.system(size: 10.5, weight: .bold, design: .rounded))
                                 .lineLimit(1)
                                 .fixedSize(horizontal: true, vertical: false)
                         }
                         .foregroundColor(.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 4.5)
                         .background(Color(red: 1.0, green: 0.22, blue: 0.38))
                         .clipShape(Capsule())
                     }
@@ -1115,7 +1135,7 @@ public struct DynamicIslandView: View {
                     .buttonStyle(.plain)
                 }
             }
-            .frame(width: 340)
+            .frame(width: 275)
             
             // Divider
             Rectangle()
@@ -1172,6 +1192,8 @@ public struct DynamicIslandView: View {
                                         .shadow(color: Color.white.opacity(isCurrent ? 0.22 : 0.0), radius: 5, x: 0, y: 0)
                                         .scaleEffect(isCurrent ? 1.05 : 1.0, anchor: .leading)
                                         .multilineTextAlignment(.leading)
+                                        .lineLimit(2)
+                                        .fixedSize(horizontal: false, vertical: true)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                         .animation(.spring(response: 0.35, dampingFraction: 0.80), value: isCurrent)
                                 }
@@ -1673,6 +1695,107 @@ public struct DynamicIslandView: View {
                 }
             }
         }
+    }
+    
+    // MARK: - Tab 6: Settings & Customization
+    private var settingsTabView: some View {
+        VStack(spacing: 10) {
+            // Header Row: Title & Version
+            HStack {
+                HStack(spacing: 5) {
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.white.opacity(0.85))
+                    Text("Settings & Customization")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                }
+                Spacer()
+                Text("v1.0.0 Universal")
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.40))
+            }
+            .padding(.top, 2)
+            
+            // Section 1: Animation Feel
+            VStack(alignment: .leading, spacing: 5) {
+                Text("ANIMATION FEEL")
+                    .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.50))
+                
+                HStack(spacing: 6) {
+                    ForEach(AnimationStyle.allCases) { style in
+                        let isSelected = state.animationStyle == style
+                        Button(action: {
+                            state.setAnimationStyle(style)
+                        }) {
+                            HStack(spacing: 5) {
+                                Image(systemName: style == .bouncy ? "sparkles" : (style == .smooth ? "waveform.path" : "bolt.fill"))
+                                    .font(.system(size: 11, weight: .bold))
+                                Text(style.rawValue)
+                                    .font(.system(size: 11.5, weight: isSelected ? .bold : .medium, design: .rounded))
+                            }
+                            .foregroundColor(isSelected ? .white : .white.opacity(0.65))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(isSelected ? Color(red: 0.0, green: 0.48, blue: 1.0) : Color.white.opacity(0.08))
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            
+            // Section 2: Behavior & Quick Actions
+            HStack(spacing: 8) {
+                // Hover Peek Toggle
+                Button(action: {
+                    state.toggleHoverPeek()
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: state.isHoverPeekEnabled ? "hand.point.up.left.fill" : "hand.point.up.left")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(state.isHoverPeekEnabled ? Color(red: 0.2, green: 0.85, blue: 0.45) : .white.opacity(0.45))
+                        
+                        VStack(alignment: .leading, spacing: 1.5) {
+                            Text("Hover Peek")
+                                .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                                .foregroundColor(.white)
+                            Text(state.isHoverPeekEnabled ? "Top bezel triggers preview" : "Disabled (Clicks only)")
+                                .font(.system(size: 9, weight: .regular, design: .rounded))
+                                .foregroundColor(.white.opacity(0.55))
+                        }
+                        Spacer()
+                    }
+                    .padding(8)
+                    .background(Color.white.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                
+                // Quit NotchFlow
+                Button(action: {
+                    NSApp.terminate(nil)
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "power")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(Color(red: 1.0, green: 0.35, blue: 0.35))
+                        Text("Quit App")
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundColor(Color(red: 1.0, green: 0.45, blue: 0.45))
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 13)
+                    .background(Color(red: 1.0, green: 0.2, blue: 0.2).opacity(0.15))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.vertical, 2)
     }
     
     // MARK: - Helpers

@@ -34,11 +34,6 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         
         // If click is outside the active notch frame, pass through immediately
         guard notchRect.contains(localPoint) else {
-            if state.mode == .expanded && state.activeTab != .shelf {
-                DispatchQueue.main.async {
-                    self.state.minimize()
-                }
-            }
             return nil
         }
         
@@ -52,11 +47,6 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         
         // If click is in the transparent cutout corners outside the notch curve, pass through
         guard notchPath.contains(pointInNotch) else {
-            if state.mode == .expanded && state.activeTab != .shelf {
-                DispatchQueue.main.async {
-                    self.state.minimize()
-                }
-            }
             return nil
         }
         

@@ -17,6 +17,25 @@ public enum IslandTab: String, CaseIterable {
     case shelf = "Shelf"
 }
 
+public enum AnimationStyle: String, CaseIterable, Identifiable {
+    case bouncy = "Bouncy"
+    case smooth = "Smooth"
+    case snappy = "Snappy"
+    
+    public var id: String { rawValue }
+    
+    public var springAnimation: Animation {
+        switch self {
+        case .bouncy:
+            return .spring(response: 0.38, dampingFraction: 0.68)
+        case .smooth:
+            return .spring(response: 0.35, dampingFraction: 0.82)
+        case .snappy:
+            return .spring(response: 0.26, dampingFraction: 0.85)
+        }
+    }
+}
+
 public struct ConnectedDevice: Identifiable, Equatable {
     public let id = UUID()
     public let name: String
@@ -134,6 +153,9 @@ public class IslandState: ObservableObject {
     }
     
     public var expandedDimensions: (width: CGFloat, height: CGFloat) {
+        if isShowingSettings {
+            return (width: 448, height: 218) // Clean compact settings pane
+        }
         if activeTab == .music && isLyricsEnabled {
             return (width: 700, height: 235) // Spacious Responsive Split View for Apple Music Lyrics
         }
@@ -250,8 +272,18 @@ public class IslandState: ObservableObject {
     @Published public var copiedClipIndex: Int? = nil
     private var copyFeedbackWorkItem: DispatchWorkItem?
     
+    // Settings & Customization
+    @Published public var isShowingSettings: Bool = false
+    @Published public var animationStyle: AnimationStyle = .bouncy
+    private let animStyleStorageKey = "notchflow_anim_style"
+    
     public init() {
         loadTodos()
+        
+        if let savedAnim = UserDefaults.standard.string(forKey: animStyleStorageKey),
+           let style = AnimationStyle(rawValue: savedAnim) {
+            self.animationStyle = style
+        }
         
         if UserDefaults.standard.object(forKey: hoverPeekStorageKey) != nil {
             self.isHoverPeekEnabled = UserDefaults.standard.bool(forKey: hoverPeekStorageKey)
@@ -389,7 +421,7 @@ public class IslandState: ObservableObject {
         }
     }
     
-    // MARK: - Toggle Expand & Minimize (Snappy Clean Animation)
+    // MARK: - Toggle Expand & Minimize (Bouncy Elastic Spring Physics)
     public func toggleExpand() {
         if isShowingVolumeHUD {
             isShowingVolumeHUD = false
@@ -401,19 +433,28 @@ public class IslandState: ObservableObject {
             isHoverRevealed = true
             onModeChangedToExpanded?()
         }
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+        withAnimation(animationStyle.springAnimation) {
             if willExpand {
                 mode = .expanded
             } else {
                 mode = .compact
+                isShowingSettings = false
             }
         }
     }
     
     public func minimize() {
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+        withAnimation(animationStyle.springAnimation) {
             self.mode = .compact
+            self.isShowingSettings = false
         }
+    }
+    
+    public func setAnimationStyle(_ style: AnimationStyle) {
+        withAnimation(style.springAnimation) {
+            self.animationStyle = style
+        }
+        UserDefaults.standard.set(style.rawValue, forKey: animStyleStorageKey)
     }
     
     // MARK: - Hover Peek Mode Action
