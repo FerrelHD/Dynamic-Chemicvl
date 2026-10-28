@@ -171,7 +171,7 @@ public struct DynamicIslandView: View {
     }
     
     public var body: some View {
-        ZStack(alignment: .top) {
+        VStack(spacing: 0) {
             if state.isIslandVisible {
                 // MARK: - OLED Jet-Black MacBook Notch (Seamless Bezel Integration)
                 ZStack(alignment: .top) {
@@ -245,8 +245,10 @@ public struct DynamicIslandView: View {
                     }
                     .transition(.opacity)
             }
+            
+            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(.easeInOut(duration: 0.22), value: state.isIslandVisible)
         .animation(.easeInOut(duration: 0.16), value: state.activeTab)
         .animation(.easeInOut(duration: 0.18), value: state.isPlaying)
@@ -263,6 +265,7 @@ public struct DynamicIslandView: View {
         }
         .onChange(of: isDropTargeted) { targeted in
             if targeted && state.mode == .compact {
+                state.onModeChangedToExpanded?()
                 withAnimation(.easeInOut(duration: 0.22)) {
                     state.activeTab = .shelf
                     state.mode = .expanded
@@ -290,6 +293,7 @@ public struct DynamicIslandView: View {
         group.notify(queue: .main) {
             state.addFiles(loadedUrls)
             if state.mode == .compact {
+                state.onModeChangedToExpanded?()
                 withAnimation(.spring(response: 0.32, dampingFraction: 0.76)) {
                     state.activeTab = .shelf
                     state.mode = .expanded

@@ -118,22 +118,15 @@ public class IslandState: ObservableObject {
                 return (width: 136, height: 28) // Sleek, perfectly proportioned Apple compact notch
             }
         case .expanded:
-            if activeTab == .music && isLyricsEnabled {
-                return (width: 700, height: 245) // Spacious Responsive Split View for Apple Music Lyrics
-            }
-            switch activeTab {
-            case .control:
-                return (width: 448, height: 236)
-            case .music:
-                return (width: 448, height: 236) // Unified 236pt height (zero tab switching jumps/clipping)
-            case .notes:
-                return (width: 448, height: 236)
-            case .devices:
-                return (width: 448, height: 236)
-            case .shelf:
-                return (width: 448, height: 236)
-            }
+            return expandedDimensions
         }
+    }
+    
+    public var expandedDimensions: (width: CGFloat, height: CGFloat) {
+        if activeTab == .music && isLyricsEnabled {
+            return (width: 700, height: 245) // Spacious Responsive Split View for Apple Music Lyrics
+        }
+        return (width: 448, height: 236) // Unified 236pt height (zero tab switching jumps/clipping)
     }
     
     // Volume HUD overlay
@@ -361,9 +354,12 @@ public class IslandState: ObservableObject {
         refreshControlStatus()
         
         let willExpand = (mode == .compact)
+        if willExpand {
+            isHoverRevealed = true
+            onModeChangedToExpanded?()
+        }
         withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
             if willExpand {
-                isHoverRevealed = true
                 mode = .expanded
             } else {
                 mode = .compact

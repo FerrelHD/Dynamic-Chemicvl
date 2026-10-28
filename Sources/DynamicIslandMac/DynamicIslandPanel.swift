@@ -143,7 +143,7 @@ public class DynamicIslandPanel: NSPanel {
         collapseWorkItem?.cancel()
         collapseWorkItem = nil
         let screenRect = screen.frame
-        let dims = IslandState.shared.currentDimensions
+        let dims = IslandState.shared.expandedDimensions
         let canvasPadding: CGFloat = 32.0
         let canvasBottomPadding: CGFloat = 8.0
         let targetW: CGFloat = dims.width + canvasPadding
@@ -153,7 +153,10 @@ public class DynamicIslandPanel: NSPanel {
         let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)
         
         if self.frame != targetFrame {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
             super.setFrame(targetFrame, display: false)
+            CATransaction.commit()
         }
     }
     
@@ -199,7 +202,10 @@ public class DynamicIslandPanel: NSPanel {
         let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)
         
         if self.frame != targetFrame {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
             super.setFrame(targetFrame, display: true)
+            CATransaction.commit()
         }
     }
     
