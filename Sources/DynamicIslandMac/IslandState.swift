@@ -118,13 +118,13 @@ public class IslandState: ObservableObject {
             case .control:
                 return (width: 448, height: 236)
             case .music:
-                return (width: 448, height: 232) // Ample, comfortable breathing room (zero horizontal/vertical cramping!)
+                return (width: 448, height: 236) // Unified 236pt height (zero tab switching jumps/clipping)
             case .notes:
-                return (width: 448, height: 224)
+                return (width: 448, height: 236)
             case .devices:
-                return (width: 448, height: 216)
+                return (width: 448, height: 236)
             case .shelf:
-                return (width: 448, height: 195) // Spacious, comfortable file drop card
+                return (width: 448, height: 236)
             }
         }
     }

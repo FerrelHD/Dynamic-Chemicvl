@@ -177,7 +177,6 @@ public struct DynamicIslandView: View {
                 ZStack(alignment: .top) {
                     NotchShape(earRadius: earRadius, bottomRadius: bottomRadius)
                         .fill(Color.black)
-                        .shadow(color: Color.black.opacity(0.40), radius: 8, x: 0, y: 4)
                         .overlay(
                             NotchOutlineShape(earRadius: earRadius, bottomRadius: bottomRadius)
                                 .stroke(
@@ -208,13 +207,20 @@ public struct DynamicIslandView: View {
                             switch state.mode {
                             case .compact:
                                 compactContent
-                                    .transition(.opacity)
+                                    .transition(.asymmetric(
+                                        insertion: .opacity.animation(.easeInOut(duration: 0.15).delay(0.10)),
+                                        removal: .opacity.animation(.easeInOut(duration: 0.08))
+                                    ))
                             case .expanded:
                                 expandedContent
-                                    .transition(.opacity)
+                                    .transition(.asymmetric(
+                                        insertion: .opacity.combined(with: .scale(scale: 0.96, anchor: .top)).animation(.easeOut(duration: 0.20).delay(0.08)),
+                                        removal: .opacity.animation(.easeInOut(duration: 0.08))
+                                    ))
                             }
                         }
                     }
+                    .frame(width: islandWidth, height: islandHeight, alignment: .top)
                     .clipShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
                 }
                 .contentShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
@@ -1429,7 +1435,7 @@ public struct DynamicIslandView: View {
                             .foregroundColor(.white.opacity(0.50))
                     }
                 }
-                .frame(height: 72)
+                .frame(height: 96)
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 9) {
@@ -1500,7 +1506,7 @@ public struct DynamicIslandView: View {
                             .foregroundColor(.white.opacity(0.50))
                     }
                 }
-                .frame(height: 72)
+                .frame(height: 96)
             } else {
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 4.5) {

@@ -137,9 +137,10 @@ public class DynamicIslandPanel: NSPanel {
         let state = IslandState.shared
         let dims = state.currentDimensions
         
-        let canvasPadding: CGFloat = 32.0 // 16pt margin on left and right for ear fillets & shadow
+        let canvasPadding: CGFloat = 32.0 // 16pt margin on left and right for ear fillets
+        let canvasBottomPadding: CGFloat = 8.0 // 8pt margin at bottom so bottom stroke/corners never clip
         let targetW: CGFloat = dims.width + canvasPadding
-        let targetH: CGFloat = dims.height
+        let targetH: CGFloat = dims.height + canvasBottomPadding
         let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let targetY = screenRect.maxY - targetH
         let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)
@@ -174,8 +175,9 @@ public class DynamicIslandPanel: NSPanel {
         let screenRect = screen.frame
         let dims = IslandState.shared.currentDimensions
         let canvasPadding: CGFloat = 32.0
+        let canvasBottomPadding: CGFloat = 8.0
         let targetW = dims.width + canvasPadding
-        let targetH = dims.height
+        let targetH = dims.height + canvasBottomPadding
         let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let targetY = screenRect.maxY - targetH
         let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)
