@@ -781,9 +781,7 @@ public class IslandState: ObservableObject {
         let target = position
         let idx = lyricsLines.lastIndex(where: { $0.timestamp <= target })
         if currentLyricIndex != idx {
-            withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
-                currentLyricIndex = idx
-            }
+            currentLyricIndex = idx
         }
     }
     

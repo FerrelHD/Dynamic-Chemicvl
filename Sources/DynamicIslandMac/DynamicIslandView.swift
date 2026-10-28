@@ -1166,14 +1166,13 @@ public struct DynamicIslandView: View {
                                     state.seekTo(line.timestamp)
                                 }) {
                                     Text(line.text)
-                                        .font(.system(size: isCurrent ? 14.5 : 12.5, weight: isCurrent ? .bold : .medium, design: .rounded))
+                                        .font(.system(size: 13.5, weight: isCurrent ? .bold : .medium, design: .rounded))
                                         .foregroundColor(isCurrent ? .white : .white.opacity(0.35))
-                                        .shadow(color: Color.white.opacity(isCurrent ? 0.22 : 0.0), radius: 6, x: 0, y: 0)
-                                        .scaleEffect(isCurrent ? 1.02 : 1.0, anchor: .leading)
-                                        .blur(radius: isCurrent ? 0 : 0.25)
+                                        .shadow(color: Color.white.opacity(isCurrent ? 0.22 : 0.0), radius: 5, x: 0, y: 0)
+                                        .scaleEffect(isCurrent ? 1.05 : 1.0, anchor: .leading)
                                         .multilineTextAlignment(.leading)
                                         .frame(maxWidth: .infinity, alignment: .leading)
-                                        .animation(.spring(response: 0.35, dampingFraction: 0.78), value: isCurrent)
+                                        .animation(.spring(response: 0.35, dampingFraction: 0.80), value: isCurrent)
                                 }
                                 .buttonStyle(.plain)
                                 .id(idx)

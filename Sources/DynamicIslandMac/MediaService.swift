@@ -155,16 +155,13 @@ public class MediaService {
         }
         
         var candidates: [String] = []
-        // 1. Clean title itself (essential for YouTube where title is "Artist - Song" and artist is uploader channel)
-        candidates.append(clean)
-        
-        // 2. Clean + artist if artist is not empty/generic
+        // 1. Specific artist + title query FIRST (ensures accurate album art, prevents common song titles like "love." matching wrong global hits)
         let hasArtistInTitle = clean.lowercased().contains(artist.lowercased())
         if !hasArtistInTitle && !artist.isEmpty && artist != "System Audio" {
             candidates.append("\(clean) \(artist)")
         }
         
-        // 3. Inverted "Artist - Song"
+        // 2. Inverted "Artist - Song" / "Song - Artist" if title contains delimiter
         if clean.contains(" - ") {
             let parts = clean.components(separatedBy: " - ")
             if parts.count >= 2 {
@@ -174,6 +171,9 @@ public class MediaService {
                 candidates.append("\(p1) \(p0)")
             }
         }
+        
+        // 3. Fallback to clean title alone (for YouTube standalone titles)
+        candidates.append(clean)
         
         searchITunesArtwork(candidates: candidates, index: 0, cacheKey: cacheKey, completion: completion)
     }

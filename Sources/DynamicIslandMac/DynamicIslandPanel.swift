@@ -67,7 +67,6 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
 public class DynamicIslandPanel: NSPanel {
     private var stateCancellable: AnyCancellable?
     private var collapseWorkItem: DispatchWorkItem?
-    private var lyricsCollapseWorkItem: DispatchWorkItem?
     
     private var globalClickMonitor: Any?
     private var localClickMonitor: Any?
@@ -156,43 +155,23 @@ public class DynamicIslandPanel: NSPanel {
         collapseWorkItem?.cancel()
         collapseWorkItem = nil
         let screenRect = screen.frame
-        let dims = IslandState.shared.expandedDimensions
         let canvasPadding: CGFloat = 32.0
-        let targetW: CGFloat = dims.width + canvasPadding
-        // Keep window canvas height constant at 250pt while expanded so AppKit window origin Y never jumps when switching tabs!
+        // Stable expanded canvas: 732 pt wide (fits 700 pt lyrics) x 250 pt high!
+        // By keeping the canvas width and height constant at (732 x 250) throughout all expanded tabs & lyrics modes,
+        // the NSPanel window frame NEVER jumps, shifts origin X, or jitters!
+        // All animations (width 448 -> 700 -> 448) are handled purely by CoreAnimation / SwiftUI on GPU!
+        // All clicks outside the active notch shape pass through via IslandHostingView hitTest!
+        let targetW: CGFloat = 700.0 + canvasPadding
         let targetH: CGFloat = 250.0
         let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let targetY = screenRect.maxY - targetH
         let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)
         
-        // If closing lyrics (width shrinking from 732 to 480):
-        // Allow SwiftUI's 0.35s spring animation to smoothly glide and shrink inside the 732pt wide canvas!
-        // Only shrink the physical window frame to 480pt AFTER the animation completes cleanly!
-        if self.frame.width > targetW + 10 {
-            if lyricsCollapseWorkItem == nil {
-                let work = DispatchWorkItem { [weak self] in
-                    guard let self = self else { return }
-                    self.lyricsCollapseWorkItem = nil
-                    guard IslandState.shared.mode == .expanded, !IslandState.shared.isLyricsEnabled else { return }
-                    if self.frame != targetFrame {
-                        CATransaction.begin()
-                        CATransaction.setDisableActions(true)
-                        self.setFrame(targetFrame, display: false)
-                        CATransaction.commit()
-                    }
-                }
-                lyricsCollapseWorkItem = work
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: work)
-            }
-        } else {
-            lyricsCollapseWorkItem?.cancel()
-            lyricsCollapseWorkItem = nil
-            if self.frame != targetFrame {
-                CATransaction.begin()
-                CATransaction.setDisableActions(true)
-                self.setFrame(targetFrame, display: false)
-                CATransaction.commit()
-            }
+        if self.frame != targetFrame {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            self.setFrame(targetFrame, display: false)
+            CATransaction.commit()
         }
     }
     
@@ -203,12 +182,10 @@ public class DynamicIslandPanel: NSPanel {
         if state.mode == .expanded {
             expandWindowImmediately()
         } else {
-            lyricsCollapseWorkItem?.cancel()
-            lyricsCollapseWorkItem = nil
             // Compact mode or HUD:
             // If the window was previously expanded, wait 0.35s for SwiftUI's spring animation to finish
             // cleanly before shrinking the window frame back to compact size, freeing Chrome completely!
-            if self.frame.height > dims.height + 10 {
+            if self.frame.height > dims.height + 10 || self.frame.width > dims.width + 10 {
                 if collapseWorkItem == nil {
                     let workItem = DispatchWorkItem { [weak self] in
                         guard let self = self else { return }
@@ -251,8 +228,6 @@ public class DynamicIslandPanel: NSPanel {
     }
     
     private func applyCompactFrame() {
-        lyricsCollapseWorkItem?.cancel()
-        lyricsCollapseWorkItem = nil
         guard let screen = self.screen ?? NSScreen.main else { return }
         let screenRect = screen.frame
         let dims = IslandState.shared.currentDimensions
