@@ -1125,7 +1125,7 @@ public struct DynamicIslandView: View {
                     .buttonStyle(.plain)
                 }
             }
-            .frame(width: 275)
+            .frame(width: 240)
             
             // Divider
             Rectangle()
@@ -1133,7 +1133,7 @@ public struct DynamicIslandView: View {
                 .frame(width: 1)
                 .frame(maxHeight: .infinity)
             
-            // SISI KANAN: Apple Music Karaoke Scrolling Lyrics (~300 pt)
+            // SISI KANAN: Apple Music Karaoke Scrolling Lyrics (~410 pt)
             lyricsScrollingPane
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -1149,7 +1149,6 @@ public struct DynamicIslandView: View {
             } else if let error = state.lyricsErrorMessage, state.lyricsLines.isEmpty {
                 lyricsErrorView(message: error)
             } else {
-                lyricsOffsetControls
                 lyricsListScrollView
             }
         }
@@ -1177,49 +1176,6 @@ public struct DynamicIslandView: View {
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-    
-    private var lyricsOffsetControls: some View {
-        HStack(spacing: 6) {
-            Text(state.lyricSyncOffset == 0 ? "Sync: 0.0s" : String(format: "Sync: %+.1fs", state.lyricSyncOffset))
-                .font(.system(size: 9.5, weight: .bold, design: .rounded))
-                .foregroundColor(.white.opacity(0.50))
-            
-            Button(action: { state.adjustLyricSync(by: -0.5) }) {
-                Text("-0.5s")
-                    .font(.system(size: 9, weight: .bold, design: .rounded))
-                    .foregroundColor(.white.opacity(0.75))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.white.opacity(0.12))
-                    .clipShape(Capsule())
-            }
-            .buttonStyle(.plain)
-            
-            Button(action: { state.adjustLyricSync(by: 0.5) }) {
-                Text("+0.5s")
-                    .font(.system(size: 9, weight: .bold, design: .rounded))
-                    .foregroundColor(.white.opacity(0.75))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.white.opacity(0.12))
-                    .clipShape(Capsule())
-            }
-            .buttonStyle(.plain)
-            
-            if state.lyricSyncOffset != 0 {
-                Button(action: { state.resetLyricSync() }) {
-                    Image(systemName: "arrow.counterclockwise")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundColor(.white.opacity(0.60))
-                }
-                .buttonStyle(.plain)
-            }
-            
-            Spacer()
-        }
-        .padding(.horizontal, 6)
-        .padding(.bottom, 2)
     }
     
     private var lyricsListScrollView: some View {
@@ -1250,7 +1206,7 @@ public struct DynamicIslandView: View {
             )
             .onChange(of: state.currentLyricIndex) { newIdx in
                 if let newIdx = newIdx {
-                    withAnimation(.spring(response: 0.44, dampingFraction: 0.82)) {
+                    withAnimation(.spring(response: 0.54, dampingFraction: 0.88)) {
                         proxy.scrollTo(newIdx, anchor: .center)
                     }
                 }
@@ -1261,21 +1217,22 @@ public struct DynamicIslandView: View {
     private func lyricRowButton(line: LyricLine, idx: Int) -> some View {
         let isCurrent = (state.currentLyricIndex == idx)
         let distance = abs((state.currentLyricIndex ?? 0) - idx)
-        let lineOpacity: Double = isCurrent ? 1.0 : (distance == 1 ? 0.42 : 0.26)
+        let lineOpacity: Double = isCurrent ? 1.0 : (distance == 1 ? 0.44 : 0.26)
         
         return Button(action: {
             state.seekTo(line.timestamp)
         }) {
             Text(line.text)
-                .font(.system(size: 13.5, weight: isCurrent ? .bold : .medium, design: .rounded))
+                .font(.system(size: isCurrent ? 15 : 13.5, weight: isCurrent ? .bold : .medium, design: .rounded))
                 .foregroundColor(.white.opacity(lineOpacity))
-                .scaleEffect(isCurrent ? 1.06 : 0.96, anchor: .leading)
-                .shadow(color: Color.white.opacity(isCurrent ? 0.35 : 0.0), radius: isCurrent ? 7 : 0, x: 0, y: 0)
+                .scaleEffect(isCurrent ? 1.025 : 0.98, anchor: .leading)
+                .shadow(color: Color.white.opacity(isCurrent ? 0.35 : 0.0), radius: isCurrent ? 6 : 0, x: 0, y: 0)
                 .multilineTextAlignment(.leading)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
+                .padding(.trailing, 22)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .animation(.spring(response: 0.44, dampingFraction: 0.82), value: isCurrent)
+                .animation(.spring(response: 0.54, dampingFraction: 0.88), value: isCurrent)
         }
         .buttonStyle(.plain)
         .id(idx)

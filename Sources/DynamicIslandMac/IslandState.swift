@@ -157,7 +157,7 @@ public class IslandState: ObservableObject {
             return (width: 448, height: 272) // Spacious settings pane: sliders, presets, actions, and comfortable page dots
         }
         if activeTab == .music && isLyricsEnabled {
-            return (width: 700, height: 236) // Spacious Responsive Split View for Apple Music Lyrics
+            return (width: 720, height: 216) // Spacious Responsive Split View for Apple Music Lyrics
         }
         switch activeTab {
         case .devices:
@@ -245,7 +245,7 @@ public class IslandState: ObservableObject {
     @Published public var currentLyricIndex: Int? = nil
     @Published public var isLoadingLyrics: Bool = false
     @Published public var lyricsErrorMessage: String? = nil
-    @Published public var lyricSyncOffset: Double = 0.0
+    public let lyricSyncLeadSeconds: Double = 0.5
     private var lastLoadedLyricsTrack: String = ""
     
     // Waveform simulation
@@ -913,21 +913,11 @@ public class IslandState: ObservableObject {
             if currentLyricIndex != nil { currentLyricIndex = nil }
             return
         }
-        let target = position + lyricSyncOffset
+        let target = position + lyricSyncLeadSeconds
         let idx = lyricsLines.lastIndex(where: { $0.timestamp <= target })
         if currentLyricIndex != idx {
             currentLyricIndex = idx
         }
-    }
-    
-    public func adjustLyricSync(by delta: Double) {
-        lyricSyncOffset = max(-3.0, min(3.0, lyricSyncOffset + delta))
-        updateActiveLyricIndex(for: currentPositionSeconds)
-    }
-    
-    public func resetLyricSync() {
-        lyricSyncOffset = 0.0
-        updateActiveLyricIndex(for: currentPositionSeconds)
     }
     
     // Physical Multi-Band Equalizer State (7 Bands: Sub-Bass, Bass, Low-Mid, Mid, Upper-Mid, Presence, Brilliance)
