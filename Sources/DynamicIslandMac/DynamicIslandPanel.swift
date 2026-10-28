@@ -230,13 +230,13 @@ public class DynamicIslandPanel: NSPanel {
         collapseWorkItem = nil
         let screenRect = screen.frame
         let canvasPadding: CGFloat = 32.0
-        // Stable expanded canvas: 732 pt wide (fits 700 pt lyrics) x 272 pt high!
-        // By keeping the canvas width and height constant at (732 x 272) throughout all expanded tabs & lyrics modes,
+        // Stable expanded canvas: 752 pt wide x 290 pt high!
+        // By keeping the canvas width and height constant at (752 x 290) throughout all expanded tabs & lyrics modes,
         // the NSPanel window frame NEVER jumps, shifts origin X, or jitters!
-        // All animations (width 448 -> 700 -> 448) are handled purely by CoreAnimation / SwiftUI on GPU!
+        // All animations (width 448 -> 720 -> 448) are handled purely by CoreAnimation / SwiftUI on GPU!
         // All clicks outside the active notch shape pass through via IslandHostingView hitTest!
-        let targetW: CGFloat = 700.0 + canvasPadding
-        let targetH: CGFloat = 272.0
+        let targetW: CGFloat = 720.0 + canvasPadding
+        let targetH: CGFloat = 290.0
         let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let targetY = screenRect.maxY - targetH
         let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)

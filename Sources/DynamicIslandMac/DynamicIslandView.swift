@@ -597,7 +597,7 @@ public struct DynamicIslandView: View {
         }
         .padding(.horizontal, 24)
         .padding(.top, 14)
-        .padding(.bottom, 14)
+        .padding(.bottom, 18)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .contentShape(Rectangle())
         .gesture(
