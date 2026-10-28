@@ -293,32 +293,53 @@ public struct DynamicIslandView: View {
         }
     }
     
-    // MARK: - iOS Volume HUD (Hardware keys trigger)
+    // MARK: - iOS Volume & Mute HUD (Hardware keys trigger)
     private var volumeHUDContent: some View {
         HStack(spacing: 12) {
-            Image(systemName: volumeIcon)
-                .font(.system(size: 13, weight: .bold, design: .rounded))
-                .foregroundColor(.white)
-                .frame(width: 18)
-            
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.white.opacity(0.20))
-                        .frame(height: 6)
-                    
-                    Capsule()
-                        .fill(Color.white)
-                        .frame(width: max(0, geo.size.width * CGFloat(state.currentVolume) / 100.0), height: 6)
+            if state.isMuted {
+                Image(systemName: "speaker.slash.fill")
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundColor(Color(red: 1.0, green: 0.35, blue: 0.35))
+                    .frame(width: 18)
+                
+                Text("Muted")
+                    .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                
+                Spacer()
+                
+                Text("Silent")
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .foregroundColor(Color(red: 1.0, green: 0.35, blue: 0.35))
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 3.5)
+                    .background(Color(red: 1.0, green: 0.35, blue: 0.35).opacity(0.18))
+                    .clipShape(Capsule())
+            } else {
+                Image(systemName: volumeIcon)
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                    .frame(width: 18)
+                
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(Color.white.opacity(0.20))
+                            .frame(height: 6)
+                        
+                        Capsule()
+                            .fill(Color.white)
+                            .frame(width: max(0, geo.size.width * CGFloat(state.currentVolume) / 100.0), height: 6)
+                    }
+                    .frame(height: geo.size.height, alignment: .center)
                 }
-                .frame(height: geo.size.height, alignment: .center)
+                .frame(height: 6)
+                
+                Text("\(state.currentVolume)%")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                    .frame(width: 36, alignment: .trailing)
             }
-            .frame(height: 6)
-            
-            Text("\(state.currentVolume)%")
-                .font(.system(size: 11, weight: .bold, design: .rounded))
-                .foregroundColor(.white)
-                .frame(width: 36, alignment: .trailing)
         }
         .padding(.horizontal, 16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
@@ -326,7 +347,7 @@ public struct DynamicIslandView: View {
     }
     
     private var volumeIcon: String {
-        if state.currentVolume == 0 { return "speaker.slash.fill" }
+        if state.isMuted || state.currentVolume == 0 { return "speaker.slash.fill" }
         if state.currentVolume < 33 { return "speaker.wave.1.fill" }
         if state.currentVolume < 66 { return "speaker.wave.2.fill" }
         return "speaker.wave.3.fill"
@@ -424,18 +445,29 @@ public struct DynamicIslandView: View {
         )
     }
     
-    // MARK: - Bluetooth HUD Notification (Connected vs Disconnected)
+    // MARK: - Bluetooth & AirPods HUD Notification (Connected vs Disconnected)
     private var bluetoothHUDContent: some View {
         let isConnected = state.isBluetoothOn
-        let ringColor = isConnected ? Color(red: 0.20, green: 0.60, blue: 1.0) : Color(white: 0.35)
-        let icon = isConnected ? "wave.3.forward" : "bluetooth.slash"
-        let title = "Bluetooth"
-        let subtitle = isConnected ? (state.bluetoothDeviceName.isEmpty ? "Connected" : "Connected • \(state.bluetoothDeviceName)") : "Disconnected"
-        let trailing = isConnected ? "On" : "Off"
+        let hasDevice = !state.bluetoothDeviceName.isEmpty
+        let isAirPods = state.bluetoothDeviceIcon.contains("airpod") || state.bluetoothDeviceIcon.contains("headphone")
+        let ringColor = isConnected ? (isAirPods ? Color(red: 0.20, green: 0.85, blue: 0.40) : Color(red: 0.20, green: 0.60, blue: 1.0)) : Color(white: 0.35)
+        let icon = isConnected ? state.bluetoothDeviceIcon : "bluetooth.slash"
+        let title = hasDevice ? state.bluetoothDeviceName : "Bluetooth"
+        let subtitle = isConnected ? (hasDevice ? "Connected" : "On") : "Disconnected"
+        
+        let trailing: String
+        let progress: Double
+        if let batt = state.bluetoothDeviceBattery, batt > 0 {
+            trailing = "\(batt)%"
+            progress = Double(batt) / 100.0
+        } else {
+            trailing = isConnected ? "On" : "Off"
+            progress = 1.0
+        }
         
         return pillHUDNotificationView(
             ringColor: ringColor,
-            ringProgress: 1.0,
+            ringProgress: progress,
             iconName: icon,
             iconColor: isConnected ? .white : Color.white.opacity(0.60),
             title: title,

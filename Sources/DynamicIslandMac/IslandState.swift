@@ -151,9 +151,10 @@ public class IslandState: ObservableObject {
         }
     }
     
-    // Volume HUD overlay
+    // Volume & Mute HUD overlay
     @Published public var isShowingVolumeHUD: Bool = false
     @Published public var currentVolume: Int = 50
+    @Published public var isMuted: Bool = false
     private var volumeHUDWorkItem: DispatchWorkItem?
     
     // Battery & MagSafe HUD overlay
@@ -168,11 +169,18 @@ public class IslandState: ObservableObject {
     @Published public var wifiHUDSubtitle: String = ""
     private var wifiHUDWorkItem: DispatchWorkItem?
     
-    // Bluetooth HUD overlay
+    // Bluetooth & AirPods HUD overlay
     @Published public var isShowingBluetoothHUD: Bool = false
     @Published public var bluetoothHUDSubtitle: String = ""
     @Published public var bluetoothDeviceName: String = ""
+    @Published public var bluetoothDeviceIcon: String = "wave.3.forward"
+    @Published public var bluetoothDeviceBattery: Int? = nil
     private var bluetoothHUDWorkItem: DispatchWorkItem?
+    
+    // Bluetooth Device Connection Monitor
+    private var lastKnownConnectedAddresses: Set<String> = []
+    private var hasInitializedBluetoothDevices: Bool = false
+    private var bluetoothWatcherTimer: Timer?
     
     // Caps Lock HUD overlay
     @Published public var isShowingCapsLockHUD: Bool = false
@@ -254,8 +262,9 @@ public class IslandState: ObservableObject {
             self.isSeamlessMenuBarEnabled = MenuBarTintService.shared.isSeamlessActive
         }
         
-        if let vol = AudioService.shared.getSystemVolume() {
-            self.currentVolume = vol
+        if let audio = AudioService.shared.getSystemAudioState() {
+            self.currentVolume = audio.volume
+            self.isMuted = audio.isMuted
         }
         
         refreshControlStatus()
@@ -324,10 +333,13 @@ public class IslandState: ObservableObject {
             }
         }
         
-        // Monitoring Volume HUD otomatis
-        AudioService.shared.startMonitoring { [weak self] newVolume in
-            self?.triggerVolumeHUD(newVolume)
+        // Monitoring Volume & Mute HUD otomatis
+        AudioService.shared.startMonitoring { [weak self] newVolume, isMuted in
+            self?.triggerVolumeHUD(level: newVolume, isMuted: isMuted)
         }
+        
+        // Monitoring Bluetooth Device Connections (AirPods & Accessories)
+        startBluetoothDeviceMonitoring()
         
         // Monitoring Battery & MagSafe Status
         let initialBattery = BatteryService.shared.getStatus()
@@ -495,9 +507,14 @@ public class IslandState: ObservableObject {
         }
     }
     
-    // MARK: - Volume HUD Trigger
-    public func triggerVolumeHUD(_ level: Int) {
+    // MARK: - Volume & Mute HUD Trigger
+    public func triggerVolumeHUD(level: Int, isMuted: Bool = false) {
         currentVolume = level
+        self.isMuted = isMuted
+        
+        // Root cause fix: If notch is expanded, update volume/mute in background without hijacking the view!
+        guard mode != .expanded else { return }
+        
         volumeHUDWorkItem?.cancel()
         
         withAnimation(.easeInOut(duration: 0.18)) {
@@ -511,6 +528,10 @@ public class IslandState: ObservableObject {
         }
         volumeHUDWorkItem = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.8, execute: work)
+    }
+    
+    public func triggerVolumeHUD(_ level: Int) {
+        triggerVolumeHUD(level: level, isMuted: self.isMuted)
     }
     
     // MARK: - Battery & MagSafe HUD Trigger (Option 2: 3-Column Pill)
@@ -554,13 +575,19 @@ public class IslandState: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.2, execute: work)
     }
     
-    // MARK: - Bluetooth Connection HUD Trigger
-    public func triggerBluetoothHUD(connected: Bool, device: String? = nil) {
+    // MARK: - Bluetooth & AirPods Connection HUD Trigger
+    public func triggerBluetoothHUD(connected: Bool, device: String? = nil, icon: String = "wave.3.forward", battery: Int? = nil) {
         guard mode != .expanded else { return }
         bluetoothHUDWorkItem?.cancel()
         isBluetoothOn = connected
         if let d = device, !d.isEmpty {
             bluetoothDeviceName = d
+            bluetoothDeviceIcon = icon
+            bluetoothDeviceBattery = battery
+        } else {
+            bluetoothDeviceName = ""
+            bluetoothDeviceIcon = "wave.3.forward"
+            bluetoothDeviceBattery = nil
         }
         bluetoothHUDSubtitle = connected ? (bluetoothDeviceName.isEmpty ? "Connected" : "Connected • \(bluetoothDeviceName)") : "Disconnected"
         
@@ -574,7 +601,80 @@ public class IslandState: ObservableObject {
             }
         }
         bluetoothHUDWorkItem = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5, execute: work)
+    }
+    
+    // MARK: - Bluetooth Device Connection Monitoring
+    private func startBluetoothDeviceMonitoring() {
+        if let paired = IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] {
+            let connected = paired.filter { $0.isConnected() }
+            for dev in connected {
+                if let addr = dev.addressString {
+                    lastKnownConnectedAddresses.insert(addr)
+                }
+            }
+            hasInitializedBluetoothDevices = true
+        }
+        
+        DispatchQueue.main.async { [weak self] in
+            self?.bluetoothWatcherTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+                self?.checkBluetoothDeviceConnections()
+            }
+        }
+    }
+    
+    private func checkBluetoothDeviceConnections() {
+        guard let paired = IOBluetoothDevice.pairedDevices() as? [IOBluetoothDevice] else { return }
+        let connected = paired.filter { $0.isConnected() }
+        let currentAddrs = Set(connected.compactMap { $0.addressString })
+        
+        guard hasInitializedBluetoothDevices else {
+            lastKnownConnectedAddresses = currentAddrs
+            hasInitializedBluetoothDevices = true
+            return
+        }
+        
+        let newlyConnected = connected.filter { dev in
+            guard let addr = dev.addressString else { return false }
+            return !lastKnownConnectedAddresses.contains(addr)
+        }
+        
+        if let newDev = newlyConnected.first {
+            let name = newDev.nameOrAddress ?? newDev.name ?? "Bluetooth Device"
+            let lower = name.lowercased()
+            let minor = Int(newDev.deviceClassMinor)
+            
+            let icon: String
+            if lower.contains("airpod") || lower.contains("bud") {
+                icon = "airpodspro"
+            } else if lower.contains("mouse") || minor == 32 {
+                icon = "magicmouse"
+            } else if lower.contains("keyboard") {
+                icon = "keyboard"
+            } else if lower.contains("trackpad") {
+                icon = "computermouse"
+            } else if lower.contains("bean") || lower.contains("speaker") || minor == 1 || minor == 16 {
+                icon = "headphones"
+            } else {
+                icon = "wave.3.forward"
+            }
+            
+            let hidMap = getHIDBatteryLevels()
+            let airPodsBattery = getAirPodsBatteryLevel()
+            var batt: Int? = nil
+            if let matched = hidMap[lower] {
+                batt = matched
+            } else if lower.contains("airpod"), let ap = airPodsBattery {
+                batt = ap
+            }
+            
+            triggerBluetoothHUD(connected: true, device: name, icon: icon, battery: batt)
+            refreshConnectedDevices()
+        } else if currentAddrs != lastKnownConnectedAddresses {
+            refreshConnectedDevices()
+        }
+        
+        lastKnownConnectedAddresses = currentAddrs
     }
     
     // MARK: - Caps Lock HUD Trigger
