@@ -66,7 +66,6 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
 
 public class DynamicIslandPanel: NSPanel {
     private var stateCancellable: AnyCancellable?
-    private var collapseTimer: Timer?
     
     private var globalClickMonitor: Any?
     private var localClickMonitor: Any?
@@ -80,10 +79,11 @@ public class DynamicIslandPanel: NSPanel {
     
     public init() {
         let screenRect = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
-        let dims = IslandState.shared.currentDimensions
-        let xPos = floor(screenRect.minX + ((screenRect.width - dims.width) / 2.0))
-        let yPos = screenRect.maxY - dims.height
-        let initialRect = NSRect(x: xPos, y: yPos, width: dims.width, height: dims.height)
+        let canvasW: CGFloat = 740.0
+        let canvasH: CGFloat = 265.0
+        let xPos = floor(screenRect.minX + ((screenRect.width - canvasW) / 2.0))
+        let yPos = screenRect.maxY - canvasH
+        let initialRect = NSRect(x: xPos, y: yPos, width: canvasW, height: canvasH)
         
         super.init(
             contentRect: initialRect,
@@ -134,56 +134,14 @@ public class DynamicIslandPanel: NSPanel {
     public func updateWindowFrameForCurrentState() {
         guard let screen = self.screen ?? NSScreen.main else { return }
         let screenRect = screen.frame
-        let state = IslandState.shared
-        let dims = state.currentDimensions
-        
-        let canvasPadding: CGFloat = 32.0 // 16pt margin on left and right for ear fillets
-        let canvasBottomPadding: CGFloat = 8.0 // 8pt margin at bottom so bottom stroke/corners never clip
-        let targetW: CGFloat = dims.width + canvasPadding
-        let targetH: CGFloat = dims.height + canvasBottomPadding
-        let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
-        let targetY = screenRect.maxY - targetH
-        let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)
-        
-        if state.mode == .expanded {
-            collapseTimer?.invalidate()
-            collapseTimer = nil
-            
-            if self.frame != targetFrame {
-                super.setFrame(targetFrame, display: false)
-            }
-        } else {
-            // Compact mode or HUD:
-            // If the window was previously expanded, wait 0.35s for SwiftUI's spring animation to finish
-            // cleanly before shrinking the window frame.
-            if self.frame.height > dims.height + 10 {
-                if collapseTimer == nil {
-                    collapseTimer = Timer.scheduledTimer(withTimeInterval: 0.35, repeats: false) { [weak self] _ in
-                        self?.collapseTimer = nil
-                        guard IslandState.shared.mode == .compact else { return }
-                        self?.applyCompactFrame()
-                    }
-                }
-            } else {
-                applyCompactFrame()
-            }
-        }
-    }
-    
-    private func applyCompactFrame() {
-        guard let screen = self.screen ?? NSScreen.main else { return }
-        let screenRect = screen.frame
-        let dims = IslandState.shared.currentDimensions
-        let canvasPadding: CGFloat = 32.0
-        let canvasBottomPadding: CGFloat = 8.0
-        let targetW = dims.width + canvasPadding
-        let targetH = dims.height + canvasBottomPadding
-        let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
-        let targetY = screenRect.maxY - targetH
-        let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)
+        let canvasW: CGFloat = 740.0
+        let canvasH: CGFloat = 265.0
+        let targetX = floor(screenRect.minX + ((screenRect.width - canvasW) / 2.0))
+        let targetY = screenRect.maxY - canvasH
+        let targetFrame = NSRect(x: targetX, y: targetY, width: canvasW, height: canvasH)
         
         if self.frame != targetFrame {
-            super.setFrame(targetFrame, display: true)
+            super.setFrame(targetFrame, display: false)
         }
     }
     

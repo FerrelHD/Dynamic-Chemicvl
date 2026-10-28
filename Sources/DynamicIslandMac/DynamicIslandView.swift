@@ -187,44 +187,35 @@ public struct DynamicIslandView: View {
                                 )
                         )
                     
-                    Group {
-                        if state.isShowingVolumeHUD {
-                            volumeHUDContent
+                    if state.isShowingVolumeHUD {
+                        volumeHUDContent
+                            .transition(.opacity)
+                    } else if state.isShowingBatteryHUD {
+                        batteryHUDContent
+                            .transition(.opacity)
+                    } else if state.isShowingWifiHUD {
+                        wifiHUDContent
+                            .transition(.opacity)
+                    } else if state.isShowingBluetoothHUD {
+                        bluetoothHUDContent
+                            .transition(.opacity)
+                    } else if state.isShowingCapsLockHUD {
+                        capsLockHUDContent
+                            .transition(.opacity)
+                    } else {
+                        switch state.mode {
+                        case .compact:
+                            compactContent
                                 .transition(.opacity)
-                        } else if state.isShowingBatteryHUD {
-                            batteryHUDContent
+                        case .expanded:
+                            expandedContent
                                 .transition(.opacity)
-                        } else if state.isShowingWifiHUD {
-                            wifiHUDContent
-                                .transition(.opacity)
-                        } else if state.isShowingBluetoothHUD {
-                            bluetoothHUDContent
-                                .transition(.opacity)
-                        } else if state.isShowingCapsLockHUD {
-                            capsLockHUDContent
-                                .transition(.opacity)
-                        } else {
-                            switch state.mode {
-                            case .compact:
-                                compactContent
-                                    .transition(.asymmetric(
-                                        insertion: .opacity.animation(.easeInOut(duration: 0.15).delay(0.10)),
-                                        removal: .opacity.animation(.easeInOut(duration: 0.08))
-                                    ))
-                            case .expanded:
-                                expandedContent
-                                    .transition(.asymmetric(
-                                        insertion: .opacity.combined(with: .scale(scale: 0.96, anchor: .top)).animation(.easeOut(duration: 0.20).delay(0.08)),
-                                        removal: .opacity.animation(.easeInOut(duration: 0.08))
-                                    ))
-                            }
                         }
                     }
-                    .frame(width: islandWidth, height: islandHeight, alignment: .top)
-                    .clipShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
                 }
-                .contentShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
                 .frame(width: islandWidth, height: islandHeight, alignment: .top)
+                .clipShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
+                .contentShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
                 .onTapGesture {
                     if state.mode == .compact {
                         state.toggleExpand()
@@ -531,7 +522,8 @@ public struct DynamicIslandView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(height: 28, alignment: .center)
+        .frame(maxWidth: .infinity, alignment: .top)
     }
     
     // MARK: - 2. Expanded View (iOS Responsive Card)
