@@ -308,6 +308,24 @@ public class IslandState: ObservableObject {
         // Monitoring Media Universal otomatis
         MediaService.shared.startMonitoring { [weak self] info in
             guard let self = self else { return }
+            
+            // Sticky Music Session: protect existing music session from transient social feed audio (IG Reels, TikTok, etc.)
+            let hasActiveMusic = !self.trackTitle.isEmpty && self.trackTitle != "No Media Playing"
+            if info.isTransientSocial && hasActiveMusic {
+                // Ignore transient audio overtaking the music session
+                return
+            }
+            
+            // Graceful retention: if no media is playing, keep the last known track in paused state rather than wiping it immediately
+            if info.title == "No Media Playing" && hasActiveMusic {
+                if self.isPlaying {
+                    self.isPlaying = false
+                    self.updateWaveformTimer()
+                    self.updatePlaybackTicker()
+                }
+                return
+            }
+            
             let wasPlaying = self.isPlaying
             let trackChanged = (self.trackTitle != info.title || self.artistName != info.artist)
             
@@ -321,7 +339,7 @@ public class IslandState: ObservableObject {
                 self.artworkImage = img
             } else if trackChanged || self.artworkImage == nil {
                 if !info.title.isEmpty && info.title != "No Media Playing" {
-                    MediaService.shared.fetchOnlineArtwork(title: info.title, artist: info.artist) { [weak self] onlineData in
+                    MediaService.shared.fetchOnlineArtwork(title: info.title, artist: info.artist, album: info.album) { [weak self] onlineData in
                         if let onlineData = onlineData, let img = NSImage(data: onlineData) {
                             self?.artworkImage = img
                         }

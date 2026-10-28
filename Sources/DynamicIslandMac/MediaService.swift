@@ -48,6 +48,47 @@ public class MediaService {
         public let position: Double
         public let duration: Double
         public let artworkData: Data?
+        public let isTransientSocial: Bool
+    }
+    
+    // MARK: - Metadata Sanitizers
+    public static func cleanArtistName(_ raw: String) -> String {
+        var cleaned = raw
+        let garbageSuffixes = [" - Topic", "- Topic", "-Topic", " – Topic", " — Topic"]
+        for suffix in garbageSuffixes {
+            if cleaned.hasSuffix(suffix) {
+                cleaned = String(cleaned.dropLast(suffix.count))
+            }
+        }
+        let patterns = [
+            " (Official Audio)", " (Official Video)", " (Official Music Video)", " (Lyric Video)", " (Audio)",
+            " [Official Audio]", " [Official Video]", " [Official Music Video]", " [Lyric Video]", " [Audio]"
+        ]
+        for p in patterns {
+            cleaned = cleaned.replacingOccurrences(of: p, with: "", options: .caseInsensitive)
+        }
+        cleaned = cleaned.replacingOccurrences(of: " - Topic", with: "", options: .caseInsensitive)
+        return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    
+    public static func isTransientSocialMedia(title: String, artist: String, duration: Double) -> Bool {
+        let lowerTitle = title.lowercased()
+        let lowerArtist = artist.lowercased()
+        
+        // Explicit social feed keywords
+        let socialKeywords = ["instagram", "tiktok", "reels", "shorts", "twitter.com", "x.com", "threads.net", "facebook"]
+        for keyword in socialKeywords {
+            if lowerTitle.contains(keyword) || lowerArtist.contains(keyword) {
+                return true
+            }
+        }
+        
+        // Short video clip (< 45s) without a named musical artist
+        if duration > 0 && duration <= 45.0 && (artist.isEmpty || artist == "System Audio" || artist == "Safari" || artist == "Google Chrome") {
+            return true
+        }
+        
+        return false
     }
     
     public func startMonitoring(onChange: @escaping (UniversalMediaInfo) -> Void) {
@@ -70,7 +111,7 @@ public class MediaService {
         if let getInfo = self.getNowPlayingInfoPtr {
             getInfo(DispatchQueue.main) { dict in
                 let title = dict["kMRMediaRemoteNowPlayingInfoTitle"] as? String ?? ""
-                let artist = dict["kMRMediaRemoteNowPlayingInfoArtist"] as? String ?? ""
+                let rawArtist = dict["kMRMediaRemoteNowPlayingInfoArtist"] as? String ?? ""
                 let album = dict["kMRMediaRemoteNowPlayingInfoAlbum"] as? String ?? ""
                 let rate = dict["kMRMediaRemoteNowPlayingInfoPlaybackRate"] as? Double ?? 0.0
                 let isPlaying = rate > 0.0
@@ -86,16 +127,20 @@ public class MediaService {
                 }
                 
                 let artworkData = dict["kMRMediaRemoteNowPlayingInfoArtworkData"] as? Data
+                let cleanArtist = MediaService.cleanArtistName(rawArtist)
+                let resolvedArtist = cleanArtist.isEmpty ? (album.isEmpty ? "System Audio" : album) : cleanArtist
+                let isTransient = MediaService.isTransientSocialMedia(title: title, artist: resolvedArtist, duration: duration)
                 
                 if !title.isEmpty {
                     let info = UniversalMediaInfo(
                         isPlaying: isPlaying,
                         title: title,
-                        artist: artist.isEmpty ? (album.isEmpty ? "System Audio" : album) : artist,
+                        artist: resolvedArtist,
                         album: album,
                         position: elapsed,
                         duration: duration,
-                        artworkData: artworkData
+                        artworkData: artworkData,
+                        isTransientSocial: isTransient
                     )
                     completion(info)
                     return
@@ -108,7 +153,8 @@ public class MediaService {
                         album: "",
                         position: 0,
                         duration: 0,
-                        artworkData: nil
+                        artworkData: nil,
+                        isTransientSocial: false
                     )
                     completion(fallback)
                 }
@@ -142,26 +188,35 @@ public class MediaService {
     }
     
     // MARK: - Fallback HD Album / Video Artwork Fetcher (iTunes Public CDN)
-    public func fetchOnlineArtwork(title: String, artist: String, completion: @escaping (Data?) -> Void) {
+    public func fetchOnlineArtwork(title: String, artist: String, album: String = "", completion: @escaping (Data?) -> Void) {
         let clean = LyricsService.cleanTrackTitle(title)
+        let cleanArt = MediaService.cleanArtistName(artist)
         guard !clean.isEmpty && clean != "No Media Playing" else {
             completion(nil)
             return
         }
-        let cacheKey = "\(clean.lowercased())_\(artist.lowercased())"
+        let cacheKey = "\(clean.lowercased())_\(cleanArt.lowercased())_\(album.lowercased())"
         if let cached = onlineArtworkCache[cacheKey] {
             completion(cached)
             return
         }
         
         var candidates: [String] = []
-        // 1. Specific artist + title query FIRST (ensures accurate album art, prevents common song titles like "love." matching wrong global hits)
-        let hasArtistInTitle = clean.lowercased().contains(artist.lowercased())
-        if !hasArtistInTitle && !artist.isEmpty && artist != "System Audio" {
-            candidates.append("\(clean) \(artist)")
+        // 1. If album name is provided and clean, prioritize title + album / artist
+        if !album.isEmpty && album != "System Audio" {
+            if !cleanArt.isEmpty && cleanArt != "System Audio" {
+                candidates.append("\(clean) \(cleanArt) \(album)")
+            }
+            candidates.append("\(clean) \(album)")
         }
         
-        // 2. Inverted "Artist - Song" / "Song - Artist" if title contains delimiter
+        // 2. Specific artist + title query (sanitized without minus-topic)
+        let hasArtistInTitle = clean.lowercased().contains(cleanArt.lowercased())
+        if !hasArtistInTitle && !cleanArt.isEmpty && cleanArt != "System Audio" {
+            candidates.append("\(clean) \(cleanArt)")
+        }
+        
+        // 3. Inverted "Artist - Song" / "Song - Artist" if title contains delimiter
         if clean.contains(" - ") {
             let parts = clean.components(separatedBy: " - ")
             if parts.count >= 2 {
@@ -172,7 +227,7 @@ public class MediaService {
             }
         }
         
-        // 3. Fallback to clean title alone (for YouTube standalone titles)
+        // 4. Fallback to clean title alone
         candidates.append(clean)
         
         searchITunesArtwork(candidates: candidates, index: 0, cacheKey: cacheKey, completion: completion)
@@ -184,7 +239,12 @@ public class MediaService {
             return
         }
         
-        let query = candidates[index]
+        // Sanitize query to prevent negative keyword exclusions in iTunes API (replace " - " with a space)
+        let rawQuery = candidates[index]
+        let query = rawQuery.replacingOccurrences(of: " - ", with: " ")
+            .replacingOccurrences(of: " – ", with: " ")
+            .replacingOccurrences(of: " — ", with: " ")
+            
         guard let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
               let url = URL(string: "https://itunes.apple.com/search?term=\(encoded)&entity=song&limit=1") else {
             searchITunesArtwork(candidates: candidates, index: index + 1, cacheKey: cacheKey, completion: completion)
