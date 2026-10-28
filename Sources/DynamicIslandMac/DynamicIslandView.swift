@@ -678,15 +678,15 @@ public struct DynamicIslandView: View {
             }
             
             HStack(spacing: 6) {
-                // Focus / DND Tile
+                // Mic Mute Tile
                 controlTileCompact(
-                    icon: "moon.fill",
-                    title: "Focus",
-                    subtitle: state.isDNDOn ? "DND On" : "Off",
-                    isActive: state.isDNDOn,
-                    activeColor: Color(red: 0.35, green: 0.34, blue: 0.84)
+                    icon: state.isMicMuted ? "mic.slash.fill" : "mic.fill",
+                    title: "Mic",
+                    subtitle: state.isMicMuted ? "Muted" : "Active",
+                    isActive: state.isMicMuted,
+                    activeColor: Color(red: 1.0, green: 0.35, blue: 0.35)
                 ) {
-                    state.toggleDND()
+                    state.toggleMicMute()
                 }
                 
                 // Keep Awake (Caffeinate ☕) Tile
@@ -758,39 +758,42 @@ public struct DynamicIslandView: View {
             }
             
             // iOS Control Center Style Volume Slider Capsule
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.white.opacity(0.14))
-                    
-                    Capsule()
-                        .fill(Color.white)
-                        .frame(width: max(24, geo.size.width * CGFloat(state.currentVolume) / 100.0))
-                    
-                    HStack {
-                        Image(systemName: volumeIcon)
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundColor(state.currentVolume > 15 ? Color.black.opacity(0.75) : Color.white)
-                            .padding(.leading, 10)
+            HStack(spacing: 10) {
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(Color.white.opacity(0.14))
                         
-                        Spacer()
+                        Capsule()
+                            .fill(Color.white)
+                            .frame(width: max(24, geo.size.width * CGFloat(state.currentVolume) / 100.0))
                         
-                        Text("\(state.currentVolume)%")
-                            .font(.system(size: 10, weight: .bold, design: .rounded))
-                            .foregroundColor(state.currentVolume > 85 ? Color.black.opacity(0.75) : Color.white)
-                            .padding(.trailing, 10)
-                    }
-                }
-                .contentShape(Capsule())
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { val in
-                            let fraction = max(0, min(1.0, val.location.x / geo.size.width))
-                            state.updateVolume(Int(fraction * 100))
+                        HStack {
+                            Image(systemName: volumeIcon)
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .foregroundColor(state.currentVolume > 12 ? Color.black.opacity(0.75) : Color.white)
+                                .padding(.leading, 10)
+                            
+                            Spacer()
                         }
-                )
+                    }
+                    .contentShape(Capsule())
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { val in
+                                let fraction = max(0, min(1.0, val.location.x / geo.size.width))
+                                state.updateVolume(Int(fraction * 100))
+                            }
+                    )
+                }
+                .frame(height: 24)
+                
+                Text("\(state.currentVolume)%")
+                    .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundColor(.white)
+                    .frame(width: 34, alignment: .trailing)
             }
-            .frame(height: 24)
             .padding(.top, 2)
         }
     }
@@ -1469,7 +1472,7 @@ public struct DynamicIslandView: View {
                         Text("Drop files here for quick shelf")
                             .font(.system(size: 10.5, weight: .semibold, design: .rounded))
                             .foregroundColor(.white.opacity(0.75))
-                        Text("Drag out to any app or email anytime")
+                        Text("Photos, videos, or Word/PDF docs (Max 10)")
                             .font(.system(size: 9, weight: .medium, design: .rounded))
                             .foregroundColor(.white.opacity(0.50))
                     }
@@ -1477,37 +1480,18 @@ public struct DynamicIslandView: View {
                 .frame(height: 96)
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 9) {
+                    HStack(spacing: 10) {
                         ForEach(Array(state.shelfFiles.enumerated()), id: \.element) { idx, url in
-                            HStack(spacing: 6) {
-                                Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
-                                    .resizable()
-                                    .frame(width: 20, height: 20)
-                                
-                                Text(url.lastPathComponent)
-                                    .font(.system(size: 10.5, weight: .medium, design: .rounded))
-                                    .foregroundColor(.white)
-                                    .lineLimit(1)
-                                
-                                Button(action: { state.removeFile(at: idx) }) {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .font(.system(size: 10.5, weight: .bold, design: .rounded))
-                                        .foregroundColor(.white.opacity(0.6))
-                                }
-                                .buttonStyle(.plain)
-                            }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 5)
-                            .background(Color.white.opacity(0.14))
-                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                            .onDrag { NSItemProvider(contentsOf: url)! }
+                            shelfFileCard(url: url, index: idx)
                         }
                     }
+                    .padding(.horizontal, 2)
+                    .padding(.vertical, 4)
                 }
-                .frame(height: 48)
+                .frame(height: 74)
                 
                 HStack {
-                    Text("\(state.shelfFiles.count) file\(state.shelfFiles.count == 1 ? "" : "s") ready to drag out")
+                    Text("\(state.shelfFiles.count)/10 files ready to drag out")
                         .font(.system(size: 9.5, weight: .medium, design: .rounded))
                         .foregroundColor(.white.opacity(0.65))
                     Spacer()
@@ -1526,6 +1510,80 @@ public struct DynamicIslandView: View {
         }
     }
     
+    private func shelfFileCard(url: URL, index: Int) -> some View {
+        let ext = url.pathExtension.lowercased()
+        let isImage = ["png", "jpg", "jpeg", "heic", "webp", "gif", "bmp", "tiff"].contains(ext)
+        let isVideo = ["mp4", "mov", "m4v", "mkv", "avi", "webm"].contains(ext)
+        
+        return VStack(spacing: 4) {
+            ZStack(alignment: .topTrailing) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color.white.opacity(0.10))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .stroke(Color.white.opacity(0.14), lineWidth: 0.8)
+                        )
+                    
+                    if isImage, let img = NSImage(contentsOf: url) {
+                        Image(nsImage: img)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 48, height: 48)
+                            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    } else if isVideo {
+                        ZStack {
+                            Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 32, height: 32)
+                            
+                            VStack {
+                                Spacer()
+                                HStack {
+                                    Spacer()
+                                    Image(systemName: "play.fill")
+                                        .font(.system(size: 7, weight: .bold))
+                                        .foregroundColor(.white)
+                                        .padding(3.5)
+                                        .background(Color.black.opacity(0.75))
+                                        .clipShape(Circle())
+                                }
+                            }
+                            .padding(3)
+                        }
+                        .frame(width: 48, height: 48)
+                    } else {
+                        Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 34, height: 34)
+                    }
+                }
+                .frame(width: 48, height: 48)
+                
+                Button(action: { state.removeFile(at: index) }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(Color.white.opacity(0.85))
+                        .background(Color.black.opacity(0.6))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .offset(x: 3, y: -3)
+            }
+            
+            Text(url.lastPathComponent)
+                .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                .foregroundColor(.white.opacity(0.85))
+                .lineLimit(1)
+                .frame(width: 52)
+        }
+        .frame(width: 54)
+        .contentShape(Rectangle())
+        .onDrag { NSItemProvider(contentsOf: url)! }
+    }
+    
     private var clipboardHistoryContent: some View {
         VStack(spacing: 7) {
             if state.clipboardHistory.isEmpty {
@@ -1540,7 +1598,7 @@ public struct DynamicIslandView: View {
                         Text("Clipboard history is empty")
                             .font(.system(size: 10.5, weight: .semibold, design: .rounded))
                             .foregroundColor(.white.opacity(0.75))
-                        Text("Copied texts will automatically appear here")
+                        Text("Copied texts will automatically appear here (Max 20)")
                             .font(.system(size: 9, weight: .medium, design: .rounded))
                             .foregroundColor(.white.opacity(0.50))
                     }
@@ -1550,13 +1608,18 @@ public struct DynamicIslandView: View {
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 4.5) {
                         ForEach(Array(state.clipboardHistory.enumerated()), id: \.offset) { idx, item in
+                            let isUrl = item.hasPrefix("http://") || item.hasPrefix("https://")
+                            let isCode = item.contains("{") || item.contains("}") || item.contains("func ")
+                            let clipIcon = isUrl ? "link" : (isCode ? "chevron.left.forwardslash.chevron.right" : "doc.text")
+                            let iconColor = isUrl ? Color(red: 0.20, green: 0.60, blue: 1.0) : (isCode ? Color.orange : Color.white.opacity(0.50))
+                            
                             Button(action: {
                                 state.copyClip(at: idx)
                             }) {
                                 HStack(spacing: 8) {
-                                    Image(systemName: state.copiedClipIndex == idx ? "checkmark.circle.fill" : "doc.text")
+                                    Image(systemName: state.copiedClipIndex == idx ? "checkmark.circle.fill" : clipIcon)
                                         .font(.system(size: 11, weight: .bold, design: .rounded))
-                                        .foregroundColor(state.copiedClipIndex == idx ? Color.green : Color.white.opacity(0.50))
+                                        .foregroundColor(state.copiedClipIndex == idx ? Color.green : iconColor)
                                     
                                     Text(item.replacingOccurrences(of: "\n", with: " "))
                                         .font(.system(size: 11, weight: .medium, design: .rounded))
@@ -1587,7 +1650,7 @@ public struct DynamicIslandView: View {
                 .frame(height: 72)
                 
                 HStack {
-                    Text("\(state.clipboardHistory.count) item\(state.clipboardHistory.count == 1 ? "" : "s") in history")
+                    Text("\(state.clipboardHistory.count)/20 items in history")
                         .font(.system(size: 9.5, weight: .medium, design: .rounded))
                         .foregroundColor(.white.opacity(0.60))
                     Spacer()

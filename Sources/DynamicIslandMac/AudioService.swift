@@ -76,5 +76,41 @@ public class AudioService {
         }
         self.lastMuted = newMute
     }
+    
+    // MARK: - Microphone Mute Control
+    private var lastInputVolume: Int = 50
+    
+    public func isMicMuted() -> Bool {
+        var error: NSDictionary?
+        let script = "input volume of (get volume settings)"
+        if let appleScript = NSAppleScript(source: script) {
+            let res = appleScript.executeAndReturnError(&error)
+            if error == nil {
+                return res.int32Value == 0
+            }
+        }
+        return false
+    }
+    
+    public func toggleMicrophoneMute() -> Bool {
+        let currentlyMuted = isMicMuted()
+        let newVolume = currentlyMuted ? (lastInputVolume > 0 ? lastInputVolume : 75) : 0
+        if !currentlyMuted {
+            var error: NSDictionary?
+            let script = "input volume of (get volume settings)"
+            if let appleScript = NSAppleScript(source: script) {
+                let res = appleScript.executeAndReturnError(&error)
+                if error == nil && res.int32Value > 0 {
+                    lastInputVolume = Int(res.int32Value)
+                }
+            }
+        }
+        let setScript = "set volume input volume \(newVolume)"
+        if let appleScript = NSAppleScript(source: setScript) {
+            var error: NSDictionary?
+            appleScript.executeAndReturnError(&error)
+        }
+        return !currentlyMuted
+    }
 }
 

@@ -191,6 +191,7 @@ public class IslandState: ObservableObject {
     @Published public var isWifiOn: Bool = true
     @Published public var wifiSSID: String = "Wi-Fi"
     @Published public var isBluetoothOn: Bool = true
+    @Published public var isMicMuted: Bool = false
     @Published public var isDNDOn: Bool = false
     @Published public var isCaffeinated: Bool = false
     
@@ -266,6 +267,7 @@ public class IslandState: ObservableObject {
             self.currentVolume = audio.volume
             self.isMuted = audio.isMuted
         }
+        self.isMicMuted = AudioService.shared.isMicMuted()
         
         refreshControlStatus()
         
@@ -373,7 +375,7 @@ public class IslandState: ObservableObject {
             guard let self = self else { return }
             if self.clipboardHistory.first != newText {
                 self.clipboardHistory.insert(newText, at: 0)
-                if self.clipboardHistory.count > 12 {
+                if self.clipboardHistory.count > 20 {
                     self.clipboardHistory.removeLast()
                 }
             }
@@ -445,6 +447,10 @@ public class IslandState: ObservableObject {
             self?.isBluetoothOn = newState
             self?.triggerBluetoothHUD(connected: newState)
         }
+    }
+    
+    public func toggleMicMute() {
+        self.isMicMuted = AudioService.shared.toggleMicrophoneMute()
     }
     
     public func toggleDND() {
@@ -860,10 +866,13 @@ public class IslandState: ObservableObject {
         }
     }
     
-    // MARK: - File Shelf Controls
+    // MARK: - File Shelf Controls (Max 10 items)
     public func addFiles(_ urls: [URL]) {
         for url in urls {
             if !shelfFiles.contains(url) {
+                if shelfFiles.count >= 10 {
+                    shelfFiles.removeFirst()
+                }
                 shelfFiles.append(url)
             }
         }
