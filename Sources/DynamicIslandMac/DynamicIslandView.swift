@@ -341,12 +341,12 @@ public struct DynamicIslandView: View {
                 .frame(height: 6)
                 
                 Text("\(state.currentVolume)%")
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .font(.system(size: 11.5, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
-                    .frame(width: 36, alignment: .trailing)
+                    .frame(width: 38, alignment: .trailing)
             }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .offset(y: 2) // optical vertical center alignment inside top-bezel notch
     }
@@ -372,28 +372,28 @@ public struct DynamicIslandView: View {
             // 1. Left: Dynamic Circular Progress Ring with Center Icon
             ZStack {
                 Circle()
-                    .stroke(Color.white.opacity(0.14), lineWidth: 2.6)
+                    .stroke(Color.white.opacity(0.14), lineWidth: 2.8)
                 
                 Circle()
                     .trim(from: 0, to: CGFloat(max(0.04, min(1.0, ringProgress))))
-                    .stroke(ringColor, style: StrokeStyle(lineWidth: 2.6, lineCap: .round))
+                    .stroke(ringColor, style: StrokeStyle(lineWidth: 2.8, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                 
                 Image(systemName: iconName)
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.system(size: 12.5, weight: .bold))
                     .foregroundColor(iconColor)
             }
-            .frame(width: 25, height: 25)
+            .frame(width: 28, height: 28)
             
             // 2. Middle: Title + Subtitle
             VStack(alignment: .leading, spacing: 1.5) {
                 Text(title)
-                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .font(.system(size: 13.5, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
                     .lineLimit(1)
                 
                 Text(subtitle)
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .font(.system(size: 10.5, weight: .medium, design: .rounded))
                     .foregroundColor(.white.opacity(0.68))
                     .lineLimit(1)
             }
@@ -402,11 +402,11 @@ public struct DynamicIslandView: View {
             
             // 3. Right: Prominent Percentage or Status
             Text(trailingText)
-                .font(.system(size: 17.5, weight: .semibold, design: .rounded))
+                .font(.system(size: 18, weight: .semibold, design: .rounded))
                 .foregroundColor(.white)
                 .lineLimit(1)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 20)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .offset(y: 2) // optical vertical center alignment for top-bezel notch
     }
@@ -508,7 +508,9 @@ public struct DynamicIslandView: View {
             
             Spacer()
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 18)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        .offset(y: 2)
     }
     
     // MARK: - 1. Compact View (Centered Clock, Timer, & Responsive Media)

@@ -133,14 +133,11 @@ public class IslandState: ObservableObject {
     }
     
     public var compactDimensions: (width: CGFloat, height: CGFloat) {
-        if isShowingBatteryHUD || isShowingWifiHUD || isShowingBluetoothHUD {
-            return (width: 280, height: 42)
-        }
-        if isShowingVolumeHUD {
-            return (width: 280, height: 42)
+        if isShowingBatteryHUD || isShowingWifiHUD || isShowingBluetoothHUD || isShowingVolumeHUD {
+            return (width: 315, height: 48)
         }
         if isShowingCapsLockHUD {
-            return (width: 220, height: 40)
+            return (width: 240, height: 44)
         }
         if isTimerRunning {
             return (width: 170, height: 30)
