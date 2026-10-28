@@ -75,6 +75,7 @@ public class DynamicIslandPanel: NSPanel {
     private var localMouseMoveMonitor: Any?
     private var hideDebounceTimer: Timer?
     private var expandedExitTimer: Timer?
+    private var hasEnteredExpanded: Bool = false
     private var screenChangeObserver: Any?
     private var spaceChangeObserver: Any?
     private var appActivateObserver: Any?
@@ -115,7 +116,18 @@ public class DynamicIslandPanel: NSPanel {
         setupFullScreenObservers()
         setupStateObserver()
         IslandState.shared.onModeChangedToExpanded = { [weak self] in
-            self?.expandWindowImmediately()
+            guard let self = self else { return }
+            self.expandWindowImmediately()
+            if let screen = self.screen ?? NSScreen.main {
+                let mouseLoc = NSEvent.mouseLocation
+                let screenRect = screen.frame
+                let midX = screenRect.midX
+                let topY = screenRect.maxY
+                let dims = IslandState.shared.currentDimensions
+                let insideX = abs(mouseLoc.x - midX) <= (dims.width / 2.0 + 8.0)
+                let insideY = (mouseLoc.y >= topY - dims.height - 8.0) && (mouseLoc.y <= topY + 2.0)
+                self.hasEnteredExpanded = (insideX && insideY)
+            }
         }
         IslandState.shared.onHoverRevealed = { [weak self] in
             self?.applyRevealedCompactFrame()
@@ -405,10 +417,11 @@ public class DynamicIslandPanel: NSPanel {
                 
                 if insideX && insideY {
                     // Cursor is inside expanded notch
+                    self?.hasEnteredExpanded = true
                     self?.expandedExitTimer?.invalidate()
                     self?.expandedExitTimer = nil
-                } else {
-                    // Cursor exited expanded notch: trigger 0.15s micro-buffer auto-collapse
+                } else if self?.hasEnteredExpanded == true {
+                    // Cursor previously entered and now exited expanded notch: trigger 0.15s micro-buffer auto-collapse
                     if self?.expandedExitTimer == nil {
                         self?.expandedExitTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: false) { [weak self] _ in
                             self?.expandedExitTimer = nil
@@ -417,6 +430,7 @@ public class DynamicIslandPanel: NSPanel {
                             let stillInsideY = (currentLoc.y >= topY - dims.height - 8.0) && (currentLoc.y <= topY + 2.0)
                             if (!stillInsideX || !stillInsideY) && state.mode == .expanded && state.activeTab != .shelf {
                                 DispatchQueue.main.async {
+                                    self?.hasEnteredExpanded = false
                                     state.minimize()
                                 }
                             }
