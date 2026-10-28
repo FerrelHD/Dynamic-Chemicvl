@@ -240,7 +240,8 @@ public struct DynamicIslandView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(.spring(response: 0.32, dampingFraction: 0.80), value: state.isIslandVisible)
-        .animation(.easeInOut(duration: 0.16), value: state.activeTab)
+        .animation(.spring(response: 0.32, dampingFraction: 0.80), value: state.activeTab)
+        .animation(.spring(response: 0.32, dampingFraction: 0.80), value: state.isLyricsEnabled)
         .animation(.easeInOut(duration: 0.18), value: state.isPlaying)
         .animation(.easeInOut(duration: 0.20), value: state.isShowingVolumeHUD)
         .animation(.easeInOut(duration: 0.20), value: state.isShowingBatteryHUD)
@@ -533,7 +534,7 @@ public struct DynamicIslandView: View {
             HStack(spacing: 2) {
                 ForEach(IslandTab.allCases, id: \.self) { tab in
                     Button(action: {
-                        withAnimation(.easeInOut(duration: 0.14)) {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.80)) {
                             state.activeTab = tab
                         }
                     }) {
@@ -613,7 +614,8 @@ public struct DynamicIslandView: View {
             .id(state.activeTab)
         }
         .padding(.horizontal, 18)
-        .padding(.bottom, 16)
+        .padding(.bottom, 12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
     
     // MARK: - Tab 1: Control Center (iOS Style Tiles)
@@ -839,18 +841,20 @@ public struct DynamicIslandView: View {
     
     // MARK: - Tab 2: Now Playing (Authentic iOS Dynamic Island Media Player & Apple Music Lyrics)
     private var musicTabView: some View {
-        Group {
+        ZStack {
             if state.isLyricsEnabled {
                 lyricsSplitView
+                    .transition(.opacity.animation(.easeInOut(duration: 0.20)))
             } else {
                 normalMusicPlayerView
+                    .transition(.opacity.animation(.easeInOut(duration: 0.20)))
             }
         }
     }
     
     // MARK: - Normal Player View (Single-column iOS dynamic island music player)
     private var normalMusicPlayerView: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 10) {
             // Row 1: Artwork, Title/Artist, and Neon Waveform
             HStack(spacing: 12) {
                 ZStack {
@@ -858,106 +862,111 @@ public struct DynamicIslandView: View {
                         Image(nsImage: art)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
-                            .frame(width: 48, height: 48)
-                            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+                            .frame(width: 44, height: 44)
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     } else {
-                        RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
                             .fill(LinearGradient(
                                 colors: [Color(red: 0.95, green: 0.25, blue: 0.45), Color(red: 0.48, green: 0.15, blue: 0.85)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             ))
-                            .frame(width: 48, height: 48)
+                            .frame(width: 44, height: 44)
                         
                         Image(systemName: "music.note")
-                            .font(.system(size: 20, weight: .bold, design: .rounded))
+                            .font(.system(size: 18, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
                     }
                 }
-                .frame(width: 48, height: 48)
-                .shadow(color: .black.opacity(0.35), radius: 5, x: 0, y: 2)
+                .frame(width: 44, height: 44)
+                .shadow(color: .black.opacity(0.35), radius: 4, x: 0, y: 2)
                 
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(state.trackTitle)
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .font(.system(size: 13.5, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                         .lineLimit(1)
                     
                     Text(state.artistName)
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .font(.system(size: 11.5, weight: .medium, design: .rounded))
                         .foregroundColor(.white.opacity(0.68))
                         .lineLimit(1)
                 }
                 
                 Spacer(minLength: 8)
                 
-                // Animated Waveform Indicator
-                waveformView(height: 18)
+                // Animated Waveform Indicator (Pure White)
+                waveformView(height: 16)
+                    .padding(.trailing, 4)
             }
-            .padding(.top, 4)
+            .padding(.top, 2)
             
             // Row 2: Interactive Scrubber Bar with Knob & Realtime Seeking
             scrubberBarView()
-                .padding(.vertical, 2)
             
-            // Row 3: Playback Controls (Centered) + Secondary Actions (Lyrics & AirPlay on Right)
-            HStack(spacing: 0) {
-                Spacer()
-                
-                HStack(spacing: 36) {
+            // Row 3: Playback Controls (Perfect Center) + Secondary Actions (Lyrics & AirPlay on Right)
+            ZStack {
+                // Centered Main Playback Controls
+                HStack(spacing: 32) {
                     Button(action: { state.previousTrack() }) {
                         Image(systemName: "backward.fill")
-                            .font(.system(size: 19, weight: .bold))
+                            .font(.system(size: 18, weight: .bold))
                             .foregroundColor(.white)
                     }
                     .buttonStyle(.plain)
                     
                     Button(action: { state.togglePlayPause() }) {
                         Image(systemName: state.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 28, weight: .bold))
+                            .font(.system(size: 26, weight: .bold))
                             .foregroundColor(.white)
                     }
                     .buttonStyle(.plain)
                     
                     Button(action: { state.nextTrack() }) {
                         Image(systemName: "forward.fill")
-                            .font(.system(size: 19, weight: .bold))
+                            .font(.system(size: 18, weight: .bold))
                             .foregroundColor(.white)
                     }
                     .buttonStyle(.plain)
                 }
                 
-                Spacer()
-                
-                HStack(spacing: 12) {
-                    // Apple Music Synchronized Lyrics Toggle Button
-                    Button(action: { state.toggleLyrics() }) {
-                        Image(systemName: "quote.bubble.fill")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(state.isLyricsEnabled ? Color(red: 1.0, green: 0.22, blue: 0.38) : Color.white.opacity(0.70))
-                            .padding(4)
-                            .background(
-                                Circle()
-                                    .fill(state.isLyricsEnabled ? Color.white.opacity(0.18) : Color.clear)
-                            )
-                    }
-                    .buttonStyle(.plain)
+                // Right Secondary Actions (Spaced & Not Mepet)
+                HStack {
+                    Spacer()
                     
-                    // AirPlay / Audio Output Route
-                    Button(action: {
-                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.sound") {
-                            NSWorkspace.shared.open(url)
+                    HStack(spacing: 14) {
+                        // Apple Music Synchronized Lyrics Toggle Button
+                        Button(action: { state.toggleLyrics() }) {
+                            Image(systemName: "quote.bubble.fill")
+                                .font(.system(size: 14.5, weight: .semibold))
+                                .foregroundColor(state.isLyricsEnabled ? Color(red: 1.0, green: 0.22, blue: 0.38) : Color.white.opacity(0.70))
+                                .padding(4)
+                                .background(
+                                    Circle()
+                                        .fill(state.isLyricsEnabled ? Color.white.opacity(0.18) : Color.clear)
+                                )
                         }
-                    }) {
-                        Image(systemName: "airplayaudio")
-                            .font(.system(size: 15.5, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.75))
+                        .buttonStyle(.plain)
+                        
+                        // AirPlay / Audio Output Route
+                        Button(action: {
+                            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.sound") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }) {
+                            Image(systemName: "airplayaudio")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(.white.opacity(0.75))
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
+                    .padding(.trailing, 4)
                 }
             }
-            .padding(.bottom, 6)
+            .frame(maxWidth: .infinity)
+            .padding(.top, 2)
         }
+        .padding(.horizontal, 4)
     }
     
     // MARK: - Apple Music Lyrics Split View (Left: Compact Controls | Right: Synchronized Lyrics)
@@ -1114,11 +1123,14 @@ public struct DynamicIslandView: View {
                                     state.seekTo(line.timestamp)
                                 }) {
                                     Text(line.text)
-                                        .font(.system(size: isCurrent ? 14 : 12, weight: isCurrent ? .bold : .medium, design: .rounded))
+                                        .font(.system(size: isCurrent ? 14.5 : 12.5, weight: isCurrent ? .bold : .medium, design: .rounded))
                                         .foregroundColor(isCurrent ? .white : .white.opacity(0.35))
-                                        .scaleEffect(isCurrent ? 1.03 : 1.0, anchor: .leading)
+                                        .shadow(color: Color.white.opacity(isCurrent ? 0.22 : 0.0), radius: 6, x: 0, y: 0)
+                                        .scaleEffect(isCurrent ? 1.02 : 1.0, anchor: .leading)
+                                        .blur(radius: isCurrent ? 0 : 0.25)
                                         .multilineTextAlignment(.leading)
                                         .frame(maxWidth: .infinity, alignment: .leading)
+                                        .animation(.spring(response: 0.35, dampingFraction: 0.78), value: isCurrent)
                                 }
                                 .buttonStyle(.plain)
                                 .id(idx)
@@ -1130,7 +1142,7 @@ public struct DynamicIslandView: View {
                     }
                     .onChange(of: state.currentLyricIndex) { newIdx in
                         if let newIdx = newIdx {
-                            withAnimation(.easeInOut(duration: 0.35)) {
+                            withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
                                 proxy.scrollTo(newIdx, anchor: .center)
                             }
                         }
@@ -1144,9 +1156,10 @@ public struct DynamicIslandView: View {
     private func scrubberBarView() -> some View {
         HStack(spacing: 7) {
             Text(state.currentTime)
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .monospacedDigit()
                 .foregroundColor(.white.opacity(0.65))
-                .frame(minWidth: 32, alignment: .leading)
+                .frame(minWidth: 34, alignment: .leading)
             
             GeometryReader { geo in
                 let barWidth = geo.size.width
@@ -1185,10 +1198,12 @@ public struct DynamicIslandView: View {
             .frame(height: 14)
             
             Text(state.remainingTime)
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .monospacedDigit()
                 .foregroundColor(.white.opacity(0.65))
-                .frame(minWidth: 36, alignment: .trailing)
+                .frame(minWidth: 38, alignment: .trailing)
         }
+        .padding(.horizontal, 4)
     }
     
     // MARK: - Tab 3: Reminders & Notes (iOS Reminders Style)
@@ -1588,7 +1603,7 @@ public struct DynamicIslandView: View {
         HStack(spacing: 2.2) {
             ForEach(0..<state.waveHeights.count, id: \.self) { idx in
                 RoundedRectangle(cornerRadius: 1)
-                    .fill(Color(red: 0.18, green: 0.85, blue: 0.38))
+                    .fill(Color.white)
                     .frame(width: 2.2, height: max(3, height * state.waveHeights[idx]))
             }
         }

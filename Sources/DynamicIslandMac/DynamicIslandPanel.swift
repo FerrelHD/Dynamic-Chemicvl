@@ -130,7 +130,6 @@ public class DynamicIslandPanel: NSPanel {
             self?.updateWindowFrameForCurrentState()
         }
     }
-    
     private func setupStateObserver() {
         stateCancellable = IslandState.shared.objectWillChange
             .receive(on: DispatchQueue.main)
@@ -148,9 +147,9 @@ public class DynamicIslandPanel: NSPanel {
         let screenRect = screen.frame
         let dims = IslandState.shared.expandedDimensions
         let canvasPadding: CGFloat = 32.0
-        let canvasBottomPadding: CGFloat = 8.0
         let targetW: CGFloat = dims.width + canvasPadding
-        let targetH: CGFloat = dims.height + canvasBottomPadding
+        // Keep window canvas height constant at 250pt while expanded so AppKit window origin Y never jumps when switching tabs!
+        let targetH: CGFloat = 250.0
         let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let targetY = screenRect.maxY - targetH
         let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)

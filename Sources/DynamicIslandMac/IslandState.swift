@@ -135,9 +135,20 @@ public class IslandState: ObservableObject {
     
     public var expandedDimensions: (width: CGFloat, height: CGFloat) {
         if activeTab == .music && isLyricsEnabled {
-            return (width: 700, height: 245) // Spacious Responsive Split View for Apple Music Lyrics
+            return (width: 700, height: 235) // Spacious Responsive Split View for Apple Music Lyrics
         }
-        return (width: 448, height: 236) // Unified 236pt height (zero tab switching jumps/clipping)
+        switch activeTab {
+        case .devices:
+            return (width: 448, height: 202) // Content-hugging: 4 device cards + battery info pill (zero dead space)
+        case .music:
+            return (width: 448, height: 185) // Content-hugging: artwork, scrubber & playback controls
+        case .control:
+            return (width: 448, height: 230) // Controls center: 5 tiles, CPU/RAM meters, volume slider
+        case .notes:
+            return (width: 448, height: 215) // Reminders / To-do list
+        case .shelf:
+            return (width: 448, height: 210) // File shelf & clipboard
+        }
     }
     
     // Volume HUD overlay
