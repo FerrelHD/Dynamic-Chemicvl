@@ -109,6 +109,7 @@ public class DynamicIslandPanel: NSPanel {
         self.hidesOnDeactivate = false
         self.ignoresMouseEvents = false
         self.becomesKeyOnlyIfNeeded = true
+        self.appearance = NSAppearance(named: .darkAqua)
         
         setupFullScreenObservers()
         setupStateObserver()
@@ -129,6 +130,15 @@ public class DynamicIslandPanel: NSPanel {
             self?.checkFullScreenState()
             self?.updateWindowFrameForCurrentState()
         }
+    }
+    
+    public override func fieldEditor(_ createFlag: Bool, for aObject: Any?) -> NSText? {
+        let editor = super.fieldEditor(createFlag, for: aObject)
+        if let tv = editor as? NSTextView {
+            tv.insertionPointColor = .white
+            tv.appearance = NSAppearance(named: .darkAqua)
+        }
+        return editor
     }
     private func setupStateObserver() {
         stateCancellable = IslandState.shared.objectWillChange

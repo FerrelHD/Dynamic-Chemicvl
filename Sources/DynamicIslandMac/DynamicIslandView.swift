@@ -263,6 +263,7 @@ public struct DynamicIslandView: View {
                 }
             }
         }
+        .preferredColorScheme(.dark)
     }
     
     private func handleDroppedFiles(_ providers: [NSItemProvider]) {
@@ -1259,6 +1260,8 @@ public struct DynamicIslandView: View {
                     .textFieldStyle(.plain)
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .foregroundColor(.white)
+                    .accentColor(.white)
+                    .tint(.white)
                 }
                 
                 Button(action: {
