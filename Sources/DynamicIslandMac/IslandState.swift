@@ -1314,7 +1314,9 @@ public class IslandState: ObservableObject {
 // MARK: - Native Artwork Dominant Color Extraction (CoreGraphics / AppKit)
 extension NSImage {
     public func extractDominantColor() -> NSColor? {
-        guard let cgImage = self.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
+        var proposed = CGRect(origin: .zero, size: self.size)
+        guard let cgImage = self.cgImage(forProposedRect: &proposed, context: nil, hints: nil)
+                ?? self.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
         
         let width = 16
         let height = 16
@@ -1359,9 +1361,11 @@ extension NSImage {
             let saturation = color.saturationComponent
             let brightness = color.brightnessComponent
             
-            // Prefer vibrant tones: avoid pure black/white/washed out gray
-            if brightness > 0.20 && brightness < 0.95 && saturation > 0.18 {
-                let score = saturation * 1.6 + brightness * 0.4
+            // Avoid extreme dark (brightness < 0.14) and washed-out white/gray (saturation < 0.12 with brightness > 0.90)
+            let isWashedOutWhite = (saturation < 0.12 && brightness > 0.90)
+            let isPureDark = (brightness < 0.14)
+            if !isWashedOutWhite && !isPureDark {
+                let score = saturation * 2.0 + brightness * 0.8
                 if score > maxScore {
                     maxScore = score
                     bestColor = color
