@@ -562,91 +562,10 @@ public struct DynamicIslandView: View {
         .frame(maxWidth: .infinity, alignment: .top)
     }
     
-    // MARK: - 2. Expanded View (iOS Responsive Card)
+    // MARK: - 2. Expanded View (Apple Minimal Card with Swipe & Page Dots)
     private var expandedContent: some View {
-        VStack(spacing: 8) {
-            // iOS Segmented Tab Bar Header (Responsive & Non-wrapping)
-            HStack(spacing: 2) {
-                ForEach(IslandTab.allCases, id: \.self) { tab in
-                    Button(action: {
-                        withAnimation(state.animationStyle.springAnimation) {
-                            state.isShowingSettings = false
-                            state.activeTab = tab
-                        }
-                    }) {
-                        HStack(spacing: 3) {
-                            tabIcon(for: tab)
-                            
-                            Text(tab.rawValue)
-                                .font(.system(size: 10.5, weight: (state.activeTab == tab && !state.isShowingSettings) ? .bold : .medium, design: .rounded))
-                                .lineLimit(1)
-                                .fixedSize(horizontal: true, vertical: false)
-                            
-                            if let badge = tabBadgeCount(for: tab), badge > 0 {
-                                Text("\(badge)")
-                                    .font(.system(size: 8, weight: .bold, design: .rounded))
-                                    .foregroundColor(.white)
-                                    .lineLimit(1)
-                                    .fixedSize(horizontal: true, vertical: true)
-                                    .frame(minWidth: 13, minHeight: 13)
-                                    .padding(.horizontal, 2)
-                                    .background((state.activeTab == tab && !state.isShowingSettings) ? Color.white.opacity(0.32) : Color.white.opacity(0.18))
-                                    .clipShape(Capsule())
-                            }
-                        }
-                        .padding(.vertical, 4)
-                        .padding(.horizontal, 5)
-                        .background(
-                            ZStack {
-                                if state.activeTab == tab && !state.isShowingSettings {
-                                    Capsule()
-                                        .fill(Color.white.opacity(0.20))
-                                        .shadow(color: Color.black.opacity(0.25), radius: 3, x: 0, y: 1)
-                                }
-                            }
-                        )
-                        .foregroundColor((state.activeTab == tab && !state.isShowingSettings) ? .white : .white.opacity(0.60))
-                    }
-                    .buttonStyle(.plain)
-                }
-                
-                Spacer(minLength: 2)
-                
-                // Settings button
-                Button(action: {
-                    withAnimation(state.animationStyle.springAnimation) {
-                        state.isShowingSettings.toggle()
-                    }
-                }) {
-                    Image(systemName: state.isShowingSettings ? "xmark" : "gearshape.fill")
-                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
-                        .foregroundColor(state.isShowingSettings ? .white : .white.opacity(0.65))
-                        .padding(5.5)
-                        .background(Circle().fill(state.isShowingSettings ? Color.white.opacity(0.25) : Color.white.opacity(0.12)))
-                }
-                .buttonStyle(.plain)
-                
-                // Collapse button
-                Button(action: {
-                    withAnimation(state.animationStyle.springAnimation) {
-                        state.mode = .compact
-                        state.isShowingSettings = false
-                    }
-                }) {
-                    Image(systemName: "chevron.up")
-                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
-                        .foregroundColor(.white.opacity(0.65))
-                        .padding(5.5)
-                        .background(Circle().fill(Color.white.opacity(0.12)))
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.top, 14)
-            
-            Divider()
-                .background(Color.white.opacity(0.15))
-            
-            // Tab Contents (Simple Responsive Crossfade)
+        VStack(spacing: 6) {
+            // Tab Contents (Spacious Content-first presentation)
             Group {
                 if state.isShowingSettings {
                     settingsTabView
@@ -667,10 +586,74 @@ public struct DynamicIslandView: View {
             }
             .transition(.opacity)
             .id(state.isShowingSettings ? "settings" : state.activeTab.rawValue)
+            
+            Spacer(minLength: 2)
+            
+            // Minimal Apple-Style Page Dots & Settings (••• ⚙️)
+            pageDotsBar
         }
         .padding(.horizontal, 24)
-        .padding(.bottom, 12)
+        .padding(.top, 14)
+        .padding(.bottom, 6)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .contentShape(Rectangle())
+        .gesture(
+            DragGesture(minimumDistance: 25)
+                .onEnded { value in
+                    if value.translation.width < -35 {
+                        state.nextTab()
+                    } else if value.translation.width > 35 {
+                        state.previousTab()
+                    }
+                }
+        )
+    }
+    
+    // MARK: - Apple-Style Minimal Page Dots Indicator
+    private var pageDotsBar: some View {
+        HStack(spacing: 6) {
+            ForEach(Array(IslandTab.allCases.enumerated()), id: \.element) { index, tab in
+                let isCurrent = (state.activeTab == tab && !state.isShowingSettings)
+                Button(action: {
+                    withAnimation(state.animationStyle.springAnimation) {
+                        state.isShowingSettings = false
+                        state.activeTab = tab
+                    }
+                }) {
+                    Capsule()
+                        .fill(isCurrent ? Color.white : Color.white.opacity(0.28))
+                        .frame(width: isCurrent ? 14 : 5, height: 5)
+                        .shadow(color: isCurrent ? Color.white.opacity(0.35) : Color.clear, radius: 2)
+                        .animation(state.animationStyle.springAnimation, value: isCurrent)
+                }
+                .buttonStyle(.plain)
+            }
+            
+            // Subtle Dot Separator
+            Circle()
+                .fill(Color.white.opacity(0.20))
+                .frame(width: 2.5, height: 2.5)
+                .padding(.horizontal, 2)
+            
+            // Settings Icon Button
+            Button(action: {
+                withAnimation(state.animationStyle.springAnimation) {
+                    state.isShowingSettings.toggle()
+                }
+            }) {
+                Image(systemName: "gearshape.fill")
+                    .font(.system(size: 8.5, weight: .bold))
+                    .foregroundColor(state.isShowingSettings ? Color.white : Color.white.opacity(0.35))
+                    .frame(width: 14, height: 14)
+                    .background(
+                        Circle()
+                            .fill(state.isShowingSettings ? Color.white.opacity(0.22) : Color.clear)
+                    )
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(height: 12)
+        .padding(.bottom, 2)
     }
     
     // MARK: - Tab 1: Control Center (iOS Style Tiles)

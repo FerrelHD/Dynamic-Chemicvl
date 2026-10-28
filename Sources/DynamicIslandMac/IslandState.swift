@@ -154,22 +154,22 @@ public class IslandState: ObservableObject {
     
     public var expandedDimensions: (width: CGFloat, height: CGFloat) {
         if isShowingSettings {
-            return (width: 448, height: 218) // Clean compact settings pane
+            return (width: 448, height: 205) // Clean compact settings pane
         }
         if activeTab == .music && isLyricsEnabled {
-            return (width: 700, height: 235) // Spacious Responsive Split View for Apple Music Lyrics
+            return (width: 700, height: 228) // Spacious Responsive Split View for Apple Music Lyrics
         }
         switch activeTab {
         case .devices:
-            return (width: 448, height: 216) // Comfortable spacing: 4 device cards + battery info pill with bottom clearance
+            return (width: 448, height: 198) // 4 device cards + battery info pill with bottom clearance
         case .music:
-            return (width: 448, height: 185) // Content-hugging: artwork, scrubber & playback controls
+            return (width: 448, height: 175) // Content-hugging: artwork, scrubber & playback controls
         case .control:
-            return (width: 448, height: 230) // Controls center: 5 tiles, CPU/RAM meters, volume slider
+            return (width: 448, height: 206) // Controls center: 5 tiles, CPU/RAM meters, volume slider
         case .notes:
-            return (width: 448, height: 218) // Reminders / To-do list with clean footer divider and spacing
+            return (width: 448, height: 202) // Reminders / To-do list with clean footer divider and spacing
         case .shelf:
-            return (width: 448, height: 210) // File shelf & clipboard
+            return (width: 448, height: 198) // File shelf & clipboard
         }
     }
     
@@ -466,6 +466,27 @@ public class IslandState: ObservableObject {
         withAnimation(animationStyle.springAnimation) {
             self.mode = .compact
             self.isShowingSettings = false
+        }
+    }
+    
+    // MARK: - Swift Swipe Navigation (Next & Previous Tab)
+    public func nextTab() {
+        let all = IslandTab.allCases
+        guard let idx = all.firstIndex(of: activeTab) else { return }
+        let nextIdx = (idx + 1) % all.count
+        withAnimation(animationStyle.springAnimation) {
+            isShowingSettings = false
+            activeTab = all[nextIdx]
+        }
+    }
+    
+    public func previousTab() {
+        let all = IslandTab.allCases
+        guard let idx = all.firstIndex(of: activeTab) else { return }
+        let prevIdx = (idx - 1 + all.count) % all.count
+        withAnimation(animationStyle.springAnimation) {
+            isShowingSettings = false
+            activeTab = all[prevIdx]
         }
     }
     
