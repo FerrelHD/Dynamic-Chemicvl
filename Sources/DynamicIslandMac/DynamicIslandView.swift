@@ -193,6 +193,33 @@ public struct DynamicIslandView: View {
                             )
                     )
                 
+                // MARK: - Dynamic Ambient Artwork Glow (Music Tab Bottom Gradient)
+                if state.isIslandVisible && state.mode == .expanded && state.activeTab == .music,
+                   let dominant = state.artworkDominantColor {
+                    ZStack(alignment: .bottom) {
+                        LinearGradient(
+                            stops: [
+                                .init(color: .clear, location: 0.15),
+                                .init(color: dominant.opacity(0.12), location: 0.55),
+                                .init(color: dominant.opacity(0.32), location: 0.88),
+                                .init(color: dominant.opacity(0.44), location: 1.0)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        
+                        // Soft blurred ambient orb at the bottom edge for rich organic depth
+                        Ellipse()
+                            .fill(dominant.opacity(0.30))
+                            .frame(width: islandWidth * 0.88, height: 80)
+                            .offset(y: 40)
+                            .blur(radius: 28)
+                    }
+                    .clipShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
+                    .allowsHitTesting(false)
+                    .transition(.opacity.animation(.easeInOut(duration: 0.40)))
+                }
+                
                 if state.isIslandVisible {
                     if state.isShowingVolumeHUD {
                         volumeHUDContent

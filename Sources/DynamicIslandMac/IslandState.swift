@@ -232,7 +232,12 @@ public class IslandState: ObservableObject {
     @Published public var currentTime: String = "0:00"
     @Published public var totalDuration: String = "0:00"
     @Published public var remainingTime: String = "-0:00"
-    @Published public var artworkImage: NSImage? = nil
+    @Published public var artworkImage: NSImage? = nil {
+        didSet {
+            updateArtworkDominantColor()
+        }
+    }
+    @Published public var artworkDominantColor: Color? = nil
     @Published public var currentPositionSeconds: Double = 0.0
     @Published public var totalDurationSeconds: Double = 0.0
     
@@ -917,6 +922,30 @@ public class IslandState: ObservableObject {
         }
     }
     
+    private func updateArtworkDominantColor() {
+        guard let img = artworkImage else {
+            DispatchQueue.main.async {
+                withAnimation(.easeInOut(duration: 0.40)) {
+                    self.artworkDominantColor = nil
+                }
+            }
+            return
+        }
+        
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let extracted = img.extractDominantColor()
+            DispatchQueue.main.async {
+                withAnimation(.easeInOut(duration: 0.45)) {
+                    if let nsColor = extracted {
+                        self?.artworkDominantColor = Color(nsColor)
+                    } else {
+                        self?.artworkDominantColor = nil
+                    }
+                }
+            }
+        }
+    }
+    
     // Physical Multi-Band Equalizer State (7 Bands: Sub-Bass, Bass, Low-Mid, Mid, Upper-Mid, Presence, Brilliance)
     private var currentBandEnergies: [Double] = Array(repeating: 0.20, count: 7)
 
@@ -1278,5 +1307,80 @@ public class IslandState: ObservableObject {
         let m = s / 60
         let sec = s % 60
         return String(format: "%d:%02d", m, sec)
+    }
+}
+
+// MARK: - Native Artwork Dominant Color Extraction (CoreGraphics / AppKit)
+extension NSImage {
+    public func extractDominantColor() -> NSColor? {
+        guard let cgImage = self.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
+        
+        let width = 16
+        let height = 16
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        var rawData = [UInt8](repeating: 0, count: width * height * 4)
+        
+        guard let context = CGContext(
+            data: &rawData,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width * 4,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
+        ) else { return nil }
+        
+        context.interpolationQuality = .medium
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+        
+        var bestColor: NSColor?
+        var maxScore: CGFloat = -1
+        var totalR: CGFloat = 0
+        var totalG: CGFloat = 0
+        var totalB: CGFloat = 0
+        var validPixels: CGFloat = 0
+        
+        for i in 0..<(width * height) {
+            let offset = i * 4
+            let a = CGFloat(rawData[offset + 3]) / 255.0
+            guard a > 0.5 else { continue }
+            
+            let r = CGFloat(rawData[offset]) / 255.0
+            let g = CGFloat(rawData[offset + 1]) / 255.0
+            let b = CGFloat(rawData[offset + 2]) / 255.0
+            
+            totalR += r
+            totalG += g
+            totalB += b
+            validPixels += 1
+            
+            let color = NSColor(red: r, green: g, blue: b, alpha: 1.0)
+            let saturation = color.saturationComponent
+            let brightness = color.brightnessComponent
+            
+            // Prefer vibrant tones: avoid pure black/white/washed out gray
+            if brightness > 0.20 && brightness < 0.95 && saturation > 0.18 {
+                let score = saturation * 1.6 + brightness * 0.4
+                if score > maxScore {
+                    maxScore = score
+                    bestColor = color
+                }
+            }
+        }
+        
+        if let best = bestColor {
+            return best
+        }
+        
+        if validPixels > 0 {
+            return NSColor(
+                red: totalR / validPixels,
+                green: totalG / validPixels,
+                blue: totalB / validPixels,
+                alpha: 1.0
+            )
+        }
+        
+        return nil
     }
 }
