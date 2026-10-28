@@ -26,10 +26,11 @@ public struct NotchShape: Shape {
         
         path.move(to: CGPoint(x: rect.minX, y: rect.minY))
         
-        // Top-left concave ear fillet
-        path.addQuadCurve(
+        // Top-left concave ear fillet (Apple G2 Continuous Cubic Bézier)
+        path.addCurve(
             to: CGPoint(x: rect.minX + e, y: rect.minY + e),
-            control: CGPoint(x: rect.minX + e, y: rect.minY)
+            control1: CGPoint(x: rect.minX + e * 0.40, y: rect.minY),
+            control2: CGPoint(x: rect.minX + e, y: rect.minY + e * 0.60)
         )
         
         // Left vertical edge
@@ -53,10 +54,11 @@ public struct NotchShape: Shape {
         // Right vertical edge
         path.addLine(to: CGPoint(x: rect.maxX - e, y: rect.minY + e))
         
-        // Top-right concave ear fillet
-        path.addQuadCurve(
+        // Top-right concave ear fillet (Apple G2 Continuous Cubic Bézier)
+        path.addCurve(
             to: CGPoint(x: rect.maxX, y: rect.minY),
-            control: CGPoint(x: rect.maxX - e, y: rect.minY)
+            control1: CGPoint(x: rect.maxX - e, y: rect.minY + e * 0.60),
+            control2: CGPoint(x: rect.maxX - e * 0.40, y: rect.minY)
         )
         
         // Top straight edge flush with display bezel
@@ -91,10 +93,11 @@ public struct NotchOutlineShape: Shape {
         // Leaves top bezel edge unstroked so it seamlessly flows out of the screen's black bezel
         path.move(to: CGPoint(x: rect.minX, y: rect.minY))
         
-        // Top-left concave ear fillet
-        path.addQuadCurve(
+        // Top-left concave ear fillet (Apple G2 Continuous Cubic Bézier)
+        path.addCurve(
             to: CGPoint(x: rect.minX + e, y: rect.minY + e),
-            control: CGPoint(x: rect.minX + e, y: rect.minY)
+            control1: CGPoint(x: rect.minX + e * 0.40, y: rect.minY),
+            control2: CGPoint(x: rect.minX + e, y: rect.minY + e * 0.60)
         )
         
         // Left vertical edge
@@ -118,10 +121,11 @@ public struct NotchOutlineShape: Shape {
         // Right vertical edge
         path.addLine(to: CGPoint(x: rect.maxX - e, y: rect.minY + e))
         
-        // Top-right concave ear fillet
-        path.addQuadCurve(
+        // Top-right concave ear fillet (Apple G2 Continuous Cubic Bézier)
+        path.addCurve(
             to: CGPoint(x: rect.maxX, y: rect.minY),
-            control: CGPoint(x: rect.maxX - e, y: rect.minY)
+            control1: CGPoint(x: rect.maxX - e, y: rect.minY + e * 0.60),
+            control2: CGPoint(x: rect.maxX - e * 0.40, y: rect.minY)
         )
         
         return path
@@ -165,12 +169,12 @@ public struct DynamicIslandView: View {
     
     private var earRadius: CGFloat {
         if state.mode == .expanded {
-            return 11 // Authentic Apple concave ear fillets that preserve full content width
+            return 18 // Enhanced Apple G2 concave ear fillets with distinct 18pt flare
         }
         if state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD {
-            return 8
+            return 12
         }
-        return 6 // Subtle, organic concave ears in compact mode
+        return 10 // Sleek, visible concave ears in compact mode
     }
     
     public var body: some View {
