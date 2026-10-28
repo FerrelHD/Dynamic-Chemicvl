@@ -1176,10 +1176,52 @@ public struct DynamicIslandView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
+                // Top Sync Offset Micro-Nudge Bar
+                HStack(spacing: 6) {
+                    Text(state.lyricSyncOffset == 0 ? "Sync: 0.0s" : String(format: "Sync: %+.1fs", state.lyricSyncOffset))
+                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                        .foregroundColor(.white.opacity(0.50))
+                    
+                    Button(action: { state.adjustLyricSync(by: -0.5) }) {
+                        Text("-0.5s")
+                            .font(.system(size: 9, weight: .bold, design: .rounded))
+                            .foregroundColor(.white.opacity(0.75))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.white.opacity(0.12))
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Button(action: { state.adjustLyricSync(by: 0.5) }) {
+                        Text("+0.5s")
+                            .font(.system(size: 9, weight: .bold, design: .rounded))
+                            .foregroundColor(.white.opacity(0.75))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.white.opacity(0.12))
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    
+                    if state.lyricSyncOffset != 0 {
+                        Button(action: { state.resetLyricSync() }) {
+                            Image(systemName: "arrow.counterclockwise")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(.white.opacity(0.60))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    
+                    Spacer()
+                }
+                .padding(.horizontal, 6)
+                .padding(.bottom, 2)
+                
                 ScrollViewReader { proxy in
                     ScrollView(.vertical, showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 14) {
-                            Color.clear.frame(height: 25)
+                            Color.clear.frame(height: 15)
                             
                             ForEach(0..<state.lyricsLines.count, id: \.self) { idx in
                                 let line = state.lyricsLines[idx]
@@ -1188,15 +1230,14 @@ public struct DynamicIslandView: View {
                                     state.seekTo(line.timestamp)
                                 }) {
                                     Text(line.text)
-                                        .font(.system(size: 13.5, weight: isCurrent ? .bold : .medium, design: .rounded))
+                                        .font(.system(size: isCurrent ? 14 : 13, weight: isCurrent ? .bold : .medium, design: .rounded))
                                         .foregroundColor(isCurrent ? .white : .white.opacity(0.35))
-                                        .shadow(color: Color.white.opacity(isCurrent ? 0.22 : 0.0), radius: 5, x: 0, y: 0)
-                                        .scaleEffect(isCurrent ? 1.05 : 1.0, anchor: .leading)
+                                        .shadow(color: Color.white.opacity(isCurrent ? 0.30 : 0.0), radius: isCurrent ? 6 : 0, x: 0, y: 0)
                                         .multilineTextAlignment(.leading)
                                         .lineLimit(2)
                                         .fixedSize(horizontal: false, vertical: true)
                                         .frame(maxWidth: .infinity, alignment: .leading)
-                                        .animation(.spring(response: 0.35, dampingFraction: 0.80), value: isCurrent)
+                                        .animation(.easeInOut(duration: 0.22), value: isCurrent)
                                 }
                                 .buttonStyle(.plain)
                                 .id(idx)
@@ -1208,7 +1249,7 @@ public struct DynamicIslandView: View {
                     }
                     .onChange(of: state.currentLyricIndex) { newIdx in
                         if let newIdx = newIdx {
-                            withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
+                            withAnimation(.spring(response: 0.38, dampingFraction: 0.85)) {
                                 proxy.scrollTo(newIdx, anchor: .center)
                             }
                         }

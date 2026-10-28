@@ -245,6 +245,7 @@ public class IslandState: ObservableObject {
     @Published public var currentLyricIndex: Int? = nil
     @Published public var isLoadingLyrics: Bool = false
     @Published public var lyricsErrorMessage: String? = nil
+    @Published public var lyricSyncOffset: Double = 0.0
     private var lastLoadedLyricsTrack: String = ""
     
     // Waveform simulation
@@ -837,11 +838,21 @@ public class IslandState: ObservableObject {
             if currentLyricIndex != nil { currentLyricIndex = nil }
             return
         }
-        let target = position
+        let target = position + lyricSyncOffset
         let idx = lyricsLines.lastIndex(where: { $0.timestamp <= target })
         if currentLyricIndex != idx {
             currentLyricIndex = idx
         }
+    }
+    
+    public func adjustLyricSync(by delta: Double) {
+        lyricSyncOffset = max(-3.0, min(3.0, lyricSyncOffset + delta))
+        updateActiveLyricIndex(for: currentPositionSeconds)
+    }
+    
+    public func resetLyricSync() {
+        lyricSyncOffset = 0.0
+        updateActiveLyricIndex(for: currentPositionSeconds)
     }
     
     // MARK: - On-Demand Harmonic Waveform Animation (~120 BPM Organic Beats, Zero CPU Idle when Paused)
