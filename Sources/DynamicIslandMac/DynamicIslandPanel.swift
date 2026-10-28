@@ -25,6 +25,8 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
     }
     
     public override func hitTest(_ point: NSPoint) -> NSView? {
+        guard state.isIslandVisible else { return nil }
+        
         let localPoint = self.convert(point, from: self.superview)
         guard self.bounds.contains(localPoint) else { return nil }
         
@@ -169,16 +171,18 @@ public class DynamicIslandPanel: NSPanel {
         collapseWorkItem = nil
         let screenRect = screen.frame
         let canvasPadding: CGFloat = 32.0
-        // Stable expanded canvas: 732 pt wide (fits 700 pt lyrics) x 250 pt high!
-        // By keeping the canvas width and height constant at (732 x 250) throughout all expanded tabs & lyrics modes,
+        // Stable expanded canvas: 732 pt wide (fits 700 pt lyrics) x 272 pt high!
+        // By keeping the canvas width and height constant at (732 x 272) throughout all expanded tabs & lyrics modes,
         // the NSPanel window frame NEVER jumps, shifts origin X, or jitters!
         // All animations (width 448 -> 700 -> 448) are handled purely by CoreAnimation / SwiftUI on GPU!
         // All clicks outside the active notch shape pass through via IslandHostingView hitTest!
         let targetW: CGFloat = 700.0 + canvasPadding
-        let targetH: CGFloat = 250.0
+        let targetH: CGFloat = 272.0
         let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let targetY = screenRect.maxY - targetH
         let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)
+        
+        self.ignoresMouseEvents = false
         
         if self.frame != targetFrame {
             CATransaction.begin()
@@ -191,6 +195,9 @@ public class DynamicIslandPanel: NSPanel {
     public func updateWindowFrameForCurrentState() {
         let state = IslandState.shared
         let dims = state.currentDimensions
+        
+        // Ensure the physical NSPanel never blocks underlying window clicks when hidden in fullscreen
+        self.ignoresMouseEvents = !state.isIslandVisible
         
         if state.mode == .expanded {
             expandWindowImmediately()
@@ -277,8 +284,8 @@ public class DynamicIslandPanel: NSPanel {
             self?.checkFullScreenState()
         }
         
-        // Lightweight polling timer (every 1.0s) to catch any active fullscreen window
-        fullScreenPollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+        // Fast-track responsive polling timer (every 0.25s) to catch any active fullscreen window instantly
+        fullScreenPollTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
             self?.checkFullScreenState()
         }
         
