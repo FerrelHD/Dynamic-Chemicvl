@@ -66,6 +66,7 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
 
 public class DynamicIslandPanel: NSPanel {
     private var stateCancellable: AnyCancellable?
+    private var collapseWorkItem: DispatchWorkItem?
     
     private var globalClickMonitor: Any?
     private var localClickMonitor: Any?
@@ -79,11 +80,14 @@ public class DynamicIslandPanel: NSPanel {
     
     public init() {
         let screenRect = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
-        let canvasW: CGFloat = 740.0
-        let canvasH: CGFloat = 265.0
-        let xPos = floor(screenRect.minX + ((screenRect.width - canvasW) / 2.0))
-        let yPos = screenRect.maxY - canvasH
-        let initialRect = NSRect(x: xPos, y: yPos, width: canvasW, height: canvasH)
+        let dims = IslandState.shared.currentDimensions
+        let canvasPadding: CGFloat = 32.0
+        let canvasBottomPadding: CGFloat = 8.0
+        let targetW: CGFloat = dims.width + canvasPadding
+        let targetH: CGFloat = dims.height + canvasBottomPadding
+        let xPos = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
+        let yPos = screenRect.maxY - targetH
+        let initialRect = NSRect(x: xPos, y: yPos, width: targetW, height: targetH)
         
         super.init(
             contentRect: initialRect,
@@ -134,14 +138,61 @@ public class DynamicIslandPanel: NSPanel {
     public func updateWindowFrameForCurrentState() {
         guard let screen = self.screen ?? NSScreen.main else { return }
         let screenRect = screen.frame
-        let canvasW: CGFloat = 740.0
-        let canvasH: CGFloat = 265.0
-        let targetX = floor(screenRect.minX + ((screenRect.width - canvasW) / 2.0))
-        let targetY = screenRect.maxY - canvasH
-        let targetFrame = NSRect(x: targetX, y: targetY, width: canvasW, height: canvasH)
+        let state = IslandState.shared
+        let dims = state.currentDimensions
+        
+        let canvasPadding: CGFloat = 32.0 // 16pt margin on left and right for ear fillets
+        let canvasBottomPadding: CGFloat = 8.0 // 8pt margin at bottom so bottom stroke/corners never clip
+        let targetW: CGFloat = dims.width + canvasPadding
+        let targetH: CGFloat = dims.height + canvasBottomPadding
+        let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
+        let targetY = screenRect.maxY - targetH
+        let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)
+        
+        if state.mode == .expanded {
+            collapseWorkItem?.cancel()
+            collapseWorkItem = nil
+            
+            if self.frame != targetFrame {
+                super.setFrame(targetFrame, display: false)
+            }
+        } else {
+            // Compact mode or HUD:
+            // If the window was previously expanded, wait 0.35s for SwiftUI's spring animation to finish
+            // cleanly before shrinking the window frame back to compact size, freeing Chrome completely!
+            if self.frame.height > dims.height + 10 {
+                if collapseWorkItem == nil {
+                    let workItem = DispatchWorkItem { [weak self] in
+                        guard let self = self else { return }
+                        self.collapseWorkItem = nil
+                        guard IslandState.shared.mode == .compact else { return }
+                        self.applyCompactFrame()
+                    }
+                    collapseWorkItem = workItem
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: workItem)
+                }
+            } else {
+                collapseWorkItem?.cancel()
+                collapseWorkItem = nil
+                applyCompactFrame()
+            }
+        }
+    }
+    
+    private func applyCompactFrame() {
+        guard let screen = self.screen ?? NSScreen.main else { return }
+        let screenRect = screen.frame
+        let dims = IslandState.shared.currentDimensions
+        let canvasPadding: CGFloat = 32.0
+        let canvasBottomPadding: CGFloat = 8.0
+        let targetW = dims.width + canvasPadding
+        let targetH = dims.height + canvasBottomPadding
+        let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
+        let targetY = screenRect.maxY - targetH
+        let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)
         
         if self.frame != targetFrame {
-            super.setFrame(targetFrame, display: false)
+            super.setFrame(targetFrame, display: true)
         }
     }
     
