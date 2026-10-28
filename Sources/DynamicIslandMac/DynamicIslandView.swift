@@ -131,6 +131,7 @@ public struct NotchOutlineShape: Shape {
 public struct DynamicIslandView: View {
     @ObservedObject var state: IslandState
     @State private var isDropTargeted = false
+    @State private var isGenieClearing = false
     
     public init(state: IslandState = .shared) {
         self.state = state
@@ -1547,6 +1548,14 @@ public struct DynamicIslandView: View {
                     HStack(spacing: 10) {
                         ForEach(Array(state.shelfFiles.enumerated()), id: \.element) { idx, url in
                             shelfFileCard(url: url, index: idx)
+                                .scaleEffect(isGenieClearing ? 0.02 : 1.0, anchor: .bottomTrailing)
+                                .rotationEffect(.degrees(isGenieClearing ? Double((idx % 2 == 0 ? 1 : -1) * (6 + idx * 2)) : 0))
+                                .offset(
+                                    x: isGenieClearing ? 140 : 0,
+                                    y: isGenieClearing ? 35 : 0
+                                )
+                                .opacity(isGenieClearing ? 0.0 : 1.0)
+                                .animation(.easeInOut(duration: 0.30), value: isGenieClearing)
                         }
                     }
                     .padding(.horizontal, 2)
@@ -1559,10 +1568,14 @@ public struct DynamicIslandView: View {
                         .font(.system(size: 9.5, weight: .medium, design: .rounded))
                         .foregroundColor(.white.opacity(0.65))
                     Spacer()
-                    Button(action: { state.clearShelf() }) {
-                        Text("Clear All")
-                            .font(.system(size: 9.5, weight: .bold, design: .rounded))
-                            .foregroundColor(.red)
+                    Button(action: { triggerGenieClearShelf() }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "trash")
+                                .font(.system(size: 9, weight: .bold))
+                            Text("Clear All")
+                                .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                        }
+                        .foregroundColor(.red)
                     }
                     .buttonStyle(.plain)
                 }
@@ -1571,6 +1584,17 @@ public struct DynamicIslandView: View {
         .onDrop(of: ["public.file-url"], isTargeted: $isDropTargeted) { providers in
             handleDroppedFiles(providers)
             return true
+        }
+    }
+    
+    private func triggerGenieClearShelf() {
+        guard !isGenieClearing, !state.shelfFiles.isEmpty else { return }
+        withAnimation(.easeInOut(duration: 0.30)) {
+            isGenieClearing = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.30) {
+            state.clearShelf()
+            isGenieClearing = false
         }
     }
     
