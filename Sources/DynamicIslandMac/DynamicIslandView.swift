@@ -1879,9 +1879,16 @@ public struct DynamicIslandView: View {
     private func waveformView(height: CGFloat) -> some View {
         HStack(spacing: 2.2) {
             ForEach(0..<state.waveHeights.count, id: \.self) { idx in
-                RoundedRectangle(cornerRadius: 1)
-                    .fill(Color.white)
-                    .frame(width: 2.2, height: max(3, height * state.waveHeights[idx]))
+                RoundedRectangle(cornerRadius: 1.2)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.white, Color.white.opacity(0.85)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(width: 2.2, height: max(3.5, height * state.waveHeights[idx]))
+                    .shadow(color: Color.white.opacity(0.20), radius: 1, x: 0, y: 0)
             }
         }
     }

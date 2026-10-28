@@ -855,34 +855,56 @@ public class IslandState: ObservableObject {
         updateActiveLyricIndex(for: currentPositionSeconds)
     }
     
-    // MARK: - On-Demand Harmonic Waveform Animation (~120 BPM Organic Beats, Zero CPU Idle when Paused)
+    // Physical Multi-Band Equalizer State (7 Bands: Sub-Bass, Bass, Low-Mid, Mid, Upper-Mid, Presence, Brilliance)
+    private var currentBandEnergies: [Double] = Array(repeating: 0.20, count: 7)
+
+    // MARK: - On-Demand Physical Multi-Band Equalizer (Attack-Decay Inertia, Zero CPU Idle when Paused)
     private func updateWaveformTimer() {
         if isPlaying {
             if waveformCancellable == nil {
-                waveformCancellable = Timer.publish(every: 0.08, on: .main, in: .common)
+                waveformCancellable = Timer.publish(every: 0.05, on: .main, in: .common)
                     .autoconnect()
                     .sink { [weak self] _ in
                         guard let self = self, self.isPlaying else { return }
                         let t = Date().timeIntervalSinceReferenceDate
-                        let envelope: [Double] = [0.60, 0.80, 0.95, 1.0, 0.95, 0.80, 0.60]
-                        let beatPulse = 0.75 + 0.25 * sin(t * 8.0) // ~120 BPM rhythmic pulse
-                        let heights = (0..<7).map { i -> CGFloat in
-                            let phase = Double(i) * 0.85
-                            let w1 = sin(t * 7.5 + phase) * 0.40
-                            let w2 = cos(t * 3.8 - phase * 0.5) * 0.25
-                            let raw = (0.50 + w1 + w2) * envelope[i] * beatPulse
-                            return CGFloat(min(max(raw, 0.20), 1.0))
+                        
+                        // Tempo beat clock (~124 BPM typical tempo = ~2.07 Hz)
+                        let beatPhase = (t * 2.07).truncatingRemainder(dividingBy: 1.0)
+                        let kickImpulse = exp(-beatPhase * 6.0) // sharp transient spike at each beat
+                        let snareImpulse = exp(-((beatPhase + 0.5).truncatingRemainder(dividingBy: 1.0)) * 7.0) // off-beat backbeat
+                        
+                        // Multi-band acoustic targets
+                        let targets: [Double] = [
+                            0.20 + 0.70 * kickImpulse + 0.15 * sin(t * 4.2), // Sub-bass: heavy kick
+                            0.25 + 0.60 * kickImpulse + 0.20 * cos(t * 5.1), // Bass
+                            0.30 + 0.40 * sin(t * 8.4) + 0.25 * cos(t * 3.3), // Low-mid
+                            0.35 + 0.45 * sin(t * 11.2) + 0.20 * sin(t * 6.5), // Vocal body
+                            0.30 + 0.50 * snareImpulse + 0.30 * sin(t * 14.1), // Vocal presence & snare
+                            0.25 + 0.45 * snareImpulse + 0.25 * cos(t * 16.7), // Treble / Hi-hat
+                            0.20 + 0.35 * abs(sin(t * 19.3)) + 0.15 * cos(t * 9.8) // Air & shimmer
+                        ]
+                        
+                        // Physics update: fast attack (0.04s) and exponential decay (0.18s)
+                        for i in 0..<7 {
+                            let target = max(0.18, min(1.0, targets[i]))
+                            if target > self.currentBandEnergies[i] {
+                                // Fast attack
+                                self.currentBandEnergies[i] += (target - self.currentBandEnergies[i]) * 0.55
+                            } else {
+                                // Smooth natural decay
+                                self.currentBandEnergies[i] += (target - self.currentBandEnergies[i]) * 0.22
+                            }
                         }
-                        withAnimation(.easeInOut(duration: 0.08)) {
-                            self.waveHeights = heights
-                        }
+                        
+                        self.waveHeights = self.currentBandEnergies.map { CGFloat($0) }
                     }
             }
         } else {
             waveformCancellable?.cancel()
             waveformCancellable = nil
+            self.currentBandEnergies = Array(repeating: 0.20, count: 7)
             withAnimation(.easeInOut(duration: 0.25)) {
-                self.waveHeights = Array(repeating: 0.25, count: 7)
+                self.waveHeights = Array(repeating: 0.20, count: 7)
             }
         }
     }
