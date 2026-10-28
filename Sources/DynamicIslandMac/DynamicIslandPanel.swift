@@ -66,13 +66,33 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         return NSSize(width: dims.width, height: dims.height)
     }
     
-    // MARK: - 2-Finger Trackpad Horizontal Swipe Tab Navigation
+    // MARK: - 2-Finger Trackpad Horizontal Swipe Tab Navigation (1-Swipe 1-Tab Paging Lock)
     private var accumulatedScrollDeltaX: CGFloat = 0.0
-    private var lastScrollTabSwitchTime: Date = Date.distantPast
+    private var hasSwitchedTabInCurrentGesture: Bool = false
     
     public override func scrollWheel(with event: NSEvent) {
         guard state.mode == .expanded else {
             super.scrollWheel(with: event)
+            return
+        }
+        
+        // Reset gesture lock when a new physical touch begins
+        if event.phase == .began {
+            hasSwitchedTabInCurrentGesture = false
+            accumulatedScrollDeltaX = 0
+        } else if event.phase == .ended || event.phase == .cancelled {
+            hasSwitchedTabInCurrentGesture = false
+            accumulatedScrollDeltaX = 0
+            return
+        }
+        
+        // Completely ignore momentum scrolling so inertia cannot overshoot tabs
+        if !event.momentumPhase.isEmpty {
+            return
+        }
+        
+        // If we already switched a tab in this swipe gesture, lock until next physical gesture
+        if hasSwitchedTabInCurrentGesture {
             return
         }
         
@@ -82,36 +102,24 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         // Detect dominant horizontal trackpad 2-finger swipe
         if abs(dx) > abs(dy) && abs(dx) > 1.2 {
             accumulatedScrollDeltaX += dx
+            let threshold: CGFloat = 28.0
             
-            let now = Date()
-            let threshold: CGFloat = 32.0
-            
-            if now.timeIntervalSince(lastScrollTabSwitchTime) > 0.28 {
-                if accumulatedScrollDeltaX > threshold {
-                    accumulatedScrollDeltaX = 0
-                    lastScrollTabSwitchTime = now
-                    DispatchQueue.main.async {
-                        self.state.previousTab()
-                    }
-                    return
-                } else if accumulatedScrollDeltaX < -threshold {
-                    accumulatedScrollDeltaX = 0
-                    lastScrollTabSwitchTime = now
-                    DispatchQueue.main.async {
-                        self.state.nextTab()
-                    }
-                    return
-                }
-            }
-            
-            if event.phase == .ended || event.phase == .cancelled {
+            if accumulatedScrollDeltaX > threshold {
+                hasSwitchedTabInCurrentGesture = true
                 accumulatedScrollDeltaX = 0
+                DispatchQueue.main.async {
+                    self.state.previousTab()
+                }
+                return
+            } else if accumulatedScrollDeltaX < -threshold {
+                hasSwitchedTabInCurrentGesture = true
+                accumulatedScrollDeltaX = 0
+                DispatchQueue.main.async {
+                    self.state.nextTab()
+                }
+                return
             }
             return
-        }
-        
-        if event.phase == .ended || event.phase == .cancelled {
-            accumulatedScrollDeltaX = 0
         }
         
         super.scrollWheel(with: event)
