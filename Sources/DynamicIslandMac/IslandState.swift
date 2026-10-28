@@ -229,6 +229,8 @@ public class IslandState: ObservableObject {
     @Published public var waveHeights: [CGFloat] = [0.2, 0.5, 0.3, 0.7, 0.4, 0.6, 0.3]
     private var waveformCancellable: AnyCancellable?
     private var playbackTickerCancellable: AnyCancellable?
+    private var playbackAnchorPosition: Double = 0.0
+    private var playbackAnchorTime: Date = Date()
     
     // Focus / Pomodoro Timer
     @Published public var timerRemainingSeconds: Int = 25 * 60
@@ -297,8 +299,11 @@ public class IslandState: ObservableObject {
                 }
             }
             
-            // Sync position if track changed, stopped, or drifted more than 2 seconds
-            if trackChanged || !self.isPlaying || abs(self.currentPositionSeconds - info.position) > 2.0 {
+            // Sync anchor if track changed, stopped, or drifted more than 0.6s
+            let currentEstimated = self.playbackAnchorPosition + (self.isPlaying ? Date().timeIntervalSince(self.playbackAnchorTime) : 0)
+            if trackChanged || !self.isPlaying || abs(currentEstimated - info.position) > 0.6 {
+                self.playbackAnchorPosition = info.position
+                self.playbackAnchorTime = Date()
                 self.currentPositionSeconds = info.position
             }
             
@@ -318,6 +323,10 @@ public class IslandState: ObservableObject {
             }
             
             if self.isPlaying != wasPlaying {
+                if self.isPlaying {
+                    self.playbackAnchorPosition = info.position
+                    self.playbackAnchorTime = Date()
+                }
                 self.updateWaveformTimer()
                 self.updatePlaybackTicker()
             }
@@ -330,8 +339,6 @@ public class IslandState: ObservableObject {
                     self.lyricsLines = []
                     self.currentLyricIndex = nil
                 }
-            } else {
-                self.updateActiveLyricIndex(for: info.position)
             }
         }
         
@@ -768,10 +775,12 @@ public class IslandState: ObservableObject {
             if currentLyricIndex != nil { currentLyricIndex = nil }
             return
         }
-        let target = position + 0.35 // slight perceptual lead
+        let target = position
         let idx = lyricsLines.lastIndex(where: { $0.timestamp <= target })
         if currentLyricIndex != idx {
-            currentLyricIndex = idx
+            withAnimation(.spring(response: 0.38, dampingFraction: 0.82)) {
+                currentLyricIndex = idx
+            }
         }
     }
     
@@ -795,22 +804,27 @@ public class IslandState: ObservableObject {
         }
     }
     
-    // MARK: - Live Second-by-Second Playback Ticker (Zero CPU Idle when Paused)
+    // MARK: - High-Precision Sub-Second Playback Ticker (0.2s Smooth Interpolation, Zero CPU Idle when Paused)
     private func updatePlaybackTicker() {
         if isPlaying {
             if playbackTickerCancellable == nil {
-                playbackTickerCancellable = Timer.publish(every: 1.0, on: .main, in: .common)
+                playbackTickerCancellable = Timer.publish(every: 0.2, on: .main, in: .common)
                     .autoconnect()
                     .sink { [weak self] _ in
                         guard let self = self, self.isPlaying else { return }
-                        if self.totalDurationSeconds.isFinite && !self.totalDurationSeconds.isNaN && self.totalDurationSeconds > 0 && self.currentPositionSeconds < self.totalDurationSeconds {
-                            self.currentPositionSeconds += 1.0
-                            let dur = max(0.1, self.totalDurationSeconds)
-                            self.playbackProgress = max(0, min(1.0, self.currentPositionSeconds / dur))
-                            self.currentTime = self.formatTime(self.safeSeconds(self.currentPositionSeconds))
-                            let rem = max(0, dur - self.currentPositionSeconds)
-                            self.remainingTime = "-\(self.formatTime(self.safeSeconds(rem)))"
-                            self.updateActiveLyricIndex(for: self.currentPositionSeconds)
+                        let elapsed = Date().timeIntervalSince(self.playbackAnchorTime)
+                        let exactPos = self.playbackAnchorPosition + elapsed
+                        let dur = max(0.1, self.totalDurationSeconds)
+                        let clampedPos = max(0, min(dur, exactPos))
+                        
+                        self.currentPositionSeconds = clampedPos
+                        self.playbackProgress = max(0, min(1.0, clampedPos / dur))
+                        self.currentTime = self.formatTime(self.safeSeconds(clampedPos))
+                        let rem = max(0, dur - clampedPos)
+                        self.remainingTime = "-\(self.formatTime(self.safeSeconds(rem)))"
+                        
+                        if self.isLyricsEnabled {
+                            self.updateActiveLyricIndex(for: clampedPos)
                         }
                     }
             }
