@@ -241,7 +241,7 @@ public struct DynamicIslandView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(.spring(response: 0.32, dampingFraction: 0.80), value: state.isIslandVisible)
         .animation(.spring(response: 0.32, dampingFraction: 0.80), value: state.activeTab)
-        .animation(.spring(response: 0.32, dampingFraction: 0.80), value: state.isLyricsEnabled)
+        .animation(.spring(response: 0.35, dampingFraction: 0.82), value: state.isLyricsEnabled)
         .animation(.easeInOut(duration: 0.18), value: state.isPlaying)
         .animation(.easeInOut(duration: 0.20), value: state.isShowingVolumeHUD)
         .animation(.easeInOut(duration: 0.20), value: state.isShowingBatteryHUD)

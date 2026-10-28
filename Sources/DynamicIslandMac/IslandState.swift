@@ -738,7 +738,7 @@ public class IslandState: ObservableObject {
     
     // MARK: - Synchronized Lyrics Engine
     public func toggleLyrics() {
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
             isLyricsEnabled.toggle()
         }
         if isLyricsEnabled {
