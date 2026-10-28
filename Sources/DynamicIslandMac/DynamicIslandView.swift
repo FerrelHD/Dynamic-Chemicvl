@@ -1145,107 +1145,140 @@ public struct DynamicIslandView: View {
     private var lyricsScrollingPane: some View {
         VStack(alignment: .leading, spacing: 0) {
             if state.isLoadingLyrics {
-                VStack(spacing: 8) {
-                    ProgressView()
-                        .scaleEffect(0.85)
-                    Text("Searching lyrics...")
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundColor(.white.opacity(0.55))
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                lyricsLoadingView
             } else if let error = state.lyricsErrorMessage, state.lyricsLines.isEmpty {
-                VStack(spacing: 6) {
-                    Image(systemName: "music.mic")
-                        .font(.system(size: 20))
-                        .foregroundColor(.white.opacity(0.40))
-                    Text(error)
-                        .font(.system(size: 11.5, weight: .medium, design: .rounded))
-                        .foregroundColor(.white.opacity(0.55))
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                lyricsErrorView(message: error)
             } else {
-                // Top Sync Offset Micro-Nudge Bar
-                HStack(spacing: 6) {
-                    Text(state.lyricSyncOffset == 0 ? "Sync: 0.0s" : String(format: "Sync: %+.1fs", state.lyricSyncOffset))
-                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
-                        .foregroundColor(.white.opacity(0.50))
+                lyricsOffsetControls
+                lyricsListScrollView
+            }
+        }
+    }
+    
+    private var lyricsLoadingView: some View {
+        VStack(spacing: 8) {
+            ProgressView()
+                .scaleEffect(0.85)
+            Text("Searching lyrics...")
+                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .foregroundColor(.white.opacity(0.55))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+    
+    private func lyricsErrorView(message: String) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: "music.mic")
+                .font(.system(size: 20))
+                .foregroundColor(.white.opacity(0.40))
+            Text(message)
+                .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                .foregroundColor(.white.opacity(0.55))
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+    
+    private var lyricsOffsetControls: some View {
+        HStack(spacing: 6) {
+            Text(state.lyricSyncOffset == 0 ? "Sync: 0.0s" : String(format: "Sync: %+.1fs", state.lyricSyncOffset))
+                .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                .foregroundColor(.white.opacity(0.50))
+            
+            Button(action: { state.adjustLyricSync(by: -0.5) }) {
+                Text("-0.5s")
+                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.75))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.white.opacity(0.12))
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            
+            Button(action: { state.adjustLyricSync(by: 0.5) }) {
+                Text("+0.5s")
+                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.75))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.white.opacity(0.12))
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            
+            if state.lyricSyncOffset != 0 {
+                Button(action: { state.resetLyricSync() }) {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(.white.opacity(0.60))
+                }
+                .buttonStyle(.plain)
+            }
+            
+            Spacer()
+        }
+        .padding(.horizontal, 6)
+        .padding(.bottom, 2)
+    }
+    
+    private var lyricsListScrollView: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 14) {
+                    Color.clear.frame(height: 35)
                     
-                    Button(action: { state.adjustLyricSync(by: -0.5) }) {
-                        Text("-0.5s")
-                            .font(.system(size: 9, weight: .bold, design: .rounded))
-                            .foregroundColor(.white.opacity(0.75))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.white.opacity(0.12))
-                            .clipShape(Capsule())
+                    ForEach(0..<state.lyricsLines.count, id: \.self) { idx in
+                        lyricRowButton(line: state.lyricsLines[idx], idx: idx)
                     }
-                    .buttonStyle(.plain)
                     
-                    Button(action: { state.adjustLyricSync(by: 0.5) }) {
-                        Text("+0.5s")
-                            .font(.system(size: 9, weight: .bold, design: .rounded))
-                            .foregroundColor(.white.opacity(0.75))
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.white.opacity(0.12))
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    
-                    if state.lyricSyncOffset != 0 {
-                        Button(action: { state.resetLyricSync() }) {
-                            Image(systemName: "arrow.counterclockwise")
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundColor(.white.opacity(0.60))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    
-                    Spacer()
+                    Color.clear.frame(height: 55)
                 }
                 .padding(.horizontal, 6)
-                .padding(.bottom, 2)
-                
-                ScrollViewReader { proxy in
-                    ScrollView(.vertical, showsIndicators: false) {
-                        VStack(alignment: .leading, spacing: 14) {
-                            Color.clear.frame(height: 15)
-                            
-                            ForEach(0..<state.lyricsLines.count, id: \.self) { idx in
-                                let line = state.lyricsLines[idx]
-                                let isCurrent = (state.currentLyricIndex == idx)
-                                Button(action: {
-                                    state.seekTo(line.timestamp)
-                                }) {
-                                    Text(line.text)
-                                        .font(.system(size: isCurrent ? 14 : 13, weight: isCurrent ? .bold : .medium, design: .rounded))
-                                        .foregroundColor(isCurrent ? .white : .white.opacity(0.35))
-                                        .shadow(color: Color.white.opacity(isCurrent ? 0.30 : 0.0), radius: isCurrent ? 6 : 0, x: 0, y: 0)
-                                        .multilineTextAlignment(.leading)
-                                        .lineLimit(2)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .animation(.easeInOut(duration: 0.22), value: isCurrent)
-                                }
-                                .buttonStyle(.plain)
-                                .id(idx)
-                            }
-                            
-                            Color.clear.frame(height: 45)
-                        }
-                        .padding(.horizontal, 6)
-                    }
-                    .onChange(of: state.currentLyricIndex) { newIdx in
-                        if let newIdx = newIdx {
-                            withAnimation(.spring(response: 0.38, dampingFraction: 0.85)) {
-                                proxy.scrollTo(newIdx, anchor: .center)
-                            }
-                        }
+            }
+            .mask(
+                LinearGradient(
+                    gradient: Gradient(stops: [
+                        .init(color: .clear, location: 0.0),
+                        .init(color: .black, location: 0.16),
+                        .init(color: .black, location: 0.84),
+                        .init(color: .clear, location: 1.0)
+                    ]),
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+            .onChange(of: state.currentLyricIndex) { newIdx in
+                if let newIdx = newIdx {
+                    withAnimation(.spring(response: 0.44, dampingFraction: 0.82)) {
+                        proxy.scrollTo(newIdx, anchor: .center)
                     }
                 }
             }
         }
+    }
+    
+    private func lyricRowButton(line: LyricLine, idx: Int) -> some View {
+        let isCurrent = (state.currentLyricIndex == idx)
+        let distance = abs((state.currentLyricIndex ?? 0) - idx)
+        let lineOpacity: Double = isCurrent ? 1.0 : (distance == 1 ? 0.42 : 0.26)
+        
+        return Button(action: {
+            state.seekTo(line.timestamp)
+        }) {
+            Text(line.text)
+                .font(.system(size: 13.5, weight: isCurrent ? .bold : .medium, design: .rounded))
+                .foregroundColor(.white.opacity(lineOpacity))
+                .scaleEffect(isCurrent ? 1.06 : 0.96, anchor: .leading)
+                .shadow(color: Color.white.opacity(isCurrent ? 0.35 : 0.0), radius: isCurrent ? 7 : 0, x: 0, y: 0)
+                .multilineTextAlignment(.leading)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .animation(.spring(response: 0.44, dampingFraction: 0.82), value: isCurrent)
+        }
+        .buttonStyle(.plain)
+        .id(idx)
     }
     
     // MARK: - Reusable Interactive Scrubber Bar
