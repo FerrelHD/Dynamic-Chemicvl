@@ -619,8 +619,8 @@ public struct DynamicIslandView: View {
             .transition(.opacity)
             .id(state.isShowingSettings ? "settings" : state.activeTab.rawValue)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .padding(.horizontal, 24)
-            .padding(.top, 14)
+            .padding(.horizontal, (state.activeTab == .music && state.isLyricsEnabled) ? 32 : 24)
+            .padding(.top, (state.activeTab == .music && state.isLyricsEnabled) ? 22 : 14)
             .padding(.bottom, 36) // Generous clearance ensuring tab content never touches the dots
             
             // Minimal Apple-Style Page Dots & Settings (••• ⚙️) Pinned Permanently at Bottom
@@ -936,7 +936,9 @@ public struct DynamicIslandView: View {
     
     // MARK: - Normal Player View (Single-column iOS dynamic island music player)
     private var normalMusicPlayerView: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
+            Spacer(minLength: 0)
+            
             // Row 1: Artwork, Title/Artist, and Neon Waveform
             HStack(spacing: 12) {
                 ZStack {
@@ -1047,14 +1049,18 @@ public struct DynamicIslandView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.top, 2)
+            
+            Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
     // MARK: - Apple Music Lyrics Split View (Left: Compact Controls | Right: Synchronized Lyrics)
     private var lyricsSplitView: some View {
-        HStack(spacing: 20) {
-            // SISI KIRI: Player Column (~275 pt, perfectly proportioned with ample room for lyrics on right)
+        HStack(spacing: 24) {
+            // SISI KIRI: Player Column (~255 pt, vertically centered)
             VStack(alignment: .leading, spacing: 10) {
+                Spacer(minLength: 0)
                 HStack(spacing: 11) {
                     ZStack {
                         if let art = state.artworkImage {
@@ -1153,8 +1159,11 @@ public struct DynamicIslandView: View {
                     }
                     .buttonStyle(.plain)
                 }
+                
+                Spacer(minLength: 0)
             }
-            .frame(width: 240)
+            .frame(width: 250)
+            .frame(maxHeight: .infinity)
             
             // Divider
             Rectangle()
