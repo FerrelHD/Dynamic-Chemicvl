@@ -127,6 +127,8 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
 }
 
 public class DynamicIslandPanel: NSPanel {
+    public static let stableCanvasWidth: CGFloat = 752.0
+    
     private var stateCancellable: AnyCancellable?
     private var collapseWorkItem: DispatchWorkItem?
     
@@ -144,10 +146,8 @@ public class DynamicIslandPanel: NSPanel {
     
     public init() {
         let screenRect = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
-        let dims = IslandState.shared.currentDimensions
-        let canvasPadding: CGFloat = 32.0
-        let targetW: CGFloat = dims.width + canvasPadding
-        let targetH: CGFloat = 52.0 // Constant physical canvas height to prevent top bezel clipping
+        let targetW: CGFloat = DynamicIslandPanel.stableCanvasWidth
+        let targetH: CGFloat = 52.0 // Constant physical canvas height in compact mode
         let xPos = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let yPos = screenRect.maxY - targetH
         let initialRect = NSRect(x: xPos, y: yPos, width: targetW, height: targetH)
@@ -229,13 +229,7 @@ public class DynamicIslandPanel: NSPanel {
         collapseWorkItem?.cancel()
         collapseWorkItem = nil
         let screenRect = screen.frame
-        let canvasPadding: CGFloat = 32.0
-        // Stable expanded canvas: 752 pt wide x 290 pt high!
-        // By keeping the canvas width and height constant at (752 x 290) throughout all expanded tabs & lyrics modes,
-        // the NSPanel window frame NEVER jumps, shifts origin X, or jitters!
-        // All animations (width 448 -> 720 -> 448) are handled purely by CoreAnimation / SwiftUI on GPU!
-        // All clicks outside the active notch shape pass through via IslandHostingView hitTest!
-        let targetW: CGFloat = 720.0 + canvasPadding
+        let targetW: CGFloat = DynamicIslandPanel.stableCanvasWidth
         let targetH: CGFloat = 290.0
         let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let targetY = screenRect.maxY - targetH
@@ -253,7 +247,6 @@ public class DynamicIslandPanel: NSPanel {
     
     public func updateWindowFrameForCurrentState() {
         let state = IslandState.shared
-        let dims = state.currentDimensions
         
         // Ensure the physical NSPanel never blocks underlying window clicks when hidden in fullscreen
         self.ignoresMouseEvents = !state.isIslandVisible
@@ -263,8 +256,8 @@ public class DynamicIslandPanel: NSPanel {
         } else {
             // Compact mode or HUD:
             // If the window was previously expanded, wait 0.35s for SwiftUI's spring animation to finish
-            // cleanly before shrinking the window frame back to compact size, freeing Chrome completely!
-            if self.frame.height > dims.height + 10 || self.frame.width > dims.width + 10 {
+            // cleanly before shrinking the window frame height back to 52pt, freeing Chrome completely!
+            if self.frame.height > 52.0 + 10 {
                 if collapseWorkItem == nil {
                     let workItem = DispatchWorkItem { [weak self] in
                         guard let self = self else { return }
@@ -289,9 +282,7 @@ public class DynamicIslandPanel: NSPanel {
         
         guard let screen = self.screen ?? NSScreen.main else { return }
         let screenRect = screen.frame
-        let dims = IslandState.shared.compactDimensions
-        let canvasPadding: CGFloat = 32.0
-        let targetW: CGFloat = dims.width + canvasPadding
+        let targetW: CGFloat = DynamicIslandPanel.stableCanvasWidth
         let targetH: CGFloat = 52.0 // Constant physical canvas height
         let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let targetY = screenRect.maxY - targetH
@@ -308,9 +299,7 @@ public class DynamicIslandPanel: NSPanel {
     private func applyCompactFrame() {
         guard let screen = self.screen ?? NSScreen.main else { return }
         let screenRect = screen.frame
-        let dims = IslandState.shared.currentDimensions
-        let canvasPadding: CGFloat = 32.0
-        let targetW = dims.width + canvasPadding
+        let targetW: CGFloat = DynamicIslandPanel.stableCanvasWidth
         let targetH: CGFloat = 52.0 // Constant physical canvas height to eliminate Y-shift glitch during HUDs
         let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let targetY = screenRect.maxY - targetH
