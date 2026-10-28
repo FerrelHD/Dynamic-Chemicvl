@@ -74,6 +74,7 @@ public class DynamicIslandPanel: NSPanel {
     private var mouseMoveMonitor: Any?
     private var localMouseMoveMonitor: Any?
     private var hideDebounceTimer: Timer?
+    private var expandedExitTimer: Timer?
     private var screenChangeObserver: Any?
     private var spaceChangeObserver: Any?
     private var appActivateObserver: Any?
@@ -381,9 +382,55 @@ public class DynamicIslandPanel: NSPanel {
         let checkHover: (NSEvent) -> Void = { [weak self] _ in
             guard state.isHoverPeekEnabled else { return }
             
-            if state.mode == .expanded || state.isShowingVolumeHUD || state.isShowingBatteryHUD || state.isShowingCapsLockHUD {
+            if state.mode == .expanded {
                 self?.hideDebounceTimer?.invalidate()
                 self?.hideDebounceTimer = nil
+                
+                // Pinned Shelf Mode: do not auto-collapse while dragging or managing files
+                if state.activeTab == .shelf {
+                    self?.expandedExitTimer?.invalidate()
+                    self?.expandedExitTimer = nil
+                    return
+                }
+                
+                guard let screen = self?.screen ?? NSScreen.main else { return }
+                let mouseLoc = NSEvent.mouseLocation
+                let dims = state.currentDimensions
+                let screenRect = screen.frame
+                let midX = screenRect.midX
+                let topY = screenRect.maxY
+                
+                let insideX = abs(mouseLoc.x - midX) <= (dims.width / 2.0 + 8.0)
+                let insideY = (mouseLoc.y >= topY - dims.height - 8.0) && (mouseLoc.y <= topY + 2.0)
+                
+                if insideX && insideY {
+                    // Cursor is inside expanded notch
+                    self?.expandedExitTimer?.invalidate()
+                    self?.expandedExitTimer = nil
+                } else {
+                    // Cursor exited expanded notch: trigger 0.15s micro-buffer auto-collapse
+                    if self?.expandedExitTimer == nil {
+                        self?.expandedExitTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: false) { [weak self] _ in
+                            self?.expandedExitTimer = nil
+                            let currentLoc = NSEvent.mouseLocation
+                            let stillInsideX = abs(currentLoc.x - midX) <= (dims.width / 2.0 + 8.0)
+                            let stillInsideY = (currentLoc.y >= topY - dims.height - 8.0) && (currentLoc.y <= topY + 2.0)
+                            if (!stillInsideX || !stillInsideY) && state.mode == .expanded && state.activeTab != .shelf {
+                                DispatchQueue.main.async {
+                                    state.minimize()
+                                }
+                            }
+                        }
+                    }
+                }
+                return
+            }
+            
+            if state.isShowingVolumeHUD || state.isShowingBatteryHUD || state.isShowingCapsLockHUD {
+                self?.hideDebounceTimer?.invalidate()
+                self?.hideDebounceTimer = nil
+                self?.expandedExitTimer?.invalidate()
+                self?.expandedExitTimer = nil
                 return
             }
             
