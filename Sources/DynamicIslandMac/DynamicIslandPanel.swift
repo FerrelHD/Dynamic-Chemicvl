@@ -34,6 +34,11 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         
         // If click is outside the active notch frame, pass through immediately
         guard notchRect.contains(localPoint) else {
+            if state.mode == .expanded && state.activeTab != .shelf {
+                DispatchQueue.main.async {
+                    self.state.minimize()
+                }
+            }
             return nil
         }
         
@@ -47,6 +52,11 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         
         // If click is in the transparent cutout corners outside the notch curve, pass through
         guard notchPath.contains(pointInNotch) else {
+            if state.mode == .expanded && state.activeTab != .shelf {
+                DispatchQueue.main.async {
+                    self.state.minimize()
+                }
+            }
             return nil
         }
         
@@ -343,7 +353,7 @@ public class DynamicIslandPanel: NSPanel {
     
     // MARK: - Click-Outside Detection to Minimize
     public func startClickOutsideMonitoring(state: IslandState) {
-        let checkClickOutside: (NSEvent) -> Void = { [weak self] event in
+        let checkClickOutside: (NSEvent) -> Void = { [weak self] _ in
             guard state.mode == .expanded else { return }
             
             // Shelf Pinned Mode: While on Shelf tab, keep open so user can click and drag files from Finder
@@ -351,10 +361,9 @@ public class DynamicIslandPanel: NSPanel {
                 return
             }
             
-            // For global monitor events, locationInWindow gives the actual screen coordinate of the click
-            let clickLoc = event.locationInWindow
-            
             guard let screen = self?.screen ?? NSScreen.main else { return }
+            // Use universal absolute screen coordinates (works identically for local & global click monitors)
+            let clickLoc = NSEvent.mouseLocation
             let dims = state.currentDimensions
             let screenRect = screen.frame
             let midX = screenRect.midX
@@ -370,7 +379,13 @@ public class DynamicIslandPanel: NSPanel {
             }
         }
         
+        // Global monitor catches clicks far away on other apps / desktop
         globalClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: checkClickOutside)
+        // Local monitor catches clicks nearby in our transparent window padding
+        localClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { event in
+            checkClickOutside(event)
+            return event
+        }
     }
     
     // MARK: - Smart Hover Peek Detection (Top Bezel Trigger & Dismiss)

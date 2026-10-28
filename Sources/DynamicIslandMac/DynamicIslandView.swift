@@ -1160,7 +1160,8 @@ public struct DynamicIslandView: View {
                         VStack(alignment: .leading, spacing: 14) {
                             Color.clear.frame(height: 25)
                             
-                            ForEach(Array(state.lyricsLines.enumerated()), id: \.element.id) { idx, line in
+                            ForEach(0..<state.lyricsLines.count, id: \.self) { idx in
+                                let line = state.lyricsLines[idx]
                                 let isCurrent = (state.currentLyricIndex == idx)
                                 Button(action: {
                                     state.seekTo(line.timestamp)

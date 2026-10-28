@@ -72,16 +72,62 @@ public class LyricsService {
             return
         }
         
-        var candidates: [String] = []
-        // Candidate 1: The cleaned title itself (Essential for YouTube where artist is the channel name)
-        candidates.append(clean)
+        // Step 1: Direct exact LRCLIB GET endpoint (Fastest & 100% accurate, eliminates wrong song mismatches)
+        if !artist.isEmpty && artist != "System Audio" {
+            fetchDirectExact(title: clean, artist: artist, cacheKey: cacheKey) { [weak self] directResult in
+                switch directResult {
+                case .success(let lines):
+                    completion(.success(lines))
+                case .failure:
+                    self?.performFallbackSearch(clean: clean, artist: artist, cacheKey: cacheKey, completion: completion)
+                }
+            }
+        } else {
+            performFallbackSearch(clean: clean, artist: artist, cacheKey: cacheKey, completion: completion)
+        }
+    }
+    
+    private func fetchDirectExact(title: String, artist: String, cacheKey: String, completion: @escaping (Result<[LyricLine], Error>) -> Void) {
+        guard let encTitle = title.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let encArtist = artist.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: "https://lrclib.net/api/get?track_name=\(encTitle)&artist_name=\(encArtist)") else {
+            completion(.failure(NSError(domain: "LyricsService", code: 400, userInfo: nil)))
+            return
+        }
         
+        var request = URLRequest(url: url)
+        request.setValue("DynamicIslandMac/1.0 (Macintosh; Intel Mac OS X 12_7_6)", forHTTPHeaderField: "User-Agent")
+        request.timeoutInterval = 4.0
+        
+        URLSession.shared.dataTask(with: request) { [weak self] data, _, error in
+            guard let data = data, error == nil,
+                  let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+                  let synced = json["syncedLyrics"] as? String, !synced.isEmpty else {
+                completion(.failure(NSError(domain: "LyricsService", code: 404, userInfo: nil)))
+                return
+            }
+            
+            let parsed = LyricsService.parseLRC(synced)
+            if !parsed.isEmpty {
+                self?.lyricsCache[cacheKey] = parsed
+                DispatchQueue.main.async { completion(.success(parsed)) }
+            } else {
+                completion(.failure(NSError(domain: "LyricsService", code: 404, userInfo: nil)))
+            }
+        }.resume()
+    }
+    
+    private func performFallbackSearch(clean: String, artist: String, cacheKey: String, completion: @escaping (Result<[LyricLine], Error>) -> Void) {
+        var candidates: [String] = []
+        
+        // 1. Specific "Title Artist" first
         let hasArtistInTitle = clean.lowercased().contains(artist.lowercased())
         if !hasArtistInTitle && !artist.isEmpty && artist != "System Audio" {
             candidates.append("\(clean) \(artist)")
             candidates.append("\(artist) \(clean)")
         }
         
+        // 2. Inverted if title has delimiter
         if clean.contains(" - ") {
             let parts = clean.components(separatedBy: " - ")
             if parts.count >= 2 {
@@ -100,10 +146,13 @@ public class LyricsService {
             }
         }
         
-        searchLRCLIB(candidates: candidates, index: 0, cacheKey: cacheKey, completion: completion)
+        // 3. Fallback to title alone
+        candidates.append(clean)
+        
+        searchLRCLIB(candidates: candidates, index: 0, targetArtist: artist, cacheKey: cacheKey, completion: completion)
     }
     
-    private func searchLRCLIB(candidates: [String], index: Int, cacheKey: String, completion: @escaping (Result<[LyricLine], Error>) -> Void) {
+    private func searchLRCLIB(candidates: [String], index: Int, targetArtist: String, cacheKey: String, completion: @escaping (Result<[LyricLine], Error>) -> Void) {
         guard index < candidates.count else {
             DispatchQueue.main.async {
                 completion(.failure(NSError(domain: "LyricsService", code: 404, userInfo: [NSLocalizedDescriptionKey: "No lyrics found for this track"])))
@@ -114,24 +163,32 @@ public class LyricsService {
         let query = candidates[index]
         guard let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
               let url = URL(string: "https://lrclib.net/api/search?q=\(encoded)") else {
-            searchLRCLIB(candidates: candidates, index: index + 1, cacheKey: cacheKey, completion: completion)
+            searchLRCLIB(candidates: candidates, index: index + 1, targetArtist: targetArtist, cacheKey: cacheKey, completion: completion)
             return
         }
         
         var request = URLRequest(url: url)
         request.setValue("DynamicIslandMac/1.0 (Macintosh; Intel Mac OS X 12_7_6)", forHTTPHeaderField: "User-Agent")
-        request.timeoutInterval = 5.0
+        request.timeoutInterval = 4.0
         
         URLSession.shared.dataTask(with: request) { [weak self] data, _, error in
             guard let data = data, error == nil,
                   let jsonArray = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]],
                   !jsonArray.isEmpty else {
-                self?.searchLRCLIB(candidates: candidates, index: index + 1, cacheKey: cacheKey, completion: completion)
+                self?.searchLRCLIB(candidates: candidates, index: index + 1, targetArtist: targetArtist, cacheKey: cacheKey, completion: completion)
                 return
             }
             
-            // Prioritize entries with syncedLyrics
-            let match = jsonArray.first(where: {
+            // Prioritize entries with syncedLyrics AND matching artist name (prevents wrong song mismatches like =LOVE)
+            let cleanTargetArtist = targetArtist.lowercased().trimmingCharacters(in: .whitespaces)
+            let match = jsonArray.first(where: { item in
+                guard let s = item["syncedLyrics"] as? String, !s.isEmpty else { return false }
+                if !cleanTargetArtist.isEmpty && cleanTargetArtist != "system audio" {
+                    let itemArtist = (item["artistName"] as? String ?? "").lowercased()
+                    return itemArtist.contains(cleanTargetArtist) || cleanTargetArtist.contains(itemArtist)
+                }
+                return true
+            }) ?? jsonArray.first(where: {
                 if let s = $0["syncedLyrics"] as? String, !s.isEmpty { return true }
                 return false
             }) ?? jsonArray.first!
@@ -155,7 +212,7 @@ public class LyricsService {
                 }
             }
             
-            self?.searchLRCLIB(candidates: candidates, index: index + 1, cacheKey: cacheKey, completion: completion)
+            self?.searchLRCLIB(candidates: candidates, index: index + 1, targetArtist: targetArtist, cacheKey: cacheKey, completion: completion)
         }.resume()
     }
     
