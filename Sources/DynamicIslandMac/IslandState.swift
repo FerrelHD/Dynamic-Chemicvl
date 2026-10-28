@@ -320,13 +320,14 @@ public class IslandState: ObservableObject {
             self.isSeamlessMenuBarEnabled = MenuBarTintService.shared.isSeamlessActive
         }
         
-        if let audio = AudioService.shared.getSystemAudioState() {
-            self.currentVolume = audio.volume
-            self.isMuted = audio.isMuted
+        DispatchQueue.main.async { [weak self] in
+            if let audio = AudioService.shared.getSystemAudioState() {
+                self?.currentVolume = audio.volume
+                self?.isMuted = audio.isMuted
+            }
+            self?.isMicMuted = AudioService.shared.isMicMuted()
+            self?.refreshControlStatus()
         }
-        self.isMicMuted = AudioService.shared.isMicMuted()
-        
-        refreshControlStatus()
         
         // Monitoring Media Universal otomatis
         MediaService.shared.startMonitoring { [weak self] info in
