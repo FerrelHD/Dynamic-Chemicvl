@@ -2918,7 +2918,7 @@ public struct RulerDialView: View {
     
     @State private var isDragging: Bool = false
     @State private var dragTranslation: CGFloat = 0
-    @State private var dragStartMinute: Int = 49
+    @State private var dragStartMinute: Int = 25
     
     public init(selectedMinutes: Binding<Int>, isEnabled: Bool = true) {
         self._selectedMinutes = selectedMinutes
@@ -2927,10 +2927,10 @@ public struct RulerDialView: View {
     
     public var body: some View {
         GeometryReader { geo in
-            let midX = geo.size.width / 2.0
             let baseMinute = isDragging ? dragStartMinute : selectedMinutes
             let activeOffset = isDragging ? dragTranslation : 0
-            let currentOffset = midX - (CGFloat(baseMinute - minMinutes) * tickSpacing) - (tickSpacing / 2.0) + activeOffset
+            let middleIndex = CGFloat(maxMinutes - minMinutes) / 2.0
+            let currentOffset = -(CGFloat(baseMinute - minMinutes) - middleIndex) * tickSpacing + activeOffset
             
             ZStack(alignment: .bottom) {
                 // Ticks track
@@ -2941,7 +2941,7 @@ public struct RulerDialView: View {
                         
                         VStack(spacing: 3) {
                             if isMajor {
-                                Text("\(min)")
+                                Text("\(min)m")
                                     .font(.system(size: 10, weight: isSelected ? .bold : .semibold, design: .rounded))
                                     .foregroundColor(isSelected ? .orange : .white.opacity(0.42))
                                     .frame(width: 36, height: 14)
@@ -2980,6 +2980,7 @@ public struct RulerDialView: View {
                         let clamped = max(minMinutes, min(maxMinutes, candidate))
                         if selectedMinutes != clamped {
                             selectedMinutes = clamped
+                            IslandState.shared.triggerHaptic(.alignment)
                         }
                     }
                     .onEnded { _ in

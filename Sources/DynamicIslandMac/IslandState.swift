@@ -444,9 +444,9 @@ public class IslandState: ObservableObject {
     private var lastSeekTimestamp: Date = .distantPast
     
     // Focus / Pomodoro Timer
-    @Published public var timerRemainingSeconds: Int = 49 * 60
-    @Published public var timerTotalSeconds: Int = 49 * 60
-    @Published public var timerSelectedMinutes: Int = 49
+    @Published public var timerRemainingSeconds: Int = 25 * 60
+    @Published public var timerTotalSeconds: Int = 25 * 60
+    @Published public var timerSelectedMinutes: Int = 25
     @Published public var isTimerRunning: Bool = false
     private var timerCancellable: AnyCancellable?
     
