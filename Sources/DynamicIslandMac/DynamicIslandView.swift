@@ -979,8 +979,8 @@ public struct DynamicIslandView: View {
             .id(state.isShowingSettings ? "settings" : state.activeTab.rawValue)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .padding(.horizontal, 32) // Standardized 32pt horizontal margin for generous breathing room across all tabs
-            .padding(.top, (state.activeTab == .music && state.isLyricsEnabled) ? 22 : 14)
-            .padding(.bottom, state.isShowingSettings ? 16 : 36)
+            .padding(.top, state.isShowingSettings ? 10 : ((state.activeTab == .music && state.isLyricsEnabled) ? 22 : 14))
+            .padding(.bottom, state.isShowingSettings ? 12 : 36)
             
             // Minimal Apple-Style Page Dots & Settings (••• ⚙️) Pinned Permanently at Bottom (hidden in Settings view)
             if !state.isShowingSettings {
@@ -2294,14 +2294,14 @@ public struct DynamicIslandView: View {
     
     // MARK: - Tab 6: Settings & Customization (Apple macOS Grouped Inset Style)
     private var settingsTabView: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 7) {
             settingsHeaderView
             systemAndPermissionsSection
             animationPhysicsSection
             dismissBehaviorSection
             settingsFooterView
-                .padding(.top, 2)
-                .padding(.bottom, 6)
+                .padding(.top, 4)
+                .padding(.bottom, 4)
         }
         .padding(.vertical, 2)
     }
