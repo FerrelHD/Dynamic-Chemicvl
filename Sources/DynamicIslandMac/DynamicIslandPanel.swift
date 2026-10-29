@@ -229,9 +229,8 @@ public class DynamicIslandPanel: NSPanel {
         collapseWorkItem?.cancel()
         collapseWorkItem = nil
         let screenRect = screen.frame
-        let dims = IslandState.shared.currentDimensions
-        let targetW: CGFloat = dims.width
-        let targetH: CGFloat = dims.height
+        let targetW: CGFloat = DynamicIslandPanel.stableCanvasWidth
+        let targetH: CGFloat = 290.0
         let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let targetY = screenRect.maxY - targetH
         let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)
@@ -241,7 +240,7 @@ public class DynamicIslandPanel: NSPanel {
         if self.frame != targetFrame {
             CATransaction.begin()
             CATransaction.setDisableActions(true)
-            self.setFrame(targetFrame, display: true)
+            self.setFrame(targetFrame, display: false)
             CATransaction.commit()
         }
     }
