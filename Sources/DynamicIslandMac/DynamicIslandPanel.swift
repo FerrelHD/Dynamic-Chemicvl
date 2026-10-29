@@ -41,8 +41,8 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         }
         
         // Check if inside the curved notch path (including concave ear fillets)
-        let earRadius: CGFloat = (state.mode == .expanded) ? 15 : ((state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD) ? 11 : 9)
-        let bottomRadius: CGFloat = (state.mode == .expanded) ? 24 : ((state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD) ? 18 : 14)
+        let earRadius: CGFloat = (state.activeChatNotification != nil || state.activeCallNotification != nil || state.activeAirDropNotification != nil) ? 13 : ((state.mode == .expanded) ? 15 : ((state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD) ? 11 : 9))
+        let bottomRadius: CGFloat = (state.activeChatNotification != nil || state.activeCallNotification != nil || state.activeAirDropNotification != nil) ? 22 : ((state.mode == .expanded) ? 24 : ((state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD) ? 18 : 14))
         
         let pointInNotch = CGPoint(x: localPoint.x - notchX, y: localPoint.y - notchY)
         let localNotchRect = CGRect(origin: .zero, size: CGSize(width: dims.width, height: dims.height))
@@ -254,10 +254,13 @@ public class DynamicIslandPanel: NSPanel {
         if state.mode == .expanded {
             expandWindowImmediately()
         } else {
-            // Compact mode or HUD:
-            // If the window was previously expanded, wait 0.35s for SwiftUI's spring animation to finish
-            // cleanly before shrinking the window frame height back to 52pt, freeing Chrome completely!
-            if self.frame.height > 52.0 + 10 {
+            let isTallNotification = (state.activeChatNotification != nil || state.activeCallNotification != nil || state.activeAirDropNotification != nil)
+            
+            if isTallNotification {
+                collapseWorkItem?.cancel()
+                collapseWorkItem = nil
+                applyCompactFrame()
+            } else if self.frame.height > 52.0 + 10 {
                 if collapseWorkItem == nil {
                     let workItem = DispatchWorkItem { [weak self] in
                         guard let self = self else { return }
@@ -281,9 +284,11 @@ public class DynamicIslandPanel: NSPanel {
         collapseWorkItem = nil
         
         guard let screen = self.screen ?? NSScreen.main else { return }
+        let state = IslandState.shared
+        let dims = state.currentDimensions
         let screenRect = screen.frame
         let targetW: CGFloat = DynamicIslandPanel.stableCanvasWidth
-        let targetH: CGFloat = 52.0 // Constant physical canvas height
+        let targetH: CGFloat = max(dims.height + 20.0, 52.0)
         let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let targetY = screenRect.maxY - targetH
         let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)
@@ -298,9 +303,11 @@ public class DynamicIslandPanel: NSPanel {
     
     private func applyCompactFrame() {
         guard let screen = self.screen ?? NSScreen.main else { return }
+        let state = IslandState.shared
+        let dims = state.currentDimensions
         let screenRect = screen.frame
         let targetW: CGFloat = DynamicIslandPanel.stableCanvasWidth
-        let targetH: CGFloat = 52.0 // Constant physical canvas height to eliminate Y-shift glitch during HUDs
+        let targetH: CGFloat = max(dims.height + 20.0, 52.0)
         let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let targetY = screenRect.maxY - targetH
         let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)

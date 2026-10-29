@@ -21,6 +21,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             IslandState.shared.toggleExpand()
         }
         
+        // Start listening to macOS chat notifications from Dock badges
+        NotificationListenerService.shared.startMonitoring()
+        
         print("🏝️ Native Dynamic Island Active (iOS Design & Full English)")
     }
     

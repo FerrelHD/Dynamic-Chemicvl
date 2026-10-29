@@ -816,7 +816,7 @@ public struct DynamicIslandView: View {
     }
     
     private func openChatApp(_ app: ChatApp) {
-        if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "net.whatsapp.WhatsApp") {
+        if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: app.bundleIdentifier) {
             NSWorkspace.shared.openApplication(at: appURL, configuration: NSWorkspace.OpenConfiguration())
         }
     }
@@ -1548,8 +1548,8 @@ public struct DynamicIslandView: View {
             }
             .onChange(of: state.currentLyricIndex) { newIdx in
                 if let newIdx = newIdx {
-                    withAnimation(.spring(response: 0.54, dampingFraction: 0.88)) {
-                        proxy.scrollTo(newIdx, anchor: .center)
+                    withAnimation(.spring(response: 0.60, dampingFraction: 0.85)) {
+                        proxy.scrollTo(newIdx, anchor: UnitPoint(x: 0.5, y: 0.38))
                     }
                 }
             }
@@ -1563,13 +1563,16 @@ public struct DynamicIslandView: View {
             state.seekTo(line.timestamp)
         }) {
             Text(line.text)
-                .font(.system(size: 14, weight: isCurrent ? .bold : .semibold, design: .rounded))
-                .foregroundColor(isCurrent ? .white : .white.opacity(0.55))
+                .font(.system(size: isCurrent ? 15 : 13.5, weight: isCurrent ? .bold : .semibold, design: .rounded))
+                .foregroundColor(isCurrent ? .white : .white.opacity(0.38))
+                .blur(radius: isCurrent ? 0 : 0.35)
+                .scaleEffect(isCurrent ? 1.04 : 0.98, anchor: .leading)
                 .multilineTextAlignment(.leading)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.trailing, 22)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .animation(.spring(response: 0.38, dampingFraction: 0.78), value: isCurrent)
         }
         .buttonStyle(.plain)
         .id(idx)
@@ -2817,17 +2820,18 @@ struct TrashCanBodyShape: Shape {
     }
 }
 
-// MARK: - OLED Horizontal Ruler Dial Component (Interactive Scrubbing Dial)
+// MARK: - OLED Horizontal Ruler Dial Component (Calibrated 1:1 Precision Dial)
 public struct RulerDialView: View {
     @Binding var selectedMinutes: Int
     var isEnabled: Bool = true
     
-    private let tickSpacing: CGFloat = 12.0
+    private let tickSpacing: CGFloat = 16.0
     private let minMinutes: Int = 5
     private let maxMinutes: Int = 120
     
-    @State private var dragOffset: CGFloat = 0
-    @State private var initialMinute: Int = 49
+    @State private var isDragging: Bool = false
+    @State private var dragTranslation: CGFloat = 0
+    @State private var dragStartMinute: Int = 49
     
     public init(selectedMinutes: Binding<Int>, isEnabled: Bool = true) {
         self._selectedMinutes = selectedMinutes
@@ -2837,7 +2841,9 @@ public struct RulerDialView: View {
     public var body: some View {
         GeometryReader { geo in
             let midX = geo.size.width / 2.0
-            let currentOffset = midX - (CGFloat(selectedMinutes) * tickSpacing) + dragOffset
+            let baseMinute = isDragging ? dragStartMinute : selectedMinutes
+            let activeOffset = isDragging ? dragTranslation : 0
+            let currentOffset = midX - (CGFloat(baseMinute - minMinutes) * tickSpacing) - (tickSpacing / 2.0) + activeOffset
             
             ZStack(alignment: .bottom) {
                 // Ticks track
@@ -2846,18 +2852,19 @@ public struct RulerDialView: View {
                         let isMajor = (min % 5 == 0)
                         let isSelected = (min == selectedMinutes)
                         
-                        VStack(spacing: 4) {
+                        VStack(spacing: 3) {
                             if isMajor {
                                 Text("\(min)")
-                                    .font(.system(size: 9.5, weight: isSelected ? .bold : .medium, design: .rounded))
-                                    .foregroundColor(isSelected ? .orange : .white.opacity(0.40))
+                                    .font(.system(size: 10, weight: isSelected ? .bold : .semibold, design: .rounded))
+                                    .foregroundColor(isSelected ? .orange : .white.opacity(0.42))
+                                    .frame(width: 36, height: 14)
                             } else {
-                                Spacer().frame(height: 12)
+                                Spacer().frame(height: 14)
                             }
                             
                             Rectangle()
-                                .fill(isSelected ? Color.orange : (isMajor ? Color.white.opacity(0.55) : Color.white.opacity(0.20)))
-                                .frame(width: isSelected ? 2.0 : (isMajor ? 1.4 : 1.0), height: isSelected ? 20 : (isMajor ? 14 : 8))
+                                .fill(isSelected ? Color.orange : (isMajor ? Color.white.opacity(0.60) : Color.white.opacity(0.18)))
+                                .frame(width: isSelected ? 2.0 : (isMajor ? 1.5 : 1.0), height: isSelected ? 18 : (isMajor ? 14 : 7))
                         }
                         .frame(width: tickSpacing, height: 42, alignment: .bottom)
                     }
@@ -2876,9 +2883,13 @@ public struct RulerDialView: View {
                 DragGesture(minimumDistance: 1)
                     .onChanged { val in
                         guard isEnabled else { return }
-                        dragOffset = val.translation.width
-                        let deltaMins = Int(round(-dragOffset / tickSpacing))
-                        let candidate = initialMinute + deltaMins
+                        if !isDragging {
+                            isDragging = true
+                            dragStartMinute = selectedMinutes
+                        }
+                        dragTranslation = val.translation.width
+                        let deltaMins = Int(round(-dragTranslation / tickSpacing))
+                        let candidate = dragStartMinute + deltaMins
                         let clamped = max(minMinutes, min(maxMinutes, candidate))
                         if selectedMinutes != clamped {
                             selectedMinutes = clamped
@@ -2886,13 +2897,12 @@ public struct RulerDialView: View {
                     }
                     .onEnded { _ in
                         guard isEnabled else { return }
-                        dragOffset = 0
-                        initialMinute = selectedMinutes
+                        withAnimation(.spring(response: 0.25, dampingFraction: 0.72)) {
+                            dragTranslation = 0
+                            isDragging = false
+                        }
                     }
             )
-            .onAppear {
-                initialMinute = selectedMinutes
-            }
         }
         .frame(height: 52)
     }

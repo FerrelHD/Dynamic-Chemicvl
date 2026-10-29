@@ -46,6 +46,16 @@ public enum ChatApp: String, CaseIterable, Identifiable {
         case .slack: return Color(red: 0.88, green: 0.20, blue: 0.45)
         }
     }
+    
+    public var bundleIdentifier: String {
+        switch self {
+        case .whatsapp: return "net.whatsapp.WhatsApp"
+        case .telegram: return "ru.keepcoder.Telegram"
+        case .imessage: return "com.apple.MobileSMS"
+        case .discord: return "com.hnc.Discord"
+        case .slack: return "com.tinyspeck.slackmacgap"
+        }
+    }
 }
 
 public struct ChatNotification: Identifiable, Equatable {
