@@ -51,7 +51,51 @@ public class MediaService {
         public let isTransientSocial: Bool
     }
     
-    // MARK: - Metadata Sanitizers
+    // MARK: - Metadata Sanitizers & KeyNotch YouTube Engine
+    public static func cleanVideoTitle(_ raw: String) -> String {
+        var s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // 1. Remove notification badges at the beginning, e.g. "(1) ", "(2) "
+        if let badgeRegex = try? NSRegularExpression(pattern: "^\\([0-9]+\\)\\s*") {
+            let range = NSRange(s.startIndex..., in: s)
+            s = badgeRegex.stringByReplacingMatches(in: s, options: [], range: range, withTemplate: "")
+        }
+        
+        // 2. Remove trailing YouTube suffixes
+        let trailingSuffixes = [
+            " - YouTube", " – YouTube", " — YouTube", " | YouTube",
+            " - topic", " – topic", " — topic",
+            " - Topic", " – Topic", " — Topic"
+        ]
+        for suf in trailingSuffixes {
+            if s.lowercased().hasSuffix(suf.lowercased()) {
+                s = String(s.dropLast(suf.count)).trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        }
+        
+        // 3. Remove 35+ common noise tags
+        let noiseTags = [
+            "(Official Video)", "(Official Music Video)", "[Official Video]",
+            "[Official Music Video]", "(Official Audio)", "[Official Audio]",
+            "(Official Visualizer)", "[Official Visualizer]",
+            "(Lyric Video)", "[Lyric Video]", "(Lyrics Video)", "[Lyrics Video]",
+            "(Audio)", "(Video)", "(Visualizer)", "[Visualizer]", "(Live)", "[Live]",
+            "(Lyrics)", "[Lyrics]", "(Lyric)", "[Lyric]",
+            ", lyric video", ", lyrics video", ", official video", ", visualizer",
+            "| lyric video", "| lyrics video", "| official video",
+            "(Tiktok Version)", "[Tiktok Version]", "(Speed Up)", "[Speed Up]",
+            "(Slowed + Reverb)", "[Slowed + Reverb]", "(Slowed and Reverb)", "[Slowed and Reverb]",
+            "(Remix)", "[Remix]", "(HD)", "[HD]", "(4K)", "[4K]", "(4K 60FPS)", "[4K 60FPS]",
+            "| VEVO", "(VEVO)", "[VEVO]"
+        ]
+        for tag in noiseTags {
+            if let r = s.range(of: tag, options: .caseInsensitive) {
+                s.removeSubrange(r)
+            }
+        }
+        return s.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     public static func cleanArtistName(_ raw: String) -> String {
         var cleaned = raw
         let garbageSuffixes = [" - Topic", "- Topic", "-Topic", " – Topic", " — Topic"]
@@ -69,6 +113,54 @@ public class MediaService {
         }
         cleaned = cleaned.replacingOccurrences(of: " - Topic", with: "", options: .caseInsensitive)
         return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    public static func splitArtistAndTitle(rawTitle: String, rawArtist: String) -> (artist: String, title: String) {
+        let preCleanedTitle = cleanVideoTitle(rawTitle)
+        var artist = cleanArtistName(rawArtist)
+        var title = preCleanedTitle
+        
+        let lowerArtist = artist.lowercased()
+        let isGenericArtist = artist.isEmpty || lowerArtist == "system audio" || lowerArtist == "youtube" || lowerArtist == "google chrome" || lowerArtist == "safari" || lowerArtist == "arc" || lowerArtist == "brave"
+        
+        // Format 1: "Artist - Song Title"
+        var found = false
+        for sep in [" - ", " – ", " — "] {
+            if preCleanedTitle.contains(sep) {
+                let parts = preCleanedTitle.components(separatedBy: sep)
+                if parts.count >= 2 {
+                    let aPart = cleanArtistName(cleanVideoTitle(parts[0]))
+                    let tPart = cleanVideoTitle(parts[1...].joined(separator: sep))
+                    if !aPart.isEmpty && !tPart.isEmpty {
+                        title = tPart
+                        if isGenericArtist {
+                            artist = aPart
+                        }
+                        found = true
+                        break
+                    }
+                }
+            }
+        }
+        
+        // Format 2: "Song Title by Artist"
+        if !found && title.contains(" by ") {
+            let parts = title.components(separatedBy: " by ")
+            if parts.count >= 2 {
+                let tPart = cleanVideoTitle(parts[0])
+                let aPart = cleanArtistName(cleanVideoTitle(parts[1...].joined(separator: " by ")))
+                if !tPart.isEmpty && !aPart.isEmpty {
+                    title = tPart
+                    if isGenericArtist {
+                        artist = aPart
+                    }
+                }
+            }
+        }
+        
+        let finalArtist = artist.isEmpty ? "System Audio" : artist
+        let finalTitle = title.isEmpty ? rawTitle : title
+        return (artist: finalArtist, title: finalTitle)
     }
     
     public static func isTransientSocialMedia(title: String, artist: String, duration: Double) -> Bool {
@@ -110,7 +202,7 @@ public class MediaService {
     public func fetchMediaInfo(completion: @escaping (UniversalMediaInfo) -> Void) {
         if let getInfo = self.getNowPlayingInfoPtr {
             getInfo(DispatchQueue.main) { dict in
-                let title = dict["kMRMediaRemoteNowPlayingInfoTitle"] as? String ?? ""
+                let rawTitle = dict["kMRMediaRemoteNowPlayingInfoTitle"] as? String ?? ""
                 let rawArtist = dict["kMRMediaRemoteNowPlayingInfoArtist"] as? String ?? ""
                 let album = dict["kMRMediaRemoteNowPlayingInfoAlbum"] as? String ?? ""
                 let rate = dict["kMRMediaRemoteNowPlayingInfoPlaybackRate"] as? Double ?? 0.0
@@ -127,14 +219,13 @@ public class MediaService {
                 }
                 
                 let artworkData = dict["kMRMediaRemoteNowPlayingInfoArtworkData"] as? Data
-                let cleanArtist = MediaService.cleanArtistName(rawArtist)
-                let resolvedArtist = cleanArtist.isEmpty ? (album.isEmpty ? "System Audio" : album) : cleanArtist
-                let isTransient = MediaService.isTransientSocialMedia(title: title, artist: resolvedArtist, duration: duration)
+                let (resolvedArtist, resolvedTitle) = MediaService.splitArtistAndTitle(rawTitle: rawTitle, rawArtist: rawArtist)
+                let isTransient = MediaService.isTransientSocialMedia(title: resolvedTitle, artist: resolvedArtist, duration: duration)
                 
-                if !title.isEmpty {
+                if !resolvedTitle.isEmpty && resolvedTitle != "No Media Playing" {
                     let info = UniversalMediaInfo(
                         isPlaying: isPlaying,
-                        title: title,
+                        title: resolvedTitle,
                         artist: resolvedArtist,
                         album: album,
                         position: elapsed,
@@ -189,8 +280,7 @@ public class MediaService {
     
     // MARK: - Fallback HD Album / Video Artwork Fetcher (YouTube HD CDN & Verified iTunes)
     public func fetchOnlineArtwork(title: String, artist: String, album: String = "", completion: @escaping (Data?) -> Void) {
-        let clean = LyricsService.cleanTrackTitle(title)
-        let cleanArt = MediaService.cleanArtistName(artist)
+        let (cleanArt, clean) = MediaService.splitArtistAndTitle(rawTitle: title, rawArtist: artist)
         guard !clean.isEmpty && clean != "No Media Playing" else {
             completion(nil)
             return
@@ -227,27 +317,29 @@ public class MediaService {
     
     private func beginVerifiedSearch(clean: String, cleanArt: String, album: String, cacheKey: String, completion: @escaping (Data?) -> Void) {
         var candidates: [String] = []
+        let hasValidArtist = !cleanArt.isEmpty && cleanArt != "System Audio" && cleanArt.lowercased() != "youtube" && cleanArt.lowercased() != "google chrome"
+        
+        if hasValidArtist {
+            candidates.append("\(cleanArt) \(clean)")
+            candidates.append("\(clean) \(cleanArt)")
+        }
+        
+        // Clean out any feat./ft. tags for a focused search query candidate
+        let strippedFeat = clean.replacingOccurrences(of: "(?i)\\s*(?:ft|feat|featuring)\\.?\\s+.*", with: "", options: .regularExpression).trimmingCharacters(in: .whitespaces)
+        if strippedFeat != clean && !strippedFeat.isEmpty {
+            if hasValidArtist {
+                candidates.append("\(cleanArt) \(strippedFeat)")
+            }
+            candidates.append(strippedFeat)
+        }
+        
         if !album.isEmpty && album != "System Audio" {
-            if !cleanArt.isEmpty && cleanArt != "System Audio" {
-                candidates.append("\(clean) \(cleanArt) \(album)")
+            if hasValidArtist {
+                candidates.append("\(cleanArt) \(clean) \(album)")
             }
             candidates.append("\(clean) \(album)")
         }
         
-        let hasArtistInTitle = clean.lowercased().contains(cleanArt.lowercased())
-        if !hasArtistInTitle && !cleanArt.isEmpty && cleanArt != "System Audio" {
-            candidates.append("\(clean) \(cleanArt)")
-        }
-        
-        if clean.contains(" - ") {
-            let parts = clean.components(separatedBy: " - ")
-            if parts.count >= 2 {
-                let p0 = parts[0].trimmingCharacters(in: .whitespaces)
-                let p1 = parts[1].trimmingCharacters(in: .whitespaces)
-                candidates.append("\(p0) \(p1)")
-                candidates.append("\(p1) \(p0)")
-            }
-        }
         candidates.append(clean)
         
         searchVerifiedArtwork(candidates: candidates, index: 0, cleanTitle: clean, cleanArt: cleanArt, cacheKey: cacheKey, completion: completion)
@@ -348,6 +440,7 @@ public class MediaService {
             
             let qT = cleanTitle.lowercased()
             let qA = cleanArt.lowercased()
+            let isGenericArtist = qA.isEmpty || qA == "system audio" || qA == "youtube" || qA == "google chrome" || qA == "safari"
             
             // Find verified match that actually corresponds to this song/artist
             var matchedItem: [String: Any]?
@@ -356,11 +449,21 @@ public class MediaService {
                 let artistName = (item["artistName"] as? String ?? "").lowercased()
                 
                 let titleMatch = trackName.contains(qT) || qT.contains(trackName) || cleanTitle.count < 3
-                let artistMatch = qA.isEmpty || qA == "system audio" || artistName.contains(qA) || qA.contains(artistName)
+                let artistMatch = isGenericArtist || artistName.contains(qA) || qA.contains(artistName)
                 
                 if titleMatch && artistMatch {
                     matchedItem = item
                     break
+                }
+            }
+            
+            // Fallback match: if specific artist was queried and at least artist or title matches first result
+            if matchedItem == nil && !isGenericArtist && !results.isEmpty {
+                let first = results[0]
+                let trackName = (first["trackName"] as? String ?? "").lowercased()
+                let artistName = (first["artistName"] as? String ?? "").lowercased()
+                if artistName.contains(qA) || qA.contains(artistName) || trackName.contains(qT) || qT.contains(trackName) {
+                    matchedItem = first
                 }
             }
             

@@ -205,30 +205,31 @@ public struct DynamicIslandView: View {
                     )
                 
                 // MARK: - Dynamic Ambient Artwork Glow (Music Tab Bottom Gradient)
-                if state.isIslandVisible, let dominant = state.artworkDominantColor {
+                if state.isIslandVisible {
+                    let dominant = state.artworkDominantColor ?? Color(red: 0.16, green: 0.10, blue: 0.28)
                     ZStack(alignment: .bottom) {
                         LinearGradient(
                             stops: [
-                                .init(color: .clear, location: 0.15),
-                                .init(color: dominant.opacity(0.12), location: 0.50),
-                                .init(color: dominant.opacity(0.35), location: 0.82),
-                                .init(color: dominant.opacity(0.50), location: 1.0)
+                                .init(color: .clear, location: 0.05),
+                                .init(color: dominant.opacity(0.18), location: 0.35),
+                                .init(color: dominant.opacity(0.42), location: 0.70),
+                                .init(color: dominant.opacity(0.65), location: 1.0)
                             ],
                             startPoint: .top,
                             endPoint: .bottom
                         )
                         
-                        // Soft blurred ambient glow orb at the bottom edge for rich depth
+                        // Soft blurred ambient glow orb anchored right at the bottom curve
                         Ellipse()
-                            .fill(dominant.opacity(0.36))
-                            .frame(width: islandWidth * 0.90, height: 95)
-                            .offset(y: 42)
-                            .blur(radius: 30)
+                            .fill(dominant.opacity(0.48))
+                            .frame(width: islandWidth * 0.95, height: 90)
+                            .offset(y: 8)
+                            .blur(radius: 26)
                     }
                     .clipShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
                     .allowsHitTesting(false)
                     .opacity((state.mode == .expanded && state.activeTab == .music) ? 1.0 : 0.0)
-                    .animation(.easeInOut(duration: 0.25), value: state.mode)
+                    .animation(state.activeSpringAnimation, value: state.mode)
                     .animation(.easeInOut(duration: 0.25), value: state.activeTab)
                     .animation(.easeInOut(duration: 0.35), value: state.artworkDominantColor)
                 }
@@ -2257,7 +2258,6 @@ public struct DynamicIslandView: View {
             settingsHeaderView
             animationPhysicsSection
             dismissBehaviorSection
-            demoSimulationsSection
         }
         .padding(.vertical, 2)
     }
@@ -2451,91 +2451,6 @@ public struct DynamicIslandView: View {
         .buttonStyle(.plain)
     }
     
-    private var demoSimulationsSection: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text("INTERACTIVE NOTIFICATIONS DEMO")
-                .font(.system(size: 9.5, weight: .bold, design: .rounded))
-                .foregroundColor(.white.opacity(0.50))
-            
-            HStack(spacing: 6) {
-                // Test Chat
-                Button(action: {
-                    state.triggerChatNotification(
-                        sender: "Liam Patterson",
-                        message: "Hey, are we still on for coffee later?\nI might be 10–15 minutes late, traffic looks...",
-                        app: .whatsapp
-                    )
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "message.fill")
-                            .font(.system(size: 9, weight: .bold))
-                        Text("Chat")
-                            .font(.system(size: 10, weight: .semibold, design: .rounded))
-                    }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 4.5)
-                    .background(Color(red: 0.15, green: 0.80, blue: 0.38).opacity(0.25))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .stroke(Color(red: 0.15, green: 0.80, blue: 0.38).opacity(0.4), lineWidth: 0.8)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                
-                // Test Call
-                Button(action: {
-                    state.triggerCallNotification(
-                        callerName: "Wesley Tingey",
-                        subtitle: "from iPhone"
-                    )
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "phone.fill")
-                            .font(.system(size: 9, weight: .bold))
-                        Text("Call")
-                            .font(.system(size: 10, weight: .semibold, design: .rounded))
-                    }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 4.5)
-                    .background(Color.green.opacity(0.25))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .stroke(Color.green.opacity(0.4), lineWidth: 0.8)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                
-                // Test AirDrop
-                Button(action: {
-                    state.triggerAirDropComplete(
-                        senderName: "Ferrel",
-                        fileName: "Icon-Composer.dmg"
-                    )
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "wave.3.forward.circle.fill")
-                            .font(.system(size: 9, weight: .bold))
-                        Text("AirDrop")
-                            .font(.system(size: 10, weight: .semibold, design: .rounded))
-                    }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 4.5)
-                    .background(Color.blue.opacity(0.25))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .stroke(Color.blue.opacity(0.4), lineWidth: 0.8)
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
     
     // MARK: - Helpers
     private func tabIcon(for tab: IslandTab) -> some View {
