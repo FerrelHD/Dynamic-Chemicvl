@@ -453,7 +453,7 @@ public class DynamicIslandPanel: NSPanel {
     
     // MARK: - Smart Hover Peek Detection (Top Bezel Trigger & Dismiss)
     public func startHoverPeekMonitoring(state: IslandState) {
-        let checkHover: (NSEvent) -> Void = { [weak self] _ in
+        let checkHover: (NSEvent) -> Void = { [weak self] event in
             let state = IslandState.shared
             guard state.isIslandVisible else {
                 self?.ignoresMouseEvents = true
@@ -470,6 +470,25 @@ public class DynamicIslandPanel: NSPanel {
             let insideX = abs(mouseLoc.x - midX) <= (dims.width / 2.0 + 8.0)
             let insideY = (mouseLoc.y >= topY - dims.height - 8.0) && (mouseLoc.y <= topY + 2.0)
             let isInsideNotch = insideX && insideY
+            
+            let isDragging = (event.type == .leftMouseDragged)
+            
+            // File drag towards notch triggers Shelf Tab (KeyNotch Precision Detection)
+            if isDragging {
+                let distanceFromTop = topY - mouseLoc.y
+                let horizontalDistance = abs(mouseLoc.x - midX)
+                if distanceFromTop <= 52 && horizontalDistance <= 150 {
+                    self?.ignoresMouseEvents = false
+                    if state.mode == .compact {
+                        DispatchQueue.main.async { [weak self] in
+                            self?.hasEnteredExpanded = true
+                            state.activeTab = .shelf
+                            state.toggleExpand()
+                        }
+                    }
+                    return
+                }
+            }
             
             // In expanded mode: manage exit timer and dynamic ignoresMouseEvents
             if state.mode == .expanded {
@@ -519,7 +538,7 @@ public class DynamicIslandPanel: NSPanel {
             }
             
             // Dynamic ignoresMouseEvents in compact mode: pass clicks through to menu bar if outside notch
-            self?.ignoresMouseEvents = !isInsideNotch
+            self?.ignoresMouseEvents = isDragging ? !isInsideNotch : !isInsideNotch
             
             // Trigger zone: top 14pt of screen in menu bar area
             let inTriggerZone = (mouseLoc.y >= topY - 14) && (abs(mouseLoc.x - midX) <= 135)
@@ -558,8 +577,8 @@ public class DynamicIslandPanel: NSPanel {
             }
         }
         
-        mouseMoveMonitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved, handler: checkHover)
-        localMouseMoveMonitor = NSEvent.addLocalMonitorForEvents(matching: .mouseMoved) { event in
+        mouseMoveMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged], handler: checkHover)
+        localMouseMoveMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged]) { event in
             checkHover(event)
             return event
         }
