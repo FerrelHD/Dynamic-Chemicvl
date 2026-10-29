@@ -143,6 +143,7 @@ public struct DynamicIslandView: View {
     @State private var isTrashLidOpenClipboard = false
     @State private var isScrubbingAudio = false
     @State private var localScrubProgress: Double = 0.0
+    @State private var airPodsSpinAngle: Double = 0.0
     
     public init(state: IslandState = .shared) {
         self.state = state
@@ -416,7 +417,8 @@ public struct DynamicIslandView: View {
         iconColor: Color = .white,
         title: String,
         subtitle: String,
-        trailingText: String
+        trailingText: String,
+        is3DSpinning: Bool = false
     ) -> some View {
         HStack(spacing: 12) {
             // 1. Left: Dynamic Circular Progress Ring with Center Icon
@@ -432,6 +434,7 @@ public struct DynamicIslandView: View {
                 Image(systemName: iconName)
                     .font(.system(size: 12.5, weight: .bold))
                     .foregroundColor(iconColor)
+                    .rotation3DEffect(.degrees(is3DSpinning ? airPodsSpinAngle : 0), axis: (x: 0, y: 1, z: 0), perspective: 0.55)
             }
             .frame(width: 28, height: 28)
             
@@ -504,9 +507,9 @@ public struct DynamicIslandView: View {
     private var bluetoothHUDContent: some View {
         let isConnected = state.isBluetoothOn
         let hasDevice = !state.bluetoothDeviceName.isEmpty
-        let isAirPods = state.bluetoothDeviceIcon.contains("airpod") || state.bluetoothDeviceIcon.contains("headphone")
-        let ringColor = isConnected ? (isAirPods ? Color(red: 0.20, green: 0.85, blue: 0.40) : Color(red: 0.20, green: 0.60, blue: 1.0)) : Color(white: 0.35)
-        let icon = isConnected ? state.bluetoothDeviceIcon : "bluetooth.slash"
+        let isAirPods = state.bluetoothDeviceIcon.contains("airpod") || state.bluetoothDeviceName.lowercased().contains("airpod") || state.bluetoothDeviceName.lowercased().contains("bud")
+        let ringColor = isConnected ? (isAirPods ? Color(red: 0.18, green: 0.85, blue: 0.38) : Color(red: 0.20, green: 0.60, blue: 1.0)) : Color(white: 0.35)
+        let icon = isConnected ? (isAirPods ? "airpodspro" : state.bluetoothDeviceIcon) : "bluetooth.slash"
         let title = hasDevice ? state.bluetoothDeviceName : "Bluetooth"
         let subtitle = isConnected ? (hasDevice ? "Connected" : "On") : "Disconnected"
         
@@ -516,7 +519,7 @@ public struct DynamicIslandView: View {
             trailing = "\(batt)%"
             progress = Double(batt) / 100.0
         } else {
-            trailing = isConnected ? "On" : "Off"
+            trailing = isConnected ? (isAirPods ? "100%" : "On") : "Off"
             progress = 1.0
         }
         
@@ -527,8 +530,17 @@ public struct DynamicIslandView: View {
             iconColor: isConnected ? .white : Color.white.opacity(0.60),
             title: title,
             subtitle: subtitle,
-            trailingText: trailing
+            trailingText: trailing,
+            is3DSpinning: isAirPods
         )
+        .onAppear {
+            if isAirPods {
+                airPodsSpinAngle = 0.0
+                withAnimation(.spring(response: 0.85, dampingFraction: 0.72)) {
+                    airPodsSpinAngle = 360.0
+                }
+            }
+        }
     }
     
     // MARK: - Caps Lock Floating HUD
@@ -2772,6 +2784,7 @@ public typealias MascotEyesView = SpiderMascotEyesView
 private struct DeviceCardView: View {
     let dev: ConnectedDevice
     let isDense: Bool
+    @State private var spinAngle: Double = 0.0
     
     private var progressValue: CGFloat {
         if dev.batteryLevel > 0 {
@@ -2814,6 +2827,7 @@ private struct DeviceCardView: View {
                     Image(systemName: dev.iconName)
                         .font(.system(size: isDense ? 14 : 16, weight: .semibold))
                         .foregroundColor(dev.isConnected ? .white : .white.opacity(0.35))
+                        .rotation3DEffect(.degrees(spinAngle), axis: (x: 0, y: 1, z: 0), perspective: 0.55)
                     
                     if dev.isCharging {
                         Image(systemName: "bolt.fill")
@@ -2823,6 +2837,24 @@ private struct DeviceCardView: View {
                 }
             }
             .frame(width: isDense ? 46 : 52, height: isDense ? 46 : 52)
+            .contentShape(Circle())
+            .onAppear {
+                if dev.iconName.contains("airpod") && dev.isConnected {
+                    spinAngle = 0.0
+                    withAnimation(.spring(response: 0.85, dampingFraction: 0.72)) {
+                        spinAngle = 360.0
+                    }
+                }
+            }
+            .onTapGesture {
+                if dev.iconName.contains("airpod") {
+                    spinAngle = 0.0
+                    IslandState.shared.triggerHaptic(.alignment)
+                    withAnimation(.spring(response: 0.85, dampingFraction: 0.72)) {
+                        spinAngle = 360.0
+                    }
+                }
+            }
             
             Text(batteryText)
                 .font(.system(size: isDense ? 11.5 : 13, weight: .bold, design: .rounded))
