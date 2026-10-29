@@ -217,7 +217,8 @@ public struct DynamicIslandView: View {
                     }
                     .clipShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
                     .allowsHitTesting(false)
-                    .transition(.opacity.animation(.easeInOut(duration: 0.40)))
+                    .transition(.opacity)
+                    .animation(.easeInOut(duration: 0.35), value: state.artworkDominantColor)
                 }
                 
                 if state.isIslandVisible {
