@@ -447,14 +447,19 @@ public class DynamicIslandPanel: NSPanel {
     // MARK: - Smart Hover Peek Detection (Top Bezel Trigger & Dismiss)
     public func startHoverPeekMonitoring(state: IslandState) {
         let checkHover: (NSEvent) -> Void = { [weak self] _ in
-            guard state.isHoverPeekEnabled else { return }
-            
             if state.mode == .expanded {
                 self?.hideDebounceTimer?.invalidate()
                 self?.hideDebounceTimer = nil
                 
                 // Pinned Shelf Mode: do not auto-collapse while dragging or managing files
                 if state.activeTab == .shelf {
+                    self?.expandedExitTimer?.invalidate()
+                    self?.expandedExitTimer = nil
+                    return
+                }
+                
+                // Click Only Mode: notch stays open until user clicks outside
+                if state.dismissMode == .clickOnly {
                     self?.expandedExitTimer?.invalidate()
                     self?.expandedExitTimer = nil
                     return
@@ -483,7 +488,7 @@ public class DynamicIslandPanel: NSPanel {
                             let currentLoc = NSEvent.mouseLocation
                             let stillInsideX = abs(currentLoc.x - midX) <= (dims.width / 2.0 + 8.0)
                             let stillInsideY = (currentLoc.y >= topY - dims.height - 8.0) && (currentLoc.y <= topY + 2.0)
-                            if (!stillInsideX || !stillInsideY) && state.mode == .expanded && state.activeTab != .shelf {
+                            if (!stillInsideX || !stillInsideY) && state.mode == .expanded && state.activeTab != .shelf && state.dismissMode == .cursorAway {
                                 DispatchQueue.main.async {
                                     self?.hasEnteredExpanded = false
                                     state.minimize()

@@ -36,6 +36,13 @@ public enum AnimationStyle: String, CaseIterable, Identifiable {
     }
 }
 
+public enum DismissMode: String, CaseIterable, Identifiable {
+    case cursorAway = "Cursor Away"
+    case clickOnly = "Click Only"
+    
+    public var id: String { rawValue }
+}
+
 public struct ConnectedDevice: Identifiable, Equatable {
     public let id = UUID()
     public let name: String
@@ -102,6 +109,10 @@ public class IslandState: ObservableObject {
     @Published public var isFullScreenAppActive: Bool = false
     private let hoverPeekStorageKey = "DynamicIsland_HoverPeekEnabled"
     
+    // Notch Dismiss Mode (Cursor Away vs Click Only)
+    @Published public var dismissMode: DismissMode = .cursorAway
+    private let dismissModeStorageKey = "DynamicIsland_DismissMode"
+    
     // Seamless Black Menu Bar (Match Notch)
     @Published public var isSeamlessMenuBarEnabled: Bool = false
     private let seamlessMenuBarStorageKey = "DynamicIsland_SeamlessMenuBarEnabled"
@@ -116,7 +127,7 @@ public class IslandState: ObservableObject {
         }
         
         // When not in fullscreen (Desktop / Windowed), always present as idle standby!
-        return isHoverPeekEnabled ? true : true
+        return true
     }
     
     // MARK: - Dynamic Adaptive Dimensions for Physical NSWindow Frame
@@ -308,11 +319,14 @@ public class IslandState: ObservableObject {
             if val >= 0.20 && val <= 0.55 { self.customDuration = val }
         }
         
-        if UserDefaults.standard.object(forKey: hoverPeekStorageKey) != nil {
-            self.isHoverPeekEnabled = UserDefaults.standard.bool(forKey: hoverPeekStorageKey)
+        if let rawDismiss = UserDefaults.standard.string(forKey: dismissModeStorageKey),
+           let mode = DismissMode(rawValue: rawDismiss) {
+            self.dismissMode = mode
         } else {
-            self.isHoverPeekEnabled = true
+            self.dismissMode = .cursorAway
         }
+        
+        self.isHoverPeekEnabled = true
         
         if UserDefaults.standard.object(forKey: seamlessMenuBarStorageKey) != nil {
             self.isSeamlessMenuBarEnabled = UserDefaults.standard.bool(forKey: seamlessMenuBarStorageKey)
@@ -548,6 +562,14 @@ public class IslandState: ObservableObject {
         setCustomDuration(0.35)
         self.animationStyle = .bouncy
         UserDefaults.standard.set(animationStyle.rawValue, forKey: animStyleStorageKey)
+    }
+    
+    // MARK: - Notch Dismiss Mode Action
+    public func setDismissMode(_ mode: DismissMode) {
+        withAnimation(.easeInOut(duration: 0.18)) {
+            dismissMode = mode
+        }
+        UserDefaults.standard.set(mode.rawValue, forKey: dismissModeStorageKey)
     }
     
     // MARK: - Hover Peek Mode Action

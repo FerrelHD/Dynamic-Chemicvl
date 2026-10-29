@@ -1805,168 +1805,200 @@ public struct DynamicIslandView: View {
     // MARK: - Tab 6: Settings & Customization
     private var settingsTabView: some View {
         VStack(spacing: 10) {
-            // Header Row: Title & Version
-            HStack {
-                HStack(spacing: 5) {
-                    Image(systemName: "gearshape.fill")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.white.opacity(0.85))
-                    Text("Settings & Customization")
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
-                }
-                Spacer()
-                Text("v1.0.0 Universal")
-                    .font(.system(size: 10, weight: .semibold, design: .rounded))
-                    .foregroundColor(.white.opacity(0.40))
+            settingsHeaderView
+            animationPhysicsSection
+            dismissBehaviorSection
+        }
+        .padding(.vertical, 2)
+    }
+    
+    private var settingsHeaderView: some View {
+        HStack {
+            HStack(spacing: 5) {
+                Image(systemName: "gearshape.fill")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.white.opacity(0.85))
+                Text("Settings & Customization")
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
             }
-            .padding(.top, 2)
+            Spacer()
+            Text("v1.0.0 Universal")
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .foregroundColor(.white.opacity(0.40))
+        }
+        .padding(.top, 2)
+    }
+    
+    private var animationPhysicsSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("ANIMATION PHYSICS")
+                    .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.50))
+                
+                Spacer()
+                
+                Button(action: {
+                    state.resetAnimationDefaults()
+                }) {
+                    Text("Reset Defaults")
+                        .font(.system(size: 9, weight: .semibold, design: .rounded))
+                        .foregroundColor(Color.orange.opacity(0.85))
+                }
+                .buttonStyle(.plain)
+            }
             
-            // Section 1: Animation Presets & Live Numerical Sliders
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text("ANIMATION PHYSICS")
-                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
-                        .foregroundColor(.white.opacity(0.50))
-                    
-                    Spacer()
-                    
+            HStack(spacing: 6) {
+                ForEach(AnimationStyle.allCases) { style in
+                    let isSelected = state.animationStyle == style
                     Button(action: {
-                        state.resetAnimationDefaults()
+                        state.setAnimationStyle(style)
                     }) {
-                        Text("Reset Defaults")
-                            .font(.system(size: 9, weight: .semibold, design: .rounded))
-                            .foregroundColor(Color.orange.opacity(0.85))
+                        HStack(spacing: 4) {
+                            Image(systemName: style == .bouncy ? "sparkles" : (style == .smooth ? "waveform.path" : "bolt.fill"))
+                                .font(.system(size: 10, weight: .bold))
+                            Text(style.rawValue)
+                                .font(.system(size: 11, weight: isSelected ? .bold : .medium, design: .rounded))
+                        }
+                        .foregroundColor(isSelected ? .white : .white.opacity(0.65))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 5)
+                        .background(
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .fill(isSelected ? Color(red: 0.0, green: 0.48, blue: 1.0) : Color.white.opacity(0.08))
+                        )
                     }
                     .buttonStyle(.plain)
                 }
-                
-                HStack(spacing: 6) {
-                    ForEach(AnimationStyle.allCases) { style in
-                        let isSelected = state.animationStyle == style
-                        Button(action: {
-                            state.setAnimationStyle(style)
-                        }) {
-                            HStack(spacing: 4) {
-                                Image(systemName: style == .bouncy ? "sparkles" : (style == .smooth ? "waveform.path" : "bolt.fill"))
-                                    .font(.system(size: 10, weight: .bold))
-                                Text(style.rawValue)
-                                    .font(.system(size: 11, weight: isSelected ? .bold : .medium, design: .rounded))
-                            }
-                            .foregroundColor(isSelected ? .white : .white.opacity(0.65))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 5)
-                            .background(
-                                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                    .fill(isSelected ? Color(red: 0.0, green: 0.48, blue: 1.0) : Color.white.opacity(0.08))
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                
-                // Numerical Physics Sliders
-                VStack(spacing: 5) {
-                    HStack(spacing: 8) {
-                        Text("Bounciness")
-                            .font(.system(size: 10, weight: .medium, design: .rounded))
-                            .foregroundColor(.white.opacity(0.75))
-                            .frame(width: 65, alignment: .leading)
-                        
-                        Slider(
-                            value: Binding(
-                                get: { state.customBounciness },
-                                set: { state.setCustomBounciness($0) }
-                            ),
-                            in: 0.45...1.00,
-                            step: 0.01
-                        )
-                        .accentColor(Color.pink)
-                        
-                        Text(String(format: "%.2f", state.customBounciness))
-                            .font(.system(size: 10, weight: .bold, design: .rounded))
-                            .monospacedDigit()
-                            .foregroundColor(.white)
-                            .frame(width: 32, alignment: .trailing)
-                    }
-                    
-                    HStack(spacing: 8) {
-                        Text("Duration")
-                            .font(.system(size: 10, weight: .medium, design: .rounded))
-                            .foregroundColor(.white.opacity(0.75))
-                            .frame(width: 65, alignment: .leading)
-                        
-                        Slider(
-                            value: Binding(
-                                get: { state.customDuration },
-                                set: { state.setCustomDuration($0) }
-                            ),
-                            in: 0.20...0.55,
-                            step: 0.01
-                        )
-                        .accentColor(Color.blue)
-                        
-                        Text(String(format: "%.2fs", state.customDuration))
-                            .font(.system(size: 10, weight: .bold, design: .rounded))
-                            .monospacedDigit()
-                            .foregroundColor(.white)
-                            .frame(width: 32, alignment: .trailing)
-                    }
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5)
-                .background(Color.white.opacity(0.05))
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             }
             
-            // Section 2: Behavior & Quick Actions
-            HStack(spacing: 8) {
-                // Hover Peek Toggle
-                Button(action: {
-                    state.toggleHoverPeek()
-                }) {
-                    HStack(spacing: 8) {
-                        Image(systemName: state.isHoverPeekEnabled ? "hand.point.up.left.fill" : "hand.point.up.left")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(state.isHoverPeekEnabled ? Color(red: 0.2, green: 0.85, blue: 0.45) : .white.opacity(0.45))
-                        
-                        VStack(alignment: .leading, spacing: 1.5) {
-                            Text("Hover Peek")
-                                .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-                                .foregroundColor(.white)
-                            Text(state.isHoverPeekEnabled ? "Top bezel triggers preview" : "Disabled (Clicks only)")
-                                .font(.system(size: 9, weight: .regular, design: .rounded))
-                                .foregroundColor(.white.opacity(0.55))
-                        }
-                        Spacer()
-                    }
-                    .padding(8)
-                    .background(Color.white.opacity(0.08))
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            // Numerical Physics Sliders
+            VStack(spacing: 5) {
+                HStack(spacing: 8) {
+                    Text("Bounciness")
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundColor(.white.opacity(0.75))
+                        .frame(width: 65, alignment: .leading)
+                    
+                    Slider(
+                        value: Binding(
+                            get: { state.customBounciness },
+                            set: { state.setCustomBounciness($0) }
+                        ),
+                        in: 0.45...1.00,
+                        step: 0.01
+                    )
+                    .accentColor(Color.pink)
+                    
+                    Text(String(format: "%.2f", state.customBounciness))
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundColor(.white)
+                        .frame(width: 32, alignment: .trailing)
                 }
-                .buttonStyle(.plain)
                 
-                // Quit NotchFlow
+                HStack(spacing: 8) {
+                    Text("Duration")
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundColor(.white.opacity(0.75))
+                        .frame(width: 65, alignment: .leading)
+                    
+                    Slider(
+                        value: Binding(
+                            get: { state.customDuration },
+                            set: { state.setCustomDuration($0) }
+                        ),
+                        in: 0.20...0.55,
+                        step: 0.01
+                    )
+                    .accentColor(Color.blue)
+                    
+                    Text(String(format: "%.2fs", state.customDuration))
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundColor(.white)
+                        .frame(width: 32, alignment: .trailing)
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(Color.white.opacity(0.05))
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+    }
+    
+    private var dismissBehaviorSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("DISMISS BEHAVIOR")
+                    .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.50))
+                
+                Spacer()
+                
+                // Quit NotchFlow Action
                 Button(action: {
                     NSApp.terminate(nil)
                 }) {
-                    HStack(spacing: 6) {
+                    HStack(spacing: 4) {
                         Image(systemName: "power")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(Color(red: 1.0, green: 0.35, blue: 0.35))
+                            .font(.system(size: 9.5, weight: .bold))
                         Text("Quit App")
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundColor(Color(red: 1.0, green: 0.45, blue: 0.45))
+                            .font(.system(size: 9.5, weight: .bold, design: .rounded))
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 13)
-                    .background(Color(red: 1.0, green: 0.2, blue: 0.2).opacity(0.15))
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .foregroundColor(Color(red: 1.0, green: 0.40, blue: 0.40))
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Color(red: 1.0, green: 0.2, blue: 0.2).opacity(0.14))
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 }
                 .buttonStyle(.plain)
             }
+            
+            HStack(spacing: 8) {
+                dismissModeCard(mode: .cursorAway, title: "Cursor Away", subtitle: "Auto-close on exit", icon: "cursorarrow.motionlines")
+                dismissModeCard(mode: .clickOnly, title: "Click Only", subtitle: "Stay open until clicked", icon: "cursorarrow.click.2")
+            }
         }
-        .padding(.vertical, 2)
+    }
+    
+    private func dismissModeCard(mode: DismissMode, title: String, subtitle: String, icon: String) -> some View {
+        let isSelected = state.dismissMode == mode
+        return Button(action: {
+            state.setDismissMode(mode)
+        }) {
+            HStack(spacing: 7) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(isSelected ? .white : .white.opacity(0.60))
+                
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(.system(size: 11, weight: isSelected ? .bold : .medium, design: .rounded))
+                        .foregroundColor(isSelected ? .white : .white.opacity(0.85))
+                    Text(subtitle)
+                        .font(.system(size: 8.5, weight: .regular, design: .rounded))
+                        .foregroundColor(isSelected ? .white.opacity(0.75) : .white.opacity(0.45))
+                }
+                
+                Spacer(minLength: 0)
+                
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 9.5, weight: .bold))
+                        .foregroundColor(.white)
+                }
+            }
+            .padding(.horizontal, 9)
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(isSelected ? Color(red: 0.0, green: 0.48, blue: 1.0) : Color.white.opacity(0.06))
+            )
+        }
+        .buttonStyle(.plain)
     }
     
     // MARK: - Helpers
