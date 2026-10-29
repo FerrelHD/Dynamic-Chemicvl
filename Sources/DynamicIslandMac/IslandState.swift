@@ -31,7 +31,7 @@ public enum ChatApp: String, CaseIterable, Identifiable {
     
     public var iconName: String {
         switch self {
-        case .whatsapp: return "message.fill"
+        case .whatsapp: return "phone.fill"
         case .telegram: return "paperplane.fill"
         case .imessage: return "message.fill"
         case .discord: return "bubble.left.and.bubble.right.fill"
@@ -63,6 +63,21 @@ public enum ChatApp: String, CaseIterable, Identifiable {
         case .mail: return "com.apple.mail"
         case .other: return ""
         }
+    }
+    
+    public var appIcon: NSImage? {
+        if self == .whatsapp {
+            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "net.whatsapp.WhatsApp") ?? NSWorkspace.shared.urlForApplication(withBundleIdentifier: "net.whatsapp.whatsapp") {
+                return NSWorkspace.shared.icon(forFile: url.path)
+            }
+            if FileManager.default.fileExists(atPath: "/Applications/WhatsApp.app") {
+                return NSWorkspace.shared.icon(forFile: "/Applications/WhatsApp.app")
+            }
+        }
+        if !bundleIdentifier.isEmpty, let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) {
+            return NSWorkspace.shared.icon(forFile: url.path)
+        }
+        return nil
     }
 }
 

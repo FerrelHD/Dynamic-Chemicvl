@@ -570,17 +570,23 @@ public struct DynamicIslandView: View {
             state.dismissChatNotification()
         }) {
             HStack(spacing: 12) {
-                // 1. Sender Avatar with App Badge
+                // 1. Sender Avatar or Real App Icon with App Badge
                 ZStack(alignment: .bottomTrailing) {
                     if let avatar = chat.avatarImage {
                         Image(nsImage: avatar)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
                             .frame(width: 40, height: 40)
-                            .clipShape(Circle())
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    } else if let appIcon = chat.app.appIcon {
+                        Image(nsImage: appIcon)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 40, height: 40)
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     } else {
                         Circle()
-                            .fill(Color(white: 0.22))
+                            .fill(chat.app.badgeColor.opacity(0.85))
                             .frame(width: 40, height: 40)
                             .overlay(
                                 Text(String(chat.sender.prefix(1)))
@@ -593,12 +599,12 @@ public struct DynamicIslandView: View {
                     ZStack {
                         Circle()
                             .fill(chat.app.badgeColor)
-                            .frame(width: 15, height: 15)
+                            .frame(width: 16, height: 16)
                         Image(systemName: chat.app.iconName)
-                            .font(.system(size: 8, weight: .bold))
+                            .font(.system(size: 8.5, weight: .bold))
                             .foregroundColor(.white)
                     }
-                    .offset(x: 2, y: 2)
+                    .offset(x: 3, y: 3)
                 }
                 .frame(width: 42, height: 42)
                 

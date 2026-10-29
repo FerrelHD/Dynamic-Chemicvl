@@ -139,10 +139,10 @@ public class NotificationListenerService {
             }()
             
             var appIcon: NSImage?
-            if chatApp == .other {
-                if let appUrl = NSWorkspace.shared.urlForApplication(withBundleIdentifier: appId) {
-                    appIcon = NSWorkspace.shared.icon(forFile: appUrl.path)
-                }
+            if let appUrl = NSWorkspace.shared.urlForApplication(withBundleIdentifier: appId) {
+                appIcon = NSWorkspace.shared.icon(forFile: appUrl.path)
+            } else {
+                appIcon = chatApp.appIcon
             }
             
             let displaySender = title.isEmpty ? (chatApp == .other ? appId : chatApp.rawValue) : title
