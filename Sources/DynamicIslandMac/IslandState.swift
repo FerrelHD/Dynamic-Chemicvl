@@ -464,6 +464,7 @@ public class IslandState: ObservableObject {
     // Incoming & Active Call Notification
     @Published public var activeCallNotification: CallNotification?
     private var callTimerCancellable: AnyCancellable?
+    private var callDismissWorkItem: DispatchWorkItem?
     
     // AirDrop Notification
     @Published public var activeAirDropNotification: AirDropNotification?
@@ -1480,10 +1481,12 @@ public class IslandState: ObservableObject {
     // MARK: - Incoming & Active Call Notification Controls
     public func triggerCallNotification(
         callerName: String = "Wesley Tingey",
-        subtitle: String = "from iPhone",
+        subtitle: String = "WhatsApp Audio...",
         avatar: NSImage? = nil
     ) {
         callTimerCancellable?.cancel()
+        callDismissWorkItem?.cancel()
+        
         withAnimation(animationStyle.springAnimation) {
             self.activeCallNotification = CallNotification(
                 callerName: callerName,
@@ -1492,10 +1495,19 @@ public class IslandState: ObservableObject {
                 avatarImage: avatar
             )
         }
+        
+        let work = DispatchWorkItem { [weak self] in
+            guard let self = self, let notif = self.activeCallNotification, case .incoming = notif.state else { return }
+            self.declineCall()
+        }
+        callDismissWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 25.0, execute: work)
     }
     
     public func acceptCall() {
         guard let current = activeCallNotification else { return }
+        callDismissWorkItem?.cancel()
+        callDismissWorkItem = nil
         callTimerCancellable?.cancel()
         var seconds = 0
         withAnimation(animationStyle.springAnimation) {
@@ -1521,6 +1533,8 @@ public class IslandState: ObservableObject {
     }
     
     public func declineCall() {
+        callDismissWorkItem?.cancel()
+        callDismissWorkItem = nil
         callTimerCancellable?.cancel()
         callTimerCancellable = nil
         withAnimation(animationStyle.springAnimation) {

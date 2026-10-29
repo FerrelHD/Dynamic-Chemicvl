@@ -369,15 +369,32 @@ public class NotificationListenerService {
             
             NSLog("[NotchFlow] 🔔 NOTIFICATION DETECTED: rec_id=%lld, app=%@, title=%@, body=%@", recId, appId, displaySender, body)
             
+            let isCall = (chatApp == .whatsapp || lowerApp.contains("whatsapp")) && (
+                body.lowercased().contains("call") ||
+                body.lowercased().contains("panggilan") ||
+                subtitle.lowercased().contains("call") ||
+                subtitle.lowercased().contains("panggilan") ||
+                rawTitle.lowercased().contains("call") ||
+                rawTitle.lowercased().contains("panggilan")
+            )
+            
             DispatchQueue.main.async {
-                IslandState.shared.triggerChatNotification(
-                    sender: displaySender,
-                    message: body,
-                    app: chatApp,
-                    avatar: appIcon,
-                    isCustomAvatar: false,
-                    customBundleIdentifier: appId
-                )
+                if isCall {
+                    IslandState.shared.triggerCallNotification(
+                        callerName: displaySender,
+                        subtitle: "WhatsApp Audio...",
+                        avatar: appIcon
+                    )
+                } else {
+                    IslandState.shared.triggerChatNotification(
+                        sender: displaySender,
+                        message: body,
+                        app: chatApp,
+                        avatar: appIcon,
+                        isCustomAvatar: false,
+                        customBundleIdentifier: appId
+                    )
+                }
             }
         }
     }

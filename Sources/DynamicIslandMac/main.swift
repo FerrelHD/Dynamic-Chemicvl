@@ -29,6 +29,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Start listening to macOS chat notifications from Dock badges
         NotificationListenerService.shared.startMonitoring()
         
+        // Distributed Notification Center for external test triggers and automation
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleTestCallNotification(_:)),
+            name: NSNotification.Name("com.ferrel.NotchFlow.testCall"),
+            object: nil,
+            suspensionBehavior: .deliverImmediately
+        )
+        
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleTestChatNotification(_:)),
+            name: NSNotification.Name("com.ferrel.NotchFlow.testChat"),
+            object: nil,
+            suspensionBehavior: .deliverImmediately
+        )
+        
         print("🏝️ Native Dynamic Island Active (iOS Design & Full English)")
     }
     
@@ -73,6 +90,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let fdaItem = NSMenuItem(title: "Notification Center Permissions...", action: #selector(openFDAPreferencesAction), keyEquivalent: "")
         fdaItem.target = self
         menu.addItem(fdaItem)
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        // Test Notifications Submenu
+        let testSubmenu = NSMenu()
+        let testCallItem = NSMenuItem(title: "Test WhatsApp Call", action: #selector(testCallAction), keyEquivalent: "")
+        testCallItem.target = self
+        testSubmenu.addItem(testCallItem)
+        
+        let testChatItem = NSMenuItem(title: "Test WhatsApp Message", action: #selector(testChatAction), keyEquivalent: "")
+        testChatItem.target = self
+        testSubmenu.addItem(testChatItem)
+        
+        let testRootItem = NSMenuItem(title: "Test Alerts", action: nil, keyEquivalent: "")
+        testRootItem.submenu = testSubmenu
+        menu.addItem(testRootItem)
         
         menu.addItem(NSMenuItem.separator())
         
@@ -137,6 +170,46 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } else {
             panel.orderFrontRegardless()
         }
+    }
+    
+    @objc private func testCallAction() {
+        let avatar = NSImage(systemSymbolName: "phone.circle.fill", accessibilityDescription: nil)
+        IslandState.shared.triggerCallNotification(
+            callerName: "Sarah Jenkins",
+            subtitle: "WhatsApp Audio...",
+            avatar: avatar
+        )
+    }
+    
+    @objc private func handleTestCallNotification(_ notif: Notification) {
+        let caller = notif.userInfo?["caller"] as? String ?? "Sarah Jenkins"
+        let subtitle = notif.userInfo?["subtitle"] as? String ?? "WhatsApp Audio..."
+        let avatar = NSImage(systemSymbolName: "phone.circle.fill", accessibilityDescription: nil)
+        IslandState.shared.triggerCallNotification(callerName: caller, subtitle: subtitle, avatar: avatar)
+    }
+    
+    @objc private func testChatAction() {
+        IslandState.shared.triggerChatNotification(
+            sender: "Sarah Jenkins",
+            message: "Hey! Are we still meeting for coffee today? ☕️",
+            app: .whatsapp,
+            avatar: ChatApp.whatsapp.appIcon,
+            isCustomAvatar: false,
+            customBundleIdentifier: "net.whatsapp.WhatsApp"
+        )
+    }
+    
+    @objc private func handleTestChatNotification(_ notif: Notification) {
+        let sender = notif.userInfo?["sender"] as? String ?? "Sarah Jenkins"
+        let msg = notif.userInfo?["message"] as? String ?? "Hey! Are we still meeting for coffee today? ☕️"
+        IslandState.shared.triggerChatNotification(
+            sender: sender,
+            message: msg,
+            app: .whatsapp,
+            avatar: ChatApp.whatsapp.appIcon,
+            isCustomAvatar: false,
+            customBundleIdentifier: "net.whatsapp.WhatsApp"
+        )
     }
     
     @objc private func quitAppAction() {
