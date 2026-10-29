@@ -45,6 +45,20 @@ public class NotificationListenerService {
         timerSource = nil
     }
     
+    // MARK: - Health & Full Disk Access Inspection
+    public func checkDatabaseAccessibility() -> Bool {
+        guard let path = dbPath ?? locateNotificationCenterDatabase() else { return false }
+        var db: OpaquePointer?
+        if sqlite3_open_v2(path, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK {
+            var stmt: OpaquePointer?
+            let canRead = (sqlite3_prepare_v2(db, "SELECT rec_id FROM record LIMIT 1;", -1, &stmt, nil) == SQLITE_OK)
+            if stmt != nil { sqlite3_finalize(stmt) }
+            sqlite3_close(db)
+            return canRead
+        }
+        return false
+    }
+    
     private func locateNotificationCenterDatabase() -> String? {
         let base = "/var/folders"
         let fm = FileManager.default

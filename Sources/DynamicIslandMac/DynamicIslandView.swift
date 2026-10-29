@@ -2259,10 +2259,144 @@ public struct DynamicIslandView: View {
     private var settingsTabView: some View {
         VStack(spacing: 8) {
             settingsHeaderView
+            systemAndPermissionsSection
             animationPhysicsSection
             dismissBehaviorSection
         }
         .padding(.vertical, 2)
+    }
+    
+    private var systemAndPermissionsSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("SYSTEM & PERMISSIONS")
+                    .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.50))
+                
+                Spacer()
+                
+                // Full Disk Access Status Pill / Action
+                if state.hasNotificationAccess {
+                    HStack(spacing: 3.5) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 8.5, weight: .bold))
+                            .foregroundColor(Color(red: 0.20, green: 0.85, blue: 0.40))
+                        Text("Notifications Active")
+                            .font(.system(size: 9, weight: .bold, design: .rounded))
+                            .foregroundColor(Color(red: 0.20, green: 0.85, blue: 0.40))
+                    }
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2.5)
+                    .background(Color(red: 0.20, green: 0.85, blue: 0.40).opacity(0.14))
+                    .clipShape(Capsule())
+                } else {
+                    Button(action: {
+                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }) {
+                        HStack(spacing: 3.5) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 8.5, weight: .bold))
+                            Text("Grant Access ↗")
+                                .font(.system(size: 9, weight: .bold, design: .rounded))
+                        }
+                        .foregroundColor(Color.orange)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2.5)
+                        .background(Color.orange.opacity(0.18))
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            
+            HStack(spacing: 8) {
+                // Launch at Login Switch Card
+                Button(action: {
+                    state.toggleLaunchAtLogin()
+                    state.triggerHaptic(.generic)
+                }) {
+                    HStack(spacing: 7) {
+                        Image(systemName: state.isLaunchAtLoginEnabled ? "sparkles" : "power")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(state.isLaunchAtLoginEnabled ? Color(red: 0.0, green: 0.48, blue: 1.0) : .white.opacity(0.50))
+                            .frame(width: 14)
+                        
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Launch at Login")
+                                .font(.system(size: 10.5, weight: state.isLaunchAtLoginEnabled ? .bold : .medium, design: .rounded))
+                                .foregroundColor(.white)
+                            Text(state.isLaunchAtLoginEnabled ? "Enabled" : "Manual Start")
+                                .font(.system(size: 8.5, weight: .regular, design: .rounded))
+                                .foregroundColor(state.isLaunchAtLoginEnabled ? Color.white.opacity(0.75) : .white.opacity(0.40))
+                        }
+                        
+                        Spacer(minLength: 0)
+                        
+                        ZStack {
+                            Capsule()
+                                .fill(state.isLaunchAtLoginEnabled ? Color(red: 0.0, green: 0.48, blue: 1.0) : Color.white.opacity(0.15))
+                                .frame(width: 28, height: 16)
+                            Circle()
+                                .fill(Color.white)
+                                .frame(width: 12, height: 12)
+                                .offset(x: state.isLaunchAtLoginEnabled ? 6 : -6)
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .frame(maxWidth: .infinity)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(state.isLaunchAtLoginEnabled ? Color(red: 0.0, green: 0.48, blue: 1.0).opacity(0.15) : Color.white.opacity(0.06))
+                    )
+                }
+                .buttonStyle(.plain)
+                
+                // Trackpad Haptics Switch Card
+                Button(action: {
+                    state.setHapticEnabled(!state.isHapticEnabled)
+                    state.triggerHaptic(.alignment)
+                }) {
+                    HStack(spacing: 7) {
+                        Image(systemName: state.isHapticEnabled ? "hand.tap.fill" : "hand.tap")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(state.isHapticEnabled ? Color.pink : .white.opacity(0.50))
+                            .frame(width: 14)
+                        
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Trackpad Haptic")
+                                .font(.system(size: 10.5, weight: state.isHapticEnabled ? .bold : .medium, design: .rounded))
+                                .foregroundColor(.white)
+                            Text(state.isHapticEnabled ? "Taptic Feedback" : "Muted")
+                                .font(.system(size: 8.5, weight: .regular, design: .rounded))
+                                .foregroundColor(state.isHapticEnabled ? Color.white.opacity(0.75) : .white.opacity(0.40))
+                        }
+                        
+                        Spacer(minLength: 0)
+                        
+                        ZStack {
+                            Capsule()
+                                .fill(state.isHapticEnabled ? Color.pink : Color.white.opacity(0.15))
+                                .frame(width: 28, height: 16)
+                            Circle()
+                                .fill(Color.white)
+                                .frame(width: 12, height: 12)
+                                .offset(x: state.isHapticEnabled ? 6 : -6)
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .frame(maxWidth: .infinity)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(state.isHapticEnabled ? Color.pink.opacity(0.15) : Color.white.opacity(0.06))
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
     
     private var settingsHeaderView: some View {

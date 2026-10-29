@@ -330,7 +330,7 @@ public class IslandState: ObservableObject {
     
     public var expandedDimensions: (width: CGFloat, height: CGFloat) {
         if isShowingSettings {
-            return (width: 448, height: 272) // Spacious settings pane: sliders, presets, actions, and comfortable page dots
+            return (width: 448, height: 288) // Spacious settings pane with system permissions & physics
         }
         if activeTab == .music && isLyricsEnabled {
             return (width: 720, height: 216) // Spacious Responsive Split View for Apple Music Lyrics
@@ -861,6 +861,11 @@ public class IslandState: ObservableObject {
     
     public func toggleLaunchAtLogin() {
         setLaunchAtLogin(enabled: !isLaunchAtLoginEnabled)
+    }
+    
+    // MARK: - Permissions Status
+    public var hasNotificationAccess: Bool {
+        return NotificationListenerService.shared.checkDatabaseAccessibility()
     }
     
     // MARK: - Control Center Actions
