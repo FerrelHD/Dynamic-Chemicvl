@@ -1699,15 +1699,15 @@ public class IslandState: ObservableObject {
     }
 }
 
-// MARK: - Native Artwork Dominant Color Extraction (CoreGraphics / AppKit)
+// MARK: - Native Artwork Dominant Color Extraction (CoreGraphics / Quantized Color Bucketing)
 extension NSImage {
     public func extractDominantColor() -> NSColor? {
         var proposed = CGRect(origin: .zero, size: self.size)
         guard let cgImage = self.cgImage(forProposedRect: &proposed, context: nil, hints: nil)
                 ?? self.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
         
-        let width = 16
-        let height = 16
+        let width = 32
+        let height = 32
         let colorSpace = CGColorSpaceCreateDeviceRGB()
         var rawData = [UInt8](repeating: 0, count: width * height * 4)
         
@@ -1724,12 +1724,21 @@ extension NSImage {
         context.interpolationQuality = .medium
         context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
         
-        var bestColor: NSColor?
-        var maxScore: CGFloat = -1
-        var totalR: CGFloat = 0
-        var totalG: CGFloat = 0
-        var totalB: CGFloat = 0
-        var validPixels: CGFloat = 0
+        struct HueBucket {
+            var count: Int = 0
+            var totalR: CGFloat = 0
+            var totalG: CGFloat = 0
+            var totalB: CGFloat = 0
+            var totalSat: CGFloat = 0
+            var totalBri: CGFloat = 0
+        }
+        
+        let numBins = 24
+        var buckets = [HueBucket](repeating: HueBucket(), count: numBins)
+        var fallbackR: CGFloat = 0
+        var fallbackG: CGFloat = 0
+        var fallbackB: CGFloat = 0
+        var totalSamples: CGFloat = 0
         
         for i in 0..<(width * height) {
             let offset = i * 4
@@ -1740,36 +1749,63 @@ extension NSImage {
             let g = CGFloat(rawData[offset + 1]) / 255.0
             let b = CGFloat(rawData[offset + 2]) / 255.0
             
-            totalR += r
-            totalG += g
-            totalB += b
-            validPixels += 1
+            fallbackR += r
+            fallbackG += g
+            fallbackB += b
+            totalSamples += 1
             
             let color = NSColor(red: r, green: g, blue: b, alpha: 1.0)
-            let saturation = color.saturationComponent
-            let brightness = color.brightnessComponent
+            let hue = color.hueComponent
+            let sat = color.saturationComponent
+            let bri = color.brightnessComponent
             
-            // Avoid extreme dark (brightness < 0.14) and washed-out white/gray (saturation < 0.12 with brightness > 0.90)
-            let isWashedOutWhite = (saturation < 0.12 && brightness > 0.90)
-            let isPureDark = (brightness < 0.14)
-            if !isWashedOutWhite && !isPureDark {
-                let score = saturation * 2.0 + brightness * 0.8
-                if score > maxScore {
-                    maxScore = score
-                    bestColor = color
-                }
+            // Filter extreme black noise (< 0.08) and pure washed-out white/grey (< 0.10 sat at > 0.92 bri)
+            if bri < 0.08 || (sat < 0.10 && bri > 0.92) { continue }
+            
+            let bin = min(numBins - 1, max(0, Int(hue * CGFloat(numBins))))
+            buckets[bin].count += 1
+            buckets[bin].totalR += r
+            buckets[bin].totalG += g
+            buckets[bin].totalB += b
+            buckets[bin].totalSat += sat
+            buckets[bin].totalBri += bri
+        }
+        
+        var bestBucket: HueBucket?
+        var bestScore: Double = -1
+        
+        for b in buckets {
+            guard b.count > 0 else { continue }
+            let countF = Double(b.count)
+            let avgSat = Double(b.totalSat) / countF
+            let avgBri = Double(b.totalBri) / countF
+            
+            // Frequency-weighted score with natural saturation & brightness boost
+            let score = countF * (1.0 + sqrt(avgSat) * 1.5) * (0.6 + avgBri * 0.4)
+            if score > bestScore {
+                bestScore = score
+                bestBucket = b
             }
         }
         
-        if let best = bestColor {
-            return best
+        if let winner = bestBucket, winner.count > 0 {
+            let avgR = winner.totalR / CGFloat(winner.count)
+            let avgG = winner.totalG / CGFloat(winner.count)
+            let avgB = winner.totalB / CGFloat(winner.count)
+            let rawColor = NSColor(red: avgR, green: avgG, blue: avgB, alpha: 1.0)
+            
+            // Calibrate for OLED Jet-Black MacBook Notch: keep authentic hue, boost vibrance & luminosity
+            let h = rawColor.hueComponent
+            let s = min(1.0, max(0.55, rawColor.saturationComponent * 1.15))
+            let br = min(0.85, max(0.48, rawColor.brightnessComponent))
+            return NSColor(hue: h, saturation: s, brightness: br, alpha: 1.0)
         }
         
-        if validPixels > 0 {
+        if totalSamples > 0 {
             return NSColor(
-                red: totalR / validPixels,
-                green: totalG / validPixels,
-                blue: totalB / validPixels,
+                red: fallbackR / totalSamples,
+                green: fallbackG / totalSamples,
+                blue: fallbackB / totalSamples,
                 alpha: 1.0
             )
         }
