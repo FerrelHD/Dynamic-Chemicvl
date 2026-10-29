@@ -145,6 +145,7 @@ public struct DynamicIslandView: View {
     @State private var isScrubbingAudio = false
     @State private var localScrubProgress: Double = 0.0
     @State private var airPodsSpinAngle: Double = 0.0
+    @State private var hoveredTrashId: UUID? = nil
     
     public init(state: IslandState = .shared) {
         self.state = state
@@ -1815,34 +1816,46 @@ public struct DynamicIslandView: View {
                 VStack(spacing: 4.5) {
                     ForEach(state.todos) { todo in
                         HStack(spacing: 8) {
+                            // Full-width clickable toggle area (Checkmark icon + Text + Spacer)
                             Button(action: { state.toggleTodo(id: todo.id) }) {
-                                Image(systemName: todo.isDone ? "checkmark.circle.fill" : "circle")
-                                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                                    .foregroundColor(todo.isDone ? Color(red: 0.0, green: 0.48, blue: 1.0) : Color.white.opacity(0.45))
-                                    .frame(width: 24, height: 24)
-                                    .contentShape(Rectangle())
+                                HStack(spacing: 8) {
+                                    Image(systemName: todo.isDone ? "checkmark.circle.fill" : "circle")
+                                        .font(.system(size: 14.5, weight: .bold, design: .rounded))
+                                        .foregroundColor(todo.isDone ? Color(red: 0.0, green: 0.48, blue: 1.0) : Color.white.opacity(0.50))
+                                        .frame(width: 26, height: 26)
+                                    
+                                    Text(todo.text)
+                                        .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                                        .foregroundColor(todo.isDone ? .white.opacity(0.45) : .white)
+                                        .strikethrough(todo.isDone, color: .white.opacity(0.45))
+                                        .lineLimit(1)
+                                    
+                                    Spacer(minLength: 0)
+                                }
+                                .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
                             
-                            Text(todo.text)
-                                .font(.system(size: 11.5, weight: .medium, design: .rounded))
-                                .foregroundColor(todo.isDone ? .white.opacity(0.45) : .white)
-                                .strikethrough(todo.isDone, color: .white.opacity(0.45))
-                                .lineLimit(1)
-                            
-                            Spacer()
-                            
+                            // Dedicated Trash Button with 30x30 hit target and active hover pill
                             Button(action: { state.deleteTodo(id: todo.id) }) {
                                 Image(systemName: "trash")
-                                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                                    .foregroundColor(.white.opacity(0.40))
-                                    .frame(width: 24, height: 24)
+                                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                    .foregroundColor(hoveredTrashId == todo.id ? Color.red : Color.white.opacity(0.45))
+                                    .frame(width: 30, height: 30)
+                                    .background(
+                                        Circle()
+                                            .fill(hoveredTrashId == todo.id ? Color.red.opacity(0.20) : Color.white.opacity(0.001))
+                                    )
                                     .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
+                            .onHover { isHovered in
+                                hoveredTrashId = isHovered ? todo.id : nil
+                            }
                         }
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 3)
+                        .padding(.leading, 8)
+                        .padding(.trailing, 4)
+                        .padding(.vertical, 2)
                         .background(Color.white.opacity(0.07))
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }

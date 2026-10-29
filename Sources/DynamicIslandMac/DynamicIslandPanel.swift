@@ -9,15 +9,22 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
     public init(rootView: Content, state: IslandState = .shared) {
         self.state = state
         super.init(rootView: rootView)
+        self.layerContentsPlacement = .top
     }
     
     @MainActor required public init(rootView: Content) {
         self.state = IslandState.shared
         super.init(rootView: rootView)
+        self.layerContentsPlacement = .top
     }
     
     @MainActor required dynamic init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+    
+    public override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        self.layerContentsPlacement = .top
     }
     
     public override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
@@ -128,6 +135,7 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
 
 public class DynamicIslandPanel: NSPanel {
     public static let stableCanvasWidth: CGFloat = 752.0
+    public static let stableExpandedCanvasHeight: CGFloat = 435.0
     
     private var stateCancellable: AnyCancellable?
     private var collapseWorkItem: DispatchWorkItem?
@@ -208,6 +216,12 @@ public class DynamicIslandPanel: NSPanel {
         }
     }
     
+    public override var contentView: NSView? {
+        didSet {
+            contentView?.layerContentsPlacement = .top
+        }
+    }
+    
     public override func fieldEditor(_ createFlag: Bool, for aObject: Any?) -> NSText? {
         let editor = super.fieldEditor(createFlag, for: aObject)
         if let tv = editor as? NSTextView {
@@ -232,7 +246,7 @@ public class DynamicIslandPanel: NSPanel {
         collapseWorkItem = nil
         let screenRect = screen.frame
         let targetW: CGFloat = DynamicIslandPanel.stableCanvasWidth
-        let targetH: CGFloat = max(IslandState.shared.currentDimensions.height + 10.0, 365.0)
+        let targetH: CGFloat = DynamicIslandPanel.stableExpandedCanvasHeight
         let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let targetY = screenRect.maxY - targetH
         let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)
