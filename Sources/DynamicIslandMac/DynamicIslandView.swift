@@ -189,12 +189,62 @@ public struct DynamicIslandView: View {
         return 9 // Sleek, organic concave ears in compact mode
     }
     
+    // MARK: - Dynamic Ambient Artwork Glow View (KeyNotch 3-Point Lighting)
+    private var ambientGlowView: some View {
+        let dominant = state.artworkDominantColor ?? Color(red: 0.16, green: 0.10, blue: 0.28)
+        return ZStack(alignment: .bottom) {
+            // 1. Point 1: Full-width vertical ambient wash
+            LinearGradient(
+                stops: [
+                    .init(color: .clear, location: 0.05),
+                    .init(color: dominant.opacity(0.20), location: 0.35),
+                    .init(color: dominant.opacity(0.48), location: 0.65),
+                    .init(color: dominant.opacity(0.75), location: 1.0)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            
+            // 2. Point 2: Bottom-trailing corner radial anchor (KeyNotch lighting)
+            RadialGradient(
+                colors: [
+                    dominant.opacity(0.88),
+                    dominant.opacity(0.40),
+                    .clear
+                ],
+                center: .bottomTrailing,
+                startRadius: 15,
+                endRadius: 360
+            )
+            
+            // 3. Point 3: Bottom-leading corner radial anchor (KeyNotch lighting)
+            RadialGradient(
+                colors: [
+                    dominant.opacity(0.78),
+                    dominant.opacity(0.35),
+                    .clear
+                ],
+                center: .bottomLeading,
+                startRadius: 10,
+                endRadius: 280
+            )
+        }
+        .allowsHitTesting(false)
+    }
+    
     public var body: some View {
+        let isAmbientGlowVisible = state.isIslandVisible && state.mode == .expanded && state.activeTab == .music && !state.isShowingSettings
+        
         VStack(spacing: 0) {
             // MARK: - OLED Jet-Black MacBook Notch (Seamless Bezel Integration & Morphing)
             ZStack(alignment: .top) {
                 NotchShape(earRadius: earRadius, bottomRadius: bottomRadius)
                     .fill(Color.black)
+                    .overlay(
+                        ambientGlowView
+                            .opacity(isAmbientGlowVisible ? 1.0 : 0.0)
+                            .clipShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
+                    )
                     .overlay(
                         NotchOutlineShape(earRadius: earRadius, bottomRadius: bottomRadius)
                             .stroke(
@@ -204,54 +254,6 @@ public struct DynamicIslandView: View {
                                 lineWidth: isDropTargeted ? 1.5 : 0.6
                             )
                     )
-                
-                // MARK: - Dynamic Ambient Artwork Glow (Music Tab Bottom Gradient)
-                if state.isIslandVisible && state.mode == .expanded && state.activeTab == .music && !state.isShowingSettings {
-                    let dominant = state.artworkDominantColor ?? Color(red: 0.16, green: 0.10, blue: 0.28)
-                    ZStack(alignment: .bottom) {
-                        // 1. Point 1: Full-width vertical ambient wash
-                        LinearGradient(
-                            stops: [
-                                .init(color: .clear, location: 0.05),
-                                .init(color: dominant.opacity(0.20), location: 0.35),
-                                .init(color: dominant.opacity(0.48), location: 0.65),
-                                .init(color: dominant.opacity(0.75), location: 1.0)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                        
-                        // 2. Point 2: Bottom-trailing corner radial anchor (KeyNotch lighting)
-                        RadialGradient(
-                            colors: [
-                                dominant.opacity(0.88),
-                                dominant.opacity(0.40),
-                                .clear
-                            ],
-                            center: .bottomTrailing,
-                            startRadius: 15,
-                            endRadius: 360
-                        )
-                        
-                        // 3. Point 3: Bottom-leading corner radial anchor (KeyNotch lighting)
-                        RadialGradient(
-                            colors: [
-                                dominant.opacity(0.78),
-                                dominant.opacity(0.35),
-                                .clear
-                            ],
-                            center: .bottomLeading,
-                            startRadius: 10,
-                            endRadius: 280
-                        )
-                    }
-                    .clipShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
-                    .allowsHitTesting(false)
-                    .transition(.opacity)
-                    .animation(state.activeSpringAnimation, value: state.mode)
-                    .animation(.easeInOut(duration: 0.25), value: state.activeTab)
-                    .animation(.easeInOut(duration: 0.35), value: state.artworkDominantColor)
-                }
                 
                 if state.isIslandVisible {
                     if state.isShowingVolumeHUD {
