@@ -159,10 +159,10 @@ public struct DynamicIslandView: View {
     
     private var bottomRadius: CGFloat {
         if state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD {
-            return 18 // Soft, spacious continuous squircle corners for HUD
+            return 14
         }
         if state.isShowingCapsLockHUD {
-            return 16
+            return 14
         }
         if state.activeChatNotification != nil || state.activeCallNotification != nil || state.activeAirDropNotification != nil {
             return 22 // Curvature matching reference notification banners
@@ -205,7 +205,7 @@ public struct DynamicIslandView: View {
                     )
                 
                 // MARK: - Dynamic Ambient Artwork Glow (Music Tab Bottom Gradient)
-                if state.isIslandVisible {
+                if state.isIslandVisible && state.mode == .expanded && state.activeTab == .music {
                     let dominant = state.artworkDominantColor ?? Color(red: 0.16, green: 0.10, blue: 0.28)
                     ZStack(alignment: .bottom) {
                         LinearGradient(
@@ -228,7 +228,7 @@ public struct DynamicIslandView: View {
                     }
                     .clipShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
                     .allowsHitTesting(false)
-                    .opacity((state.mode == .expanded && state.activeTab == .music) ? 1.0 : 0.0)
+                    .transition(.opacity)
                     .animation(state.activeSpringAnimation, value: state.mode)
                     .animation(.easeInOut(duration: 0.25), value: state.activeTab)
                     .animation(.easeInOut(duration: 0.35), value: state.artworkDominantColor)
@@ -396,9 +396,8 @@ public struct DynamicIslandView: View {
                     .frame(width: 38, alignment: .trailing)
             }
         }
-        .padding(.horizontal, 32)
+        .padding(.horizontal, 24)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-        .offset(y: 2) // optical vertical center alignment inside top-bezel notch
     }
     
     private var volumeIcon: String {
@@ -456,9 +455,8 @@ public struct DynamicIslandView: View {
                 .foregroundColor(.white)
                 .lineLimit(1)
         }
-        .padding(.horizontal, 32)
+        .padding(.horizontal, 24)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-        .offset(y: 2) // optical vertical center alignment for top-bezel notch
     }
     
     // MARK: - iOS MagSafe Battery HUD (Reference Matching 3-Column Pill)
@@ -558,9 +556,8 @@ public struct DynamicIslandView: View {
             
             Spacer()
         }
-        .padding(.horizontal, 32)
+        .padding(.horizontal, 24)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-        .offset(y: 2)
     }
     
     // MARK: - Chat Notification Content (Matching Dynamic Island Reference)
@@ -633,7 +630,6 @@ public struct DynamicIslandView: View {
             }
             .padding(.horizontal, 22)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-            .offset(y: 2)
         }
         .buttonStyle(.plain)
     }

@@ -306,10 +306,10 @@ public class IslandState: ObservableObject {
     
     public var compactDimensions: (width: CGFloat, height: CGFloat) {
         if isShowingBatteryHUD || isShowingWifiHUD || isShowingBluetoothHUD || isShowingVolumeHUD {
-            return (width: 315, height: 48)
+            return (width: 315, height: 34)
         }
         if isShowingCapsLockHUD {
-            return (width: 240, height: 44)
+            return (width: 240, height: 34)
         }
         if let airdrop = activeAirDropNotification, case .transferring = airdrop.phase {
             return (width: 228, height: 32)
