@@ -137,8 +137,10 @@ public struct DynamicIslandView: View {
     @State private var isDropTargeted = false
     @State private var isGenieClearing = false
     @State private var isClearShelfButtonPulsing = false
+    @State private var isTrashLidOpenShelf = false
     @State private var isGenieClearingClipboard = false
     @State private var isClearClipboardButtonPulsing = false
+    @State private var isTrashLidOpenClipboard = false
     @State private var isScrubbingAudio = false
     @State private var localScrubProgress: Double = 0.0
     
@@ -1595,21 +1597,22 @@ public struct DynamicIslandView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
                         ForEach(Array(state.shelfFiles.enumerated()), id: \.element) { idx, url in
-                            let targetX = max(40, 310 - CGFloat(idx * 64))
+                            let cardCenterX = 27.0 + CGFloat(idx) * 64.0
+                            let targetX = 320.0 - cardCenterX
                             shelfFileCard(url: url, index: idx)
                                 .scaleEffect(
-                                    x: isGenieClearing ? 0.05 : 1.0,
+                                    x: isGenieClearing ? 0.04 : 1.0,
                                     y: isGenieClearing ? 0.02 : 1.0,
                                     anchor: .bottomTrailing
                                 )
-                                .rotationEffect(.degrees(isGenieClearing ? Double(10 - (idx % 3) * 6) : 0))
+                                .rotationEffect(.degrees(isGenieClearing ? Double(14 - (idx % 3) * 6) : 0))
                                 .offset(
                                     x: isGenieClearing ? targetX : 0,
-                                    y: isGenieClearing ? 52 : 0
+                                    y: isGenieClearing ? 55 : 0
                                 )
                                 .opacity(isGenieClearing ? 0.0 : 1.0)
                                 .animation(
-                                    .easeInOut(duration: 0.32).delay(Double(idx) * 0.035),
+                                    .easeInOut(duration: 0.30).delay(Double(idx) * 0.035),
                                     value: isGenieClearing
                                 )
                         }
@@ -1625,14 +1628,13 @@ public struct DynamicIslandView: View {
                         .foregroundColor(.white.opacity(0.65))
                     Spacer()
                     Button(action: { triggerGenieClearShelf() }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "trash")
-                                .font(.system(size: 9, weight: .bold))
+                        HStack(spacing: 5) {
+                            TrashCanIconView(isOpen: isTrashLidOpenShelf, color: .red)
                             Text("Clear All")
                                 .font(.system(size: 9.5, weight: .bold, design: .rounded))
                         }
                         .foregroundColor(.red)
-                        .scaleEffect(isClearShelfButtonPulsing ? 1.15 : 1.0)
+                        .scaleEffect(isClearShelfButtonPulsing ? 1.12 : 1.0)
                     }
                     .buttonStyle(.plain)
                 }
@@ -1647,19 +1649,24 @@ public struct DynamicIslandView: View {
     private func triggerGenieClearShelf() {
         guard !isGenieClearing, !state.shelfFiles.isEmpty else { return }
         
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.65)) {
+        // Phase 1: Lid pops open
+        withAnimation(.spring(response: 0.22, dampingFraction: 0.62)) {
+            isTrashLidOpenShelf = true
             isClearShelfButtonPulsing = true
         }
         
-        withAnimation(.easeInOut(duration: 0.32)) {
+        // Phase 2: Card suction into trash mouth
+        withAnimation(.easeInOut(duration: 0.32).delay(0.04)) {
             isGenieClearing = true
         }
         
-        let totalDelay = 0.32 + Double(min(state.shelfFiles.count, 6)) * 0.035
+        let totalDelay = 0.36 + Double(min(state.shelfFiles.count, 6)) * 0.035
         DispatchQueue.main.asyncAfter(deadline: .now() + totalDelay) {
             state.clearShelf()
             isGenieClearing = false
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.70)) {
+            // Phase 3: Lid snaps shut with spring bounce
+            withAnimation(.spring(response: 0.24, dampingFraction: 0.58)) {
+                isTrashLidOpenShelf = false
                 isClearShelfButtonPulsing = false
             }
         }
@@ -1739,80 +1746,83 @@ public struct DynamicIslandView: View {
         .onDrag { NSItemProvider(contentsOf: url)! }
     }
     
+    private var clipboardEmptyView: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                .fill(Color.white.opacity(0.06))
+            
+            VStack(spacing: 3) {
+                Image(systemName: "doc.on.clipboard")
+                    .font(.system(size: 17, weight: .medium, design: .rounded))
+                    .foregroundColor(.white.opacity(0.50))
+                Text("Clipboard history is empty")
+                    .font(.system(size: 10.5, weight: .semibold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.75))
+                Text("Copied texts will automatically appear here (Max 20)")
+                    .font(.system(size: 9, weight: .medium, design: .rounded))
+                    .foregroundColor(.white.opacity(0.50))
+            }
+        }
+        .frame(height: 96)
+    }
+    
+    private func clipboardItemRow(item: String, idx: Int) -> some View {
+        let isUrl = item.hasPrefix("http://") || item.hasPrefix("https://")
+        let isCode = item.contains("{") || item.contains("}") || item.contains("func ")
+        let clipIcon = isUrl ? "link" : (isCode ? "chevron.left.forwardslash.chevron.right" : "doc.text")
+        let iconColor = isUrl ? Color(red: 0.20, green: 0.60, blue: 1.0) : (isCode ? Color.orange : Color.white.opacity(0.50))
+        let isCopied = state.copiedClipIndex == idx
+        
+        return Button(action: {
+            state.copyClip(at: idx)
+        }) {
+            HStack(spacing: 8) {
+                Image(systemName: isCopied ? "checkmark.circle.fill" : clipIcon)
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundColor(isCopied ? Color.green : iconColor)
+                
+                Text(item.replacingOccurrences(of: "\n", with: " "))
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                
+                Spacer()
+                
+                Text(isCopied ? "Copied!" : "Copy")
+                    .font(.system(size: 9, weight: isCopied ? .bold : .semibold, design: .rounded))
+                    .foregroundColor(isCopied ? Color.green : .white.opacity(0.40))
+            }
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(Color.white.opacity(isCopied ? 0.18 : 0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .scaleEffect(
+            x: isGenieClearingClipboard ? 0.04 : 1.0,
+            y: isGenieClearingClipboard ? 0.02 : 1.0,
+            anchor: .bottomTrailing
+        )
+        .offset(
+            x: isGenieClearingClipboard ? 165 : 0,
+            y: isGenieClearingClipboard ? CGFloat(50 + (6 - min(idx, 6)) * 6) : 0
+        )
+        .opacity(isGenieClearingClipboard ? 0.0 : 1.0)
+        .animation(
+            .easeInOut(duration: 0.26).delay(Double(min(idx, 6)) * 0.025),
+            value: isGenieClearingClipboard
+        )
+    }
+    
     private var clipboardHistoryContent: some View {
         VStack(spacing: 7) {
             if state.clipboardHistory.isEmpty {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 11, style: .continuous)
-                        .fill(Color.white.opacity(0.06))
-                    
-                    VStack(spacing: 3) {
-                        Image(systemName: "doc.on.clipboard")
-                            .font(.system(size: 17, weight: .medium, design: .rounded))
-                            .foregroundColor(.white.opacity(0.50))
-                        Text("Clipboard history is empty")
-                            .font(.system(size: 10.5, weight: .semibold, design: .rounded))
-                            .foregroundColor(.white.opacity(0.75))
-                        Text("Copied texts will automatically appear here (Max 20)")
-                            .font(.system(size: 9, weight: .medium, design: .rounded))
-                            .foregroundColor(.white.opacity(0.50))
-                    }
-                }
-                .frame(height: 96)
+                clipboardEmptyView
             } else {
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 4.5) {
                         ForEach(Array(state.clipboardHistory.enumerated()), id: \.offset) { idx, item in
-                            let isUrl = item.hasPrefix("http://") || item.hasPrefix("https://")
-                            let isCode = item.contains("{") || item.contains("}") || item.contains("func ")
-                            let clipIcon = isUrl ? "link" : (isCode ? "chevron.left.forwardslash.chevron.right" : "doc.text")
-                            let iconColor = isUrl ? Color(red: 0.20, green: 0.60, blue: 1.0) : (isCode ? Color.orange : Color.white.opacity(0.50))
-                            
-                            Button(action: {
-                                state.copyClip(at: idx)
-                            }) {
-                                HStack(spacing: 8) {
-                                    Image(systemName: state.copiedClipIndex == idx ? "checkmark.circle.fill" : clipIcon)
-                                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                                        .foregroundColor(state.copiedClipIndex == idx ? Color.green : iconColor)
-                                    
-                                    Text(item.replacingOccurrences(of: "\n", with: " "))
-                                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                                        .foregroundColor(.white)
-                                        .lineLimit(1)
-                                    
-                                    Spacer()
-                                    
-                                    if state.copiedClipIndex == idx {
-                                        Text("Copied!")
-                                            .font(.system(size: 9, weight: .bold, design: .rounded))
-                                            .foregroundColor(Color.green)
-                                    } else {
-                                        Text("Copy")
-                                            .font(.system(size: 9, weight: .semibold, design: .rounded))
-                                            .foregroundColor(.white.opacity(0.40))
-                                    }
-                                }
-                                .padding(.horizontal, 9)
-                                .padding(.vertical, 5)
-                                .background(Color.white.opacity(state.copiedClipIndex == idx ? 0.18 : 0.08))
-                                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                            }
-                            .buttonStyle(.plain)
-                            .scaleEffect(
-                                x: isGenieClearingClipboard ? 0.05 : 1.0,
-                                y: isGenieClearingClipboard ? 0.02 : 1.0,
-                                anchor: .bottomTrailing
-                            )
-                            .offset(
-                                x: isGenieClearingClipboard ? 160 : 0,
-                                y: isGenieClearingClipboard ? 45 : 0
-                            )
-                            .opacity(isGenieClearingClipboard ? 0.0 : 1.0)
-                            .animation(
-                                .easeInOut(duration: 0.26).delay(Double(min(idx, 6)) * 0.025),
-                                value: isGenieClearingClipboard
-                            )
+                            clipboardItemRow(item: item, idx: idx)
                         }
                     }
                 }
@@ -1824,14 +1834,13 @@ public struct DynamicIslandView: View {
                         .foregroundColor(.white.opacity(0.60))
                     Spacer()
                     Button(action: { triggerGenieClearClipboard() }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "trash")
-                                .font(.system(size: 9, weight: .bold))
+                        HStack(spacing: 5) {
+                            TrashCanIconView(isOpen: isTrashLidOpenClipboard, color: .red)
                             Text("Clear All")
                                 .font(.system(size: 9.5, weight: .bold, design: .rounded))
                         }
                         .foregroundColor(.red)
-                        .scaleEffect(isClearClipboardButtonPulsing ? 1.15 : 1.0)
+                        .scaleEffect(isClearClipboardButtonPulsing ? 1.12 : 1.0)
                     }
                     .buttonStyle(.plain)
                 }
@@ -1842,19 +1851,24 @@ public struct DynamicIslandView: View {
     private func triggerGenieClearClipboard() {
         guard !isGenieClearingClipboard, !state.clipboardHistory.isEmpty else { return }
         
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.65)) {
+        // Phase 1: Lid pops open
+        withAnimation(.spring(response: 0.22, dampingFraction: 0.62)) {
+            isTrashLidOpenClipboard = true
             isClearClipboardButtonPulsing = true
         }
         
-        withAnimation(.easeInOut(duration: 0.28)) {
+        // Phase 2: Suction into trash mouth
+        withAnimation(.easeInOut(duration: 0.28).delay(0.04)) {
             isGenieClearingClipboard = true
         }
         
-        let totalDelay = 0.28 + Double(min(state.clipboardHistory.count, 6)) * 0.025
+        let totalDelay = 0.32 + Double(min(state.clipboardHistory.count, 6)) * 0.025
         DispatchQueue.main.asyncAfter(deadline: .now() + totalDelay) {
             state.clearClipboard()
             isGenieClearingClipboard = false
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.70)) {
+            // Phase 3: Lid snaps shut with spring bounce
+            withAnimation(.spring(response: 0.24, dampingFraction: 0.58)) {
+                isTrashLidOpenClipboard = false
                 isClearClipboardButtonPulsing = false
             }
         }
@@ -2277,5 +2291,67 @@ private struct DeviceCardView: View {
         .padding(.vertical, 7)
         .background(Color.white.opacity(dev.isConnected ? 0.06 : 0.03))
         .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+    }
+}
+
+// MARK: - Authentic Animated 2-Piece Apple Trash Can Component
+public struct TrashCanIconView: View {
+    let isOpen: Bool
+    var color: Color = .red
+    
+    public var body: some View {
+        VStack(spacing: 0.8) {
+            // Lid with handle
+            ZStack(alignment: .bottom) {
+                // Top handle
+                Capsule()
+                    .fill(color)
+                    .frame(width: 4.2, height: 1.3)
+                    .offset(y: -2.0)
+                
+                // Lid rim
+                RoundedRectangle(cornerRadius: 0.8, style: .continuous)
+                    .fill(color)
+                    .frame(width: 11.5, height: 1.8)
+            }
+            .rotationEffect(.degrees(isOpen ? -34 : 0), anchor: .bottomLeading)
+            .offset(x: isOpen ? -1.4 : 0, y: isOpen ? -2.8 : 0)
+            .animation(.spring(response: 0.25, dampingFraction: 0.65), value: isOpen)
+            
+            // Can Body
+            TrashCanBodyShape()
+                .fill(color)
+                .frame(width: 9.5, height: 9.2)
+                .overlay(
+                    // Inner ribs
+                    HStack(spacing: 2.2) {
+                        Capsule().fill(Color.black.opacity(0.35)).frame(width: 1, height: 5.5)
+                        Capsule().fill(Color.black.opacity(0.35)).frame(width: 1, height: 5.5)
+                    }
+                )
+        }
+        .frame(width: 14, height: 14, alignment: .bottom)
+    }
+}
+
+struct TrashCanBodyShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let topInset: CGFloat = 0.5
+        let bottomInset: CGFloat = 1.2
+        path.move(to: CGPoint(x: rect.minX + topInset, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX - topInset, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX - bottomInset, y: rect.maxY - 1.5))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX - bottomInset - 1.5, y: rect.maxY),
+            control: CGPoint(x: rect.maxX - bottomInset, y: rect.maxY)
+        )
+        path.addLine(to: CGPoint(x: rect.minX + bottomInset + 1.5, y: rect.maxY))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.minX + bottomInset, y: rect.maxY - 1.5),
+            control: CGPoint(x: rect.minX + bottomInset, y: rect.maxY)
+        )
+        path.closeSubpath()
+        return path
     }
 }
