@@ -160,7 +160,11 @@ public class NotificationListenerService {
         defer { sqlite3_close(db) }
         
         let query = """
-        SELECT m.Z_PK, COALESCE(s.ZPARTNERNAME, 'WhatsApp'), COALESCE(m.ZTEXT, ''), COALESCE(s.ZCONTACTJID, '')
+        SELECT m.Z_PK, 
+               COALESCE(NULLIF(s.ZPARTNERNAME, ''), ''), 
+               COALESCE(m.ZTEXT, ''), 
+               COALESCE(s.ZCONTACTJID, ''),
+               COALESCE(NULLIF(m.ZPUSHNAME, ''), '')
         FROM ZWAMESSAGE m
         LEFT JOIN ZWACHATSESSION s ON m.ZCHATSESSION = s.Z_PK
         WHERE m.ZISFROMME = 0 AND m.ZMESSAGETYPE NOT IN (59, 10) AND m.Z_PK > ?
@@ -175,14 +179,33 @@ public class NotificationListenerService {
         
         while sqlite3_step(stmt) == SQLITE_ROW {
             let pk = sqlite3_column_int64(stmt, 0)
-            let sender = sqlite3_column_text(stmt, 1).map { String(cString: $0) } ?? "WhatsApp"
+            let partnerName = sqlite3_column_text(stmt, 1).map { String(cString: $0) } ?? ""
             var text = sqlite3_column_text(stmt, 2).map { String(cString: $0) } ?? ""
             let jid = sqlite3_column_text(stmt, 3).map { String(cString: $0) } ?? ""
+            let pushName = sqlite3_column_text(stmt, 4).map { String(cString: $0) } ?? ""
             
             self.lastSeenWhatsAppPK = max(self.lastSeenWhatsAppPK, pk)
             
             text = text.trimmingCharacters(in: .whitespacesAndNewlines)
             if text.isEmpty { text = "New Message" }
+            
+            // Format dynamic sender name: display real contact / sender name, never generic "WhatsApp"
+            let sender: String = {
+                let isGroup = jid.contains("@g.us")
+                if isGroup {
+                    if !pushName.isEmpty && !partnerName.isEmpty && pushName != partnerName {
+                        return "\(pushName) (\(partnerName))"
+                    }
+                    return !partnerName.isEmpty ? partnerName : (!pushName.isEmpty ? pushName : "Group Message")
+                }
+                if !partnerName.isEmpty && partnerName.lowercased() != "whatsapp" {
+                    return partnerName
+                }
+                if !pushName.isEmpty && pushName.lowercased() != "whatsapp" {
+                    return pushName
+                }
+                return "Contact"
+            }()
             
             let customAvatar = resolveWhatsAppAvatar(for: jid)
             let finalAvatar = customAvatar ?? ChatApp.whatsapp.appIcon
@@ -279,26 +302,25 @@ public class NotificationListenerService {
                 continue
             }
             
-            var title = req["titl"] as? String ?? ""
-            let body = req["body"] as? String ?? (req["subt"] as? String ?? "")
+            var rawTitle = req["titl"] as? String ?? ""
+            var subtitle = req["subt"] as? String ?? ""
+            var body = req["body"] as? String ?? ""
             
             // Clean up Unicode bidirectional marks (WhatsApp often prepends LTR mark \u200e)
-            title = title.trimmingCharacters(in: CharacterSet(charactersIn: "\u{200E}\u{200F}\u{202A}\u{202C} \t\n\r"))
+            let bidiSet = CharacterSet(charactersIn: "\u{200E}\u{200F}\u{202A}\u{202C} \t\n\r")
+            rawTitle = rawTitle.trimmingCharacters(in: bidiSet)
+            subtitle = subtitle.trimmingCharacters(in: bidiSet)
+            body = body.trimmingCharacters(in: bidiSet)
             
             // Filter noise
-            if title.isEmpty && body.isEmpty { continue }
+            if rawTitle.isEmpty && body.isEmpty && subtitle.isEmpty { continue }
             let lowerApp = appId.lowercased()
             if lowerApp.hasPrefix("_system_center_") || lowerApp.contains("controlcenter.notifications") {
                 continue
             }
             
-            // Deduplicate if already triggered via WhatsApp direct WAL listener
-            if lowerApp.contains("whatsapp") && body == self.lastDeliveredText && Date().timeIntervalSince(self.lastDeliveredTime) < 3.0 {
-                continue
-            }
-            
             let chatApp: ChatApp = {
-                if lowerApp.contains("whatsapp") || title.lowercased().contains("whatsapp") { return .whatsapp }
+                if lowerApp.contains("whatsapp") || rawTitle.lowercased().contains("whatsapp") { return .whatsapp }
                 if lowerApp.contains("telegram") { return .telegram }
                 if lowerApp.contains("mobilesms") || lowerApp.contains("ichat") { return .imessage }
                 if lowerApp.contains("discord") { return .discord }
@@ -307,6 +329,37 @@ public class NotificationListenerService {
                 return .other
             }()
             
+            // Deduplicate if already triggered via WhatsApp direct WAL listener
+            if lowerApp.contains("whatsapp") && body == self.lastDeliveredText && Date().timeIntervalSince(self.lastDeliveredTime) < 3.0 {
+                continue
+            }
+            
+            // Resolve actual sender name dynamically:
+            // Never display generic app name "WhatsApp" as the sender title when contact/subtitle is available!
+            var displaySender = rawTitle
+            if chatApp == .whatsapp || rawTitle.lowercased() == "whatsapp" {
+                if !subtitle.isEmpty && subtitle.lowercased() != "whatsapp" {
+                    displaySender = subtitle
+                } else if let colonIdx = body.firstIndex(of: ":") {
+                    let prefix = String(body[..<colonIdx]).trimmingCharacters(in: .whitespaces)
+                    let remaining = String(body[body.index(after: colonIdx)...]).trimmingCharacters(in: .whitespaces)
+                    if !prefix.isEmpty && prefix.count < 30 && !remaining.isEmpty {
+                        displaySender = prefix
+                        body = remaining
+                    }
+                } else if !subtitle.isEmpty {
+                    displaySender = subtitle
+                } else {
+                    displaySender = "Contact"
+                }
+            } else if displaySender.isEmpty {
+                displaySender = !subtitle.isEmpty ? subtitle : (chatApp == .other ? appId : chatApp.rawValue)
+            }
+            
+            if body.isEmpty && !subtitle.isEmpty && displaySender != subtitle {
+                body = subtitle
+            }
+            
             var appIcon: NSImage?
             if let appUrl = NSWorkspace.shared.urlForApplication(withBundleIdentifier: appId) {
                 appIcon = NSWorkspace.shared.icon(forFile: appUrl.path)
@@ -314,7 +367,6 @@ public class NotificationListenerService {
                 appIcon = chatApp.appIcon
             }
             
-            let displaySender = title.isEmpty ? (chatApp == .other ? appId : chatApp.rawValue) : title
             NSLog("[NotchFlow] 🔔 NOTIFICATION DETECTED: rec_id=%lld, app=%@, title=%@, body=%@", recId, appId, displaySender, body)
             
             DispatchQueue.main.async {
