@@ -209,23 +209,41 @@ public struct DynamicIslandView: View {
                 if state.isIslandVisible && state.mode == .expanded && state.activeTab == .music {
                     let dominant = state.artworkDominantColor ?? Color(red: 0.16, green: 0.10, blue: 0.28)
                     ZStack(alignment: .bottom) {
+                        // 1. Point 1: Full-width vertical ambient wash
                         LinearGradient(
                             stops: [
                                 .init(color: .clear, location: 0.05),
-                                .init(color: dominant.opacity(0.18), location: 0.35),
-                                .init(color: dominant.opacity(0.42), location: 0.70),
-                                .init(color: dominant.opacity(0.65), location: 1.0)
+                                .init(color: dominant.opacity(0.20), location: 0.35),
+                                .init(color: dominant.opacity(0.48), location: 0.65),
+                                .init(color: dominant.opacity(0.75), location: 1.0)
                             ],
                             startPoint: .top,
                             endPoint: .bottom
                         )
                         
-                        // Soft blurred ambient glow orb anchored right at the bottom curve
-                        Ellipse()
-                            .fill(dominant.opacity(0.48))
-                            .frame(width: islandWidth * 0.95, height: 90)
-                            .offset(y: 8)
-                            .blur(radius: 26)
+                        // 2. Point 2: Bottom-trailing corner radial anchor (KeyNotch lighting)
+                        RadialGradient(
+                            colors: [
+                                dominant.opacity(0.88),
+                                dominant.opacity(0.40),
+                                .clear
+                            ],
+                            center: .bottomTrailing,
+                            startRadius: 15,
+                            endRadius: 360
+                        )
+                        
+                        // 3. Point 3: Bottom-leading corner radial anchor (KeyNotch lighting)
+                        RadialGradient(
+                            colors: [
+                                dominant.opacity(0.78),
+                                dominant.opacity(0.35),
+                                .clear
+                            ],
+                            center: .bottomLeading,
+                            startRadius: 10,
+                            endRadius: 280
+                        )
                     }
                     .clipShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
                     .allowsHitTesting(false)
