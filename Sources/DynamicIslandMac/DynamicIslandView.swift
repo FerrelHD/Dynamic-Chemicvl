@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import ImageIO
 
 // MARK: - MacBook Hardware Notch Cutout Shape with Quadratic Bézier Ears (Flush with Top Bezel)
 public struct NotchShape: Shape {
@@ -2087,7 +2088,6 @@ public struct DynamicIslandView: View {
     
     private func shelfFileCard(url: URL, index: Int) -> some View {
         let ext = url.pathExtension.lowercased()
-        let isImage = ["png", "jpg", "jpeg", "heic", "webp", "gif", "bmp", "tiff"].contains(ext)
         let isVideo = ["mp4", "mov", "m4v", "mkv", "avi", "webm"].contains(ext)
         
         return VStack(spacing: 4) {
@@ -2100,40 +2100,27 @@ public struct DynamicIslandView: View {
                                 .stroke(Color.white.opacity(0.14), lineWidth: 0.8)
                         )
                     
-                    if isImage, let img = NSImage(contentsOf: url) {
-                        Image(nsImage: img)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: 48, height: 48)
-                            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-                    } else if isVideo {
-                        ZStack {
-                            Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .frame(width: 32, height: 32)
-                            
-                            VStack {
+                    // Asynchronously cached 48x48 thumbnail (zero Main Thread lag)
+                    ShelfThumbnailItemView(url: url)
+                    
+                    if isVideo {
+                        VStack {
+                            Spacer()
+                            HStack {
                                 Spacer()
-                                HStack {
-                                    Spacer()
-                                    Image(systemName: "play.fill")
-                                        .font(.system(size: 7, weight: .bold))
-                                        .foregroundColor(.white)
-                                        .padding(3.5)
-                                        .background(Color.black.opacity(0.75))
-                                        .clipShape(Circle())
-                                }
+                                Image(systemName: "play.fill")
+                                    .font(.system(size: 7, weight: .bold))
+                                    .foregroundColor(.white)
+                                    .padding(3.5)
+                                    .background(Color.black.opacity(0.75))
+                                    .clipShape(Circle())
                             }
-                            .padding(3)
                         }
-                        .frame(width: 48, height: 48)
-                    } else {
-                        Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 34, height: 34)
+                        .padding(3)
                     }
+                    
+                    // Native AppKit file drag session (100% reliable drop into Finder, Desktop, Mail, etc.)
+                    NativeDraggableArea(url: url)
                 }
                 .frame(width: 48, height: 48)
                 
@@ -2143,6 +2130,8 @@ public struct DynamicIslandView: View {
                         .foregroundColor(Color.white.opacity(0.85))
                         .background(Color.black.opacity(0.6))
                         .clipShape(Circle())
+                        .frame(width: 18, height: 18)
+                        .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
                 .offset(x: 3, y: -3)
@@ -2155,12 +2144,6 @@ public struct DynamicIslandView: View {
                 .frame(width: 52)
         }
         .frame(width: 54)
-        .contentShape(Rectangle())
-        .onDrag {
-            let provider = NSItemProvider(object: url as NSURL)
-            provider.suggestedName = url.lastPathComponent
-            return provider
-        }
     }
     
     private var clipboardEmptyView: some View {
@@ -3166,5 +3149,145 @@ public struct RulerDialView: View {
             )
         }
         .frame(height: 52)
+    }
+}
+
+// MARK: - Native AppKit Drag-Out Component for File Shelf
+public final class NativeFileDragView: NSView, NSDraggingSource {
+    public var fileURL: URL?
+    private var dragStartLocation: NSPoint?
+    
+    public override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        return true
+    }
+    
+    public override func mouseDown(with event: NSEvent) {
+        dragStartLocation = event.locationInWindow
+    }
+    
+    public override func mouseDragged(with event: NSEvent) {
+        guard let url = fileURL, let startLoc = dragStartLocation else { return }
+        let currentLoc = event.locationInWindow
+        let dist = hypot(currentLoc.x - startLoc.x, currentLoc.y - startLoc.y)
+        guard dist > 4.0 else { return }
+        dragStartLocation = nil
+        
+        let dragItem = NSDraggingItem(pasteboardWriter: url as NSURL)
+        let icon = NSWorkspace.shared.icon(forFile: url.path)
+        icon.size = NSSize(width: 48, height: 48)
+        let dragRect = NSRect(x: self.bounds.midX - 24, y: self.bounds.midY - 24, width: 48, height: 48)
+        dragItem.setDraggingFrame(dragRect, contents: icon)
+        
+        self.beginDraggingSession(with: [dragItem], event: event, source: self)
+    }
+    
+    public func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
+        return context == .outsideApplication ? [.copy, .generic] : .copy
+    }
+}
+
+public struct NativeDraggableArea: NSViewRepresentable {
+    public let url: URL
+    
+    public init(url: URL) {
+        self.url = url
+    }
+    
+    public func makeNSView(context: Context) -> NativeFileDragView {
+        let view = NativeFileDragView()
+        view.fileURL = url
+        return view
+    }
+    
+    public func updateNSView(_ nsView: NativeFileDragView, context: Context) {
+        nsView.fileURL = url
+    }
+}
+
+// MARK: - Shelf Asynchronous 48x48 Thumbnail Cache
+public final class ShelfThumbnailCache {
+    public static let shared = ShelfThumbnailCache()
+    private let cache = NSCache<NSURL, NSImage>()
+    
+    private init() {
+        cache.countLimit = 60
+    }
+    
+    public func thumbnail(for url: URL) -> NSImage? {
+        return cache.object(forKey: url as NSURL)
+    }
+    
+    public func loadThumbnail(for url: URL, completion: @escaping (NSImage) -> Void) {
+        if let cached = cache.object(forKey: url as NSURL) {
+            completion(cached)
+            return
+        }
+        
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let ext = url.pathExtension.lowercased()
+            let isImage = ["png", "jpg", "jpeg", "heic", "webp", "gif", "bmp", "tiff"].contains(ext)
+            
+            var generated: NSImage?
+            if isImage {
+                if let source = CGImageSourceCreateWithURL(url as CFURL, nil) {
+                    let options: [CFString: Any] = [
+                        kCGImageSourceCreateThumbnailFromImageAlways: true,
+                        kCGImageSourceShouldCacheImmediately: true,
+                        kCGImageSourceCreateThumbnailWithTransform: true,
+                        kCGImageSourceThumbnailMaxPixelSize: 96
+                    ]
+                    if let cgThumb = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) {
+                        generated = NSImage(cgImage: cgThumb, size: NSSize(width: 48, height: 48))
+                    }
+                }
+            }
+            
+            if generated == nil {
+                let icon = NSWorkspace.shared.icon(forFile: url.path)
+                icon.size = NSSize(width: 48, height: 48)
+                generated = icon
+            }
+            
+            if let finalImg = generated {
+                self?.cache.setObject(finalImg, forKey: url as NSURL)
+                DispatchQueue.main.async {
+                    completion(finalImg)
+                }
+            }
+        }
+    }
+}
+
+public struct ShelfThumbnailItemView: View {
+    public let url: URL
+    @State private var thumbImage: NSImage?
+    
+    public init(url: URL) {
+        self.url = url
+    }
+    
+    public var body: some View {
+        Group {
+            if let img = thumbImage {
+                Image(nsImage: img)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 48, height: 48)
+                    .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            } else {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(Color.white.opacity(0.08))
+                    .frame(width: 48, height: 48)
+            }
+        }
+        .onAppear {
+            if let cached = ShelfThumbnailCache.shared.thumbnail(for: url) {
+                thumbImage = cached
+            } else {
+                ShelfThumbnailCache.shared.loadThumbnail(for: url) { img in
+                    self.thumbImage = img
+                }
+            }
+        }
     }
 }
