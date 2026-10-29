@@ -146,8 +146,10 @@ public class DynamicIslandPanel: NSPanel {
     
     public init() {
         let screenRect = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
-        let targetW: CGFloat = DynamicIslandPanel.stableCanvasWidth
-        let targetH: CGFloat = 52.0 // Constant physical canvas height in compact mode
+        let state = IslandState.shared
+        let dims = state.currentDimensions
+        let targetW: CGFloat = dims.width + 24.0
+        let targetH: CGFloat = max(dims.height + 10.0, 48.0)
         let xPos = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let yPos = screenRect.maxY - targetH
         let initialRect = NSRect(x: xPos, y: yPos, width: targetW, height: targetH)
@@ -230,7 +232,7 @@ public class DynamicIslandPanel: NSPanel {
         collapseWorkItem = nil
         let screenRect = screen.frame
         let targetW: CGFloat = DynamicIslandPanel.stableCanvasWidth
-        let targetH: CGFloat = 290.0
+        let targetH: CGFloat = 296.0
         let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let targetY = screenRect.maxY - targetH
         let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)
@@ -249,7 +251,10 @@ public class DynamicIslandPanel: NSPanel {
         let state = IslandState.shared
         
         // Ensure the physical NSPanel never blocks underlying window clicks when hidden in fullscreen
-        self.ignoresMouseEvents = !state.isIslandVisible
+        if !state.isIslandVisible {
+            self.ignoresMouseEvents = true
+            return
+        }
         
         if state.mode == .expanded {
             expandWindowImmediately()
@@ -260,7 +265,7 @@ public class DynamicIslandPanel: NSPanel {
                 collapseWorkItem?.cancel()
                 collapseWorkItem = nil
                 applyCompactFrame()
-            } else if self.frame.height > 52.0 + 10 {
+            } else if self.frame.height > 60.0 || self.frame.width > 450.0 {
                 if collapseWorkItem == nil {
                     let workItem = DispatchWorkItem { [weak self] in
                         guard let self = self else { return }
@@ -287,8 +292,8 @@ public class DynamicIslandPanel: NSPanel {
         let state = IslandState.shared
         let dims = state.currentDimensions
         let screenRect = screen.frame
-        let targetW: CGFloat = DynamicIslandPanel.stableCanvasWidth
-        let targetH: CGFloat = max(dims.height + 20.0, 52.0)
+        let targetW: CGFloat = dims.width + 24.0
+        let targetH: CGFloat = max(dims.height + 10.0, 48.0)
         let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let targetY = screenRect.maxY - targetH
         let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)
@@ -306,8 +311,8 @@ public class DynamicIslandPanel: NSPanel {
         let state = IslandState.shared
         let dims = state.currentDimensions
         let screenRect = screen.frame
-        let targetW: CGFloat = DynamicIslandPanel.stableCanvasWidth
-        let targetH: CGFloat = max(dims.height + 20.0, 52.0)
+        let targetW: CGFloat = dims.width + 24.0
+        let targetH: CGFloat = max(dims.height + 10.0, 48.0)
         let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let targetY = screenRect.maxY - targetH
         let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)
@@ -449,7 +454,26 @@ public class DynamicIslandPanel: NSPanel {
     // MARK: - Smart Hover Peek Detection (Top Bezel Trigger & Dismiss)
     public func startHoverPeekMonitoring(state: IslandState) {
         let checkHover: (NSEvent) -> Void = { [weak self] _ in
+            let state = IslandState.shared
+            guard state.isIslandVisible else {
+                self?.ignoresMouseEvents = true
+                return
+            }
+            
+            guard let screen = self?.screen ?? NSScreen.main else { return }
+            let mouseLoc = NSEvent.mouseLocation
+            let dims = state.currentDimensions
+            let screenRect = screen.frame
+            let midX = screenRect.midX
+            let topY = screenRect.maxY
+            
+            let insideX = abs(mouseLoc.x - midX) <= (dims.width / 2.0 + 8.0)
+            let insideY = (mouseLoc.y >= topY - dims.height - 8.0) && (mouseLoc.y <= topY + 2.0)
+            let isInsideNotch = insideX && insideY
+            
+            // In expanded mode: manage exit timer and dynamic ignoresMouseEvents
             if state.mode == .expanded {
+                self?.ignoresMouseEvents = !isInsideNotch
                 self?.hideDebounceTimer?.invalidate()
                 self?.hideDebounceTimer = nil
                 
@@ -460,17 +484,7 @@ public class DynamicIslandPanel: NSPanel {
                     return
                 }
                 
-                guard let screen = self?.screen ?? NSScreen.main else { return }
-                let mouseLoc = NSEvent.mouseLocation
-                let dims = state.currentDimensions
-                let screenRect = screen.frame
-                let midX = screenRect.midX
-                let topY = screenRect.maxY
-                
-                let insideX = abs(mouseLoc.x - midX) <= (dims.width / 2.0 + 8.0)
-                let insideY = (mouseLoc.y >= topY - dims.height - 8.0) && (mouseLoc.y <= topY + 2.0)
-                
-                if insideX && insideY {
+                if isInsideNotch {
                     // Cursor is inside expanded notch
                     self?.hasEnteredExpanded = true
                     self?.expandedExitTimer?.invalidate()
@@ -500,14 +514,12 @@ public class DynamicIslandPanel: NSPanel {
                 self?.hideDebounceTimer = nil
                 self?.expandedExitTimer?.invalidate()
                 self?.expandedExitTimer = nil
+                self?.ignoresMouseEvents = !isInsideNotch
                 return
             }
             
-            guard let screen = self?.screen ?? NSScreen.main else { return }
-            let mouseLoc = NSEvent.mouseLocation
-            let screenRect = screen.frame
-            let midX = screenRect.midX
-            let topY = screenRect.maxY
+            // Dynamic ignoresMouseEvents in compact mode: pass clicks through to menu bar if outside notch
+            self?.ignoresMouseEvents = !isInsideNotch
             
             // Trigger zone: top 14pt of screen in menu bar area
             let inTriggerZone = (mouseLoc.y >= topY - 14) && (abs(mouseLoc.x - midX) <= 135)
