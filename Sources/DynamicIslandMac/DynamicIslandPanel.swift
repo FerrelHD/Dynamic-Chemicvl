@@ -537,7 +537,7 @@ public class DynamicIslandPanel: NSPanel {
                 return
             }
             
-            if state.isShowingVolumeHUD || state.isShowingBatteryHUD || state.isShowingCapsLockHUD {
+            if state.isShowingVolumeHUD || state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingCapsLockHUD {
                 self?.hideDebounceTimer?.invalidate()
                 self?.hideDebounceTimer = nil
                 self?.expandedExitTimer?.invalidate()
