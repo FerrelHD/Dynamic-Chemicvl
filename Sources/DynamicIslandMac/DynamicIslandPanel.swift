@@ -148,7 +148,7 @@ public class DynamicIslandPanel: NSPanel {
         let screenRect = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
         let state = IslandState.shared
         let dims = state.currentDimensions
-        let targetW: CGFloat = dims.width + 24.0
+        let targetW: CGFloat = DynamicIslandPanel.stableCanvasWidth
         let targetH: CGFloat = max(dims.height + 10.0, 48.0)
         let xPos = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let yPos = screenRect.maxY - targetH
@@ -292,7 +292,7 @@ public class DynamicIslandPanel: NSPanel {
         let state = IslandState.shared
         let dims = state.currentDimensions
         let screenRect = screen.frame
-        let targetW: CGFloat = dims.width + 24.0
+        let targetW: CGFloat = DynamicIslandPanel.stableCanvasWidth
         let targetH: CGFloat = max(dims.height + 10.0, 48.0)
         let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let targetY = screenRect.maxY - targetH
@@ -311,7 +311,7 @@ public class DynamicIslandPanel: NSPanel {
         let state = IslandState.shared
         let dims = state.currentDimensions
         let screenRect = screen.frame
-        let targetW: CGFloat = dims.width + 24.0
+        let targetW: CGFloat = DynamicIslandPanel.stableCanvasWidth
         let targetH: CGFloat = max(dims.height + 10.0, 48.0)
         let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let targetY = screenRect.maxY - targetH
