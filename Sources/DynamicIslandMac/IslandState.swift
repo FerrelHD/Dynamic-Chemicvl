@@ -19,6 +19,12 @@ public enum IslandTab: String, CaseIterable {
     case shelf = "Shelf"
 }
 
+public enum TabTransitionDirection: Equatable {
+    case forward
+    case backward
+    case none
+}
+
 public enum ChatApp: String, CaseIterable, Identifiable {
     case whatsapp = "WhatsApp"
     case telegram = "Telegram"
@@ -237,6 +243,7 @@ public class IslandState: ObservableObject {
             }
         }
     }
+    @Published public var tabTransitionDirection: TabTransitionDirection = .none
     
     // Hover Peek & Fullscreen Auto-Hide Mode
     @Published public var isHoverPeekEnabled: Bool = true
@@ -730,10 +737,24 @@ public class IslandState: ObservableObject {
     }
     
     // MARK: - Swift Swipe Navigation (Next & Previous Tab)
+    public func switchToTab(_ targetTab: IslandTab) {
+        guard targetTab != activeTab else { return }
+        let all = IslandTab.allCases
+        if let currentIdx = all.firstIndex(of: activeTab),
+           let targetIdx = all.firstIndex(of: targetTab) {
+            tabTransitionDirection = (targetIdx > currentIdx) ? .forward : .backward
+        }
+        withAnimation(activeSpringAnimation) {
+            isShowingSettings = false
+            activeTab = targetTab
+        }
+    }
+    
     public func nextTab() {
         let all = IslandTab.allCases
         guard let idx = all.firstIndex(of: activeTab) else { return }
         let nextIdx = (idx + 1) % all.count
+        tabTransitionDirection = .forward
         withAnimation(activeSpringAnimation) {
             isShowingSettings = false
             activeTab = all[nextIdx]
@@ -744,6 +765,7 @@ public class IslandState: ObservableObject {
         let all = IslandTab.allCases
         guard let idx = all.firstIndex(of: activeTab) else { return }
         let prevIdx = (idx - 1 + all.count) % all.count
+        tabTransitionDirection = .backward
         withAnimation(activeSpringAnimation) {
             isShowingSettings = false
             activeTab = all[prevIdx]

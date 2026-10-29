@@ -954,6 +954,23 @@ public struct DynamicIslandView: View {
     }
     
     // MARK: - 2. Expanded View (Apple Minimal Card with Uniform Tab Crossfade & Pinned Page Dots)
+    private var tabTransition: AnyTransition {
+        switch state.tabTransitionDirection {
+        case .forward:
+            return .asymmetric(
+                insertion: .offset(x: 22).combined(with: .opacity).combined(with: .scale(scale: 0.97, anchor: .trailing)),
+                removal: .offset(x: -22).combined(with: .opacity).combined(with: .scale(scale: 0.97, anchor: .leading))
+            )
+        case .backward:
+            return .asymmetric(
+                insertion: .offset(x: -22).combined(with: .opacity).combined(with: .scale(scale: 0.97, anchor: .leading)),
+                removal: .offset(x: 22).combined(with: .opacity).combined(with: .scale(scale: 0.97, anchor: .trailing))
+            )
+        case .none:
+            return .opacity
+        }
+    }
+    
     private var expandedContent: some View {
         ZStack(alignment: .top) {
             // Tab Contents (Spacious Content-first presentation, pinned securely to top)
@@ -977,7 +994,7 @@ public struct DynamicIslandView: View {
                     }
                 }
             }
-            .transition(.opacity)
+            .transition(state.isShowingSettings ? .opacity : tabTransition)
             .id(state.isShowingSettings ? "settings" : state.activeTab.rawValue)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .padding(.horizontal, 32) // Standardized 32pt horizontal margin for generous breathing room across all tabs
@@ -1001,10 +1018,7 @@ public struct DynamicIslandView: View {
             ForEach(Array(IslandTab.allCases.enumerated()), id: \.element) { index, tab in
                 let isCurrent = (state.activeTab == tab && !state.isShowingSettings)
                 Button(action: {
-                    withAnimation(state.animationStyle.springAnimation) {
-                        state.isShowingSettings = false
-                        state.activeTab = tab
-                    }
+                    state.switchToTab(tab)
                 }) {
                     Capsule()
                         .fill(isCurrent ? Color.white : Color.white.opacity(0.28))
@@ -1025,6 +1039,7 @@ public struct DynamicIslandView: View {
             
             // Settings Icon Button
             Button(action: {
+                state.tabTransitionDirection = .none
                 withAnimation(state.animationStyle.springAnimation) {
                     state.isShowingSettings.toggle()
                 }
@@ -1582,12 +1597,38 @@ public struct DynamicIslandView: View {
                 }
                 .padding(.horizontal, 6)
             }
+            .onAppear {
+                scrollToActiveLyric(proxy: proxy, animated: false)
+            }
             .onChange(of: state.currentLyricIndex) { newIdx in
                 if let newIdx = newIdx {
-                    withAnimation(.spring(response: 0.60, dampingFraction: 0.85)) {
+                    withAnimation(.spring(response: 0.55, dampingFraction: 0.82)) {
                         proxy.scrollTo(newIdx, anchor: UnitPoint(x: 0.5, y: 0.38))
                     }
                 }
+            }
+            .onChange(of: state.isLoadingLyrics) { loading in
+                if !loading {
+                    scrollToActiveLyric(proxy: proxy, animated: true)
+                }
+            }
+            .onChange(of: state.isLyricsEnabled) { enabled in
+                if enabled {
+                    scrollToActiveLyric(proxy: proxy, animated: true)
+                }
+            }
+        }
+    }
+    
+    private func scrollToActiveLyric(proxy: ScrollViewProxy, animated: Bool) {
+        guard let idx = state.currentLyricIndex, state.lyricsLines.indices.contains(idx) else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+            if animated {
+                withAnimation(.spring(response: 0.55, dampingFraction: 0.82)) {
+                    proxy.scrollTo(idx, anchor: UnitPoint(x: 0.5, y: 0.38))
+                }
+            } else {
+                proxy.scrollTo(idx, anchor: UnitPoint(x: 0.5, y: 0.38))
             }
         }
     }
@@ -2671,6 +2712,7 @@ public struct DynamicIslandView: View {
             
             // Close / Done Settings Button
             Button(action: {
+                state.tabTransitionDirection = .none
                 withAnimation(state.activeSpringAnimation) {
                     state.isShowingSettings = false
                 }
