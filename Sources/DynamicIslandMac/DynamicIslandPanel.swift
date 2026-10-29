@@ -229,8 +229,9 @@ public class DynamicIslandPanel: NSPanel {
         collapseWorkItem?.cancel()
         collapseWorkItem = nil
         let screenRect = screen.frame
-        let targetW: CGFloat = DynamicIslandPanel.stableCanvasWidth
-        let targetH: CGFloat = 290.0
+        let dims = IslandState.shared.currentDimensions
+        let targetW: CGFloat = dims.width
+        let targetH: CGFloat = dims.height
         let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let targetY = screenRect.maxY - targetH
         let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)
@@ -240,7 +241,7 @@ public class DynamicIslandPanel: NSPanel {
         if self.frame != targetFrame {
             CATransaction.begin()
             CATransaction.setDisableActions(true)
-            self.setFrame(targetFrame, display: false)
+            self.setFrame(targetFrame, display: true)
             CATransaction.commit()
         }
     }
@@ -412,11 +413,6 @@ public class DynamicIslandPanel: NSPanel {
         let checkClickOutside: (NSEvent) -> Void = { [weak self] _ in
             guard state.mode == .expanded else { return }
             
-            // Shelf Pinned Mode: While on Shelf tab, keep open so user can click and drag files from Finder
-            if state.activeTab == .shelf {
-                return
-            }
-            
             guard let screen = self?.screen ?? NSScreen.main else { return }
             // Use universal absolute screen coordinates (works identically for local & global click monitors)
             let clickLoc = NSEvent.mouseLocation
@@ -451,13 +447,6 @@ public class DynamicIslandPanel: NSPanel {
                 self?.hideDebounceTimer?.invalidate()
                 self?.hideDebounceTimer = nil
                 
-                // Pinned Shelf Mode: do not auto-collapse while dragging or managing files
-                if state.activeTab == .shelf {
-                    self?.expandedExitTimer?.invalidate()
-                    self?.expandedExitTimer = nil
-                    return
-                }
-                
                 // Click Only Mode: notch stays open until user clicks outside
                 if state.dismissMode == .clickOnly {
                     self?.expandedExitTimer?.invalidate()
@@ -488,7 +477,7 @@ public class DynamicIslandPanel: NSPanel {
                             let currentLoc = NSEvent.mouseLocation
                             let stillInsideX = abs(currentLoc.x - midX) <= (dims.width / 2.0 + 8.0)
                             let stillInsideY = (currentLoc.y >= topY - dims.height - 8.0) && (currentLoc.y <= topY + 2.0)
-                            if (!stillInsideX || !stillInsideY) && state.mode == .expanded && state.activeTab != .shelf && state.dismissMode == .cursorAway {
+                            if (!stillInsideX || !stillInsideY) && state.mode == .expanded && state.dismissMode == .cursorAway {
                                 DispatchQueue.main.async {
                                     self?.hasEnteredExpanded = false
                                     state.minimize()
