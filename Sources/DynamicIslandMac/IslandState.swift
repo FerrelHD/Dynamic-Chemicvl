@@ -230,7 +230,7 @@ public class IslandState: ObservableObject {
             }
         }
     }
-    @Published public var activeTab: IslandTab = .devices {
+    @Published public var activeTab: IslandTab = .control {
         didSet {
             if activeTab == .devices {
                 refreshConnectedDevices()
@@ -700,6 +700,14 @@ public class IslandState: ObservableObject {
         let willExpand = (mode == .compact)
         if willExpand {
             isHoverRevealed = true
+            
+            // Smart Dynamic Context: Contextual Routing matching active Compact Live Activity
+            if isTimerRunning {
+                activeTab = .timer
+            } else if isPlaying {
+                activeTab = .music
+            }
+            
             onModeChangedToExpanded?()
         }
         withAnimation(activeSpringAnimation) {
