@@ -922,13 +922,13 @@ public struct DynamicIslandView: View {
             if state.isLyricsEnabled {
                 lyricsSplitView
                     .transition(.asymmetric(
-                        insertion: .opacity.animation(.easeInOut(duration: 0.22).delay(0.08)),
-                        removal: .opacity.animation(.easeInOut(duration: 0.16))
+                        insertion: .opacity.animation(.easeInOut(duration: 0.18)),
+                        removal: .opacity.animation(.easeInOut(duration: 0.14))
                     ))
             } else {
                 normalMusicPlayerView
                     .transition(.asymmetric(
-                        insertion: .opacity.animation(.easeInOut(duration: 0.20)),
+                        insertion: .opacity.animation(.easeInOut(duration: 0.18)),
                         removal: .opacity.animation(.easeInOut(duration: 0.14))
                     ))
             }
@@ -1241,23 +1241,18 @@ public struct DynamicIslandView: View {
     
     private func lyricRowButton(line: LyricLine, idx: Int) -> some View {
         let isCurrent = (state.currentLyricIndex == idx)
-        let distance = abs((state.currentLyricIndex ?? 0) - idx)
-        let lineOpacity: Double = isCurrent ? 1.0 : (distance == 1 ? 0.44 : 0.26)
         
         return Button(action: {
             state.seekTo(line.timestamp)
         }) {
             Text(line.text)
-                .font(.system(size: isCurrent ? 15 : 13.5, weight: isCurrent ? .bold : .medium, design: .rounded))
-                .foregroundColor(.white.opacity(lineOpacity))
-                .scaleEffect(isCurrent ? 1.025 : 0.98, anchor: .leading)
-                .shadow(color: Color.white.opacity(isCurrent ? 0.35 : 0.0), radius: isCurrent ? 6 : 0, x: 0, y: 0)
+                .font(.system(size: 14, weight: isCurrent ? .bold : .semibold, design: .rounded))
+                .foregroundColor(isCurrent ? .white : .white.opacity(0.55))
                 .multilineTextAlignment(.leading)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.trailing, 22)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .animation(.spring(response: 0.54, dampingFraction: 0.88), value: isCurrent)
         }
         .buttonStyle(.plain)
         .id(idx)
