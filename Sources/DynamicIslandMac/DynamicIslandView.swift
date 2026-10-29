@@ -164,6 +164,9 @@ public struct DynamicIslandView: View {
         if state.isShowingCapsLockHUD {
             return 16
         }
+        if state.activeChatNotification != nil || state.activeCallNotification != nil || state.activeAirDropNotification != nil {
+            return 22 // Curvature matching reference notification banners
+        }
         switch state.mode {
         case .compact:
             return 14 // Sleek Apple notch corner radius for compact height
@@ -173,6 +176,9 @@ public struct DynamicIslandView: View {
     }
     
     private var earRadius: CGFloat {
+        if state.activeChatNotification != nil || state.activeCallNotification != nil || state.activeAirDropNotification != nil {
+            return 13
+        }
         if state.mode == .expanded {
             return 15 // Silky smooth Apple G2 concave ear fillets
         }
@@ -241,6 +247,15 @@ public struct DynamicIslandView: View {
                             .transition(.opacity)
                     } else if state.isShowingCapsLockHUD {
                         capsLockHUDContent
+                            .transition(.opacity)
+                    } else if let chat = state.activeChatNotification {
+                        chatNotificationContent(chat: chat)
+                            .transition(.opacity)
+                    } else if let call = state.activeCallNotification {
+                        callNotificationContent(call: call)
+                            .transition(.opacity)
+                    } else if let airdrop = state.activeAirDropNotification, case .completed = airdrop.phase {
+                        airDropCompleteContent(airdrop: airdrop)
                             .transition(.opacity)
                     } else {
                         switch state.mode {
@@ -546,10 +561,305 @@ public struct DynamicIslandView: View {
         .offset(y: 2)
     }
     
+    // MARK: - Chat Notification Content (Matching Dynamic Island Reference)
+    private func chatNotificationContent(chat: ChatNotification) -> some View {
+        Button(action: {
+            openChatApp(chat.app)
+            state.dismissChatNotification()
+        }) {
+            HStack(spacing: 12) {
+                // 1. Sender Avatar with App Badge
+                ZStack(alignment: .bottomTrailing) {
+                    if let avatar = chat.avatarImage {
+                        Image(nsImage: avatar)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 40, height: 40)
+                            .clipShape(Circle())
+                    } else {
+                        Circle()
+                            .fill(Color(white: 0.22))
+                            .frame(width: 40, height: 40)
+                            .overlay(
+                                Text(String(chat.sender.prefix(1)))
+                                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                                    .foregroundColor(.white)
+                            )
+                    }
+                    
+                    // App Badge (WhatsApp, Telegram, etc.)
+                    ZStack {
+                        Circle()
+                            .fill(chat.app.badgeColor)
+                            .frame(width: 15, height: 15)
+                        Image(systemName: chat.app.iconName)
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                    .offset(x: 2, y: 2)
+                }
+                .frame(width: 42, height: 42)
+                
+                // 2. Sender Name, Time Tag & 2-Line Text Preview
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack {
+                        Text(chat.sender)
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                        
+                        Spacer()
+                        
+                        Text(chat.timestamp)
+                            .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.50))
+                    }
+                    
+                    Text(chat.message)
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundColor(.white.opacity(0.85))
+                        .lineLimit(2)
+                        .lineSpacing(1.5)
+                        .multilineTextAlignment(.leading)
+                }
+            }
+            .padding(.horizontal, 22)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            .offset(y: 2)
+        }
+        .buttonStyle(.plain)
+    }
+    
+    // MARK: - Incoming & Active Call Notification Content
+    private func callNotificationContent(call: CallNotification) -> some View {
+        HStack(spacing: 12) {
+            // 1. Caller Avatar
+            if let avatar = call.avatarImage {
+                Image(nsImage: avatar)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 38, height: 38)
+                    .clipShape(Circle())
+            } else {
+                Circle()
+                    .fill(Color(white: 0.22))
+                    .frame(width: 38, height: 38)
+                    .overlay(
+                        Text(String(call.callerName.prefix(1)))
+                            .font(.system(size: 16, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                    )
+            }
+            
+            // 2. Subtitle & Caller Name
+            VStack(alignment: .leading, spacing: 1.5) {
+                Text(call.subtitle)
+                    .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                    .foregroundColor(.white.opacity(0.60))
+                    .lineLimit(1)
+                
+                Text(call.callerName)
+                    .font(.system(size: 13.5, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+            }
+            
+            Spacer(minLength: 8)
+            
+            // 3. Circular Action Buttons
+            switch call.state {
+            case .incoming:
+                HStack(spacing: 12) {
+                    // Decline Call (Red)
+                    Button(action: { state.declineCall() }) {
+                        ZStack {
+                            Circle()
+                                .fill(Color(red: 0.95, green: 0.22, blue: 0.22))
+                                .frame(width: 32, height: 32)
+                            Image(systemName: "phone.down.fill")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(.white)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    
+                    // Accept Call (Green)
+                    Button(action: { state.acceptCall() }) {
+                        ZStack {
+                            Circle()
+                                .fill(Color(red: 0.20, green: 0.82, blue: 0.40))
+                                .frame(width: 32, height: 32)
+                            Image(systemName: "phone.fill")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(.white)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            case .active:
+                HStack(spacing: 10) {
+                    waveformView(height: 12)
+                    
+                    // End Call (Red)
+                    Button(action: { state.endCall() }) {
+                        ZStack {
+                            Circle()
+                                .fill(Color(red: 0.95, green: 0.22, blue: 0.22))
+                                .frame(width: 32, height: 32)
+                            Image(systemName: "phone.down.fill")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(.white)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(.horizontal, 22)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        .offset(y: 2)
+    }
+    
+    // MARK: - AirDrop Complete Notification Card
+    private func airDropCompleteContent(airdrop: AirDropNotification) -> some View {
+        let fileName: String = {
+            if case .completed(let f, _) = airdrop.phase { return f }
+            return "Item"
+        }()
+        let fileURL: URL? = {
+            if case .completed(_, let u) = airdrop.phase { return u }
+            return nil
+        }()
+        
+        return VStack(spacing: 8) {
+            HStack(spacing: 10) {
+                ZStack(alignment: .bottomTrailing) {
+                    Circle()
+                        .fill(Color(red: 0.15, green: 0.70, blue: 0.35))
+                        .frame(width: 28, height: 28)
+                        .overlay(
+                            Text(String(airdrop.senderName.prefix(1)))
+                                .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                                .foregroundColor(.white)
+                        )
+                    
+                    Image(systemName: "wave.3.forward.circle.fill")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(Color(red: 0.0, green: 0.48, blue: 1.0))
+                        .background(Color.black.clipShape(Circle()))
+                        .offset(x: 2, y: 2)
+                }
+                
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("AirDrop Complete")
+                        .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                    
+                    Text("Received \(fileName) from AirDrop")
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundColor(.white.opacity(0.70))
+                        .lineLimit(1)
+                }
+                
+                Spacer()
+                
+                Button(action: { state.dismissAirDrop() }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundColor(.white.opacity(0.40))
+                        .padding(4)
+                }
+                .buttonStyle(.plain)
+            }
+            
+            HStack(spacing: 8) {
+                Button(action: {
+                    if let url = fileURL {
+                        NSWorkspace.shared.activateFileViewerSelecting([url])
+                    } else {
+                        let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first!
+                        NSWorkspace.shared.open(downloads)
+                    }
+                    state.dismissAirDrop()
+                }) {
+                    Text("Show in Finder")
+                        .font(.system(size: 10.5, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 5)
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                
+                Button(action: {
+                    if let url = fileURL {
+                        NSWorkspace.shared.open(url)
+                    }
+                    state.dismissAirDrop()
+                }) {
+                    Text("Open")
+                        .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 5)
+                        .background(Color(red: 0.0, green: 0.48, blue: 1.0))
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 22)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        .offset(y: 2)
+    }
+    
+    private func openChatApp(_ app: ChatApp) {
+        if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "net.whatsapp.WhatsApp") {
+            NSWorkspace.shared.openApplication(at: appURL, configuration: NSWorkspace.OpenConfiguration())
+        }
+    }
+    
     // MARK: - 1. Compact View (Centered Clock, Timer, & Responsive Media)
     private var compactContent: some View {
         ZStack {
-            if state.isTimerRunning {
+            if let airdrop = state.activeAirDropNotification, case .transferring(let progress) = airdrop.phase {
+                HStack(spacing: 8) {
+                    Image(systemName: "wave.3.forward.circle.fill")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(Color(red: 0.0, green: 0.48, blue: 1.0))
+                    
+                    Text("AirDrop \(Int(progress * 100))%")
+                        .font(.system(size: 11.5, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                    
+                    ZStack {
+                        Circle()
+                            .stroke(Color.white.opacity(0.18), lineWidth: 2.2)
+                        Circle()
+                            .trim(from: 0, to: CGFloat(progress))
+                            .stroke(Color(red: 0.0, green: 0.48, blue: 1.0), style: StrokeStyle(lineWidth: 2.2, lineCap: .round))
+                            .rotationEffect(.degrees(-90))
+                    }
+                    .frame(width: 13, height: 13)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                .padding(.horizontal, 14)
+            } else if let call = state.activeCallNotification, case .active(let dur) = call.state {
+                HStack(spacing: 6) {
+                    Image(systemName: "phone.fill")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(Color(red: 0.20, green: 0.85, blue: 0.40))
+                    
+                    Text(state.formatCallDuration(dur))
+                        .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundColor(.white)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                .padding(.horizontal, 12)
+            } else if state.isTimerRunning {
                 HStack(spacing: 5.5) {
                     Image(systemName: "timer")
                         .font(.system(size: 11.5, weight: .bold, design: .rounded))
@@ -613,6 +923,8 @@ public struct DynamicIslandView: View {
                         controlTabView
                     case .music:
                         musicTabView
+                    case .timer:
+                        timerTabView
                     case .notes:
                         notesTabView
                     case .devices:
@@ -1347,6 +1659,66 @@ public struct DynamicIslandView: View {
         .padding(.horizontal, 4)
     }
     
+    // MARK: - Tab: Dedicated Timer (Horizontal Ruler Dial, OLED True Black)
+    private var timerTabView: some View {
+        VStack(spacing: 14) {
+            // Upper: Horizontal Draggable Ruler Dial
+            RulerDialView(
+                selectedMinutes: Binding(
+                    get: { state.timerSelectedMinutes },
+                    set: { state.setTimerMinutes($0) }
+                ),
+                isEnabled: !state.isTimerRunning
+            )
+            .padding(.top, 4)
+            
+            Spacer(minLength: 4)
+            
+            // Lower: Controls & Big Digital Display
+            HStack(alignment: .center) {
+                HStack(spacing: 8) {
+                    Button(action: { state.toggleTimer() }) {
+                        HStack(spacing: 5) {
+                            Image(systemName: state.isTimerRunning ? "pause.fill" : "play.fill")
+                                .font(.system(size: 10.5, weight: .bold))
+                            Text(state.isTimerRunning ? "Pause" : "Start Timer")
+                                .font(.system(size: 12, weight: .bold, design: .rounded))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .background(Color.orange)
+                        .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    
+                    if state.isTimerRunning || state.timerRemainingSeconds != (state.timerSelectedMinutes * 60) {
+                        Button(action: { state.resetTimer() }) {
+                            Text("Reset")
+                                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                .foregroundColor(.white.opacity(0.75))
+                                .padding(.horizontal, 11)
+                                .padding(.vertical, 7)
+                                .background(Color.white.opacity(0.12))
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                
+                Spacer()
+                
+                // Big OLED True Black Digital Readout (e.g. 49:00)
+                Text(state.timerFormattedString)
+                    .font(.system(size: 34, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundColor(.orange)
+            }
+            .padding(.horizontal, 8)
+            .padding(.bottom, 6)
+        }
+    }
+    
     // MARK: - Tab 3: Reminders & Notes (iOS Reminders Style)
     private var notesTabView: some View {
         VStack(spacing: 7) {
@@ -1876,10 +2248,11 @@ public struct DynamicIslandView: View {
     
     // MARK: - Tab 6: Settings & Customization
     private var settingsTabView: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {
             settingsHeaderView
             animationPhysicsSection
             dismissBehaviorSection
+            demoSimulationsSection
         }
         .padding(.vertical, 2)
     }
@@ -2073,6 +2446,92 @@ public struct DynamicIslandView: View {
         .buttonStyle(.plain)
     }
     
+    private var demoSimulationsSection: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text("INTERACTIVE NOTIFICATIONS DEMO")
+                .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                .foregroundColor(.white.opacity(0.50))
+            
+            HStack(spacing: 6) {
+                // Test Chat
+                Button(action: {
+                    state.triggerChatNotification(
+                        sender: "Liam Patterson",
+                        message: "Hey, are we still on for coffee later?\nI might be 10–15 minutes late, traffic looks...",
+                        app: .whatsapp
+                    )
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "message.fill")
+                            .font(.system(size: 9, weight: .bold))
+                        Text("Chat")
+                            .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4.5)
+                    .background(Color(red: 0.15, green: 0.80, blue: 0.38).opacity(0.25))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .stroke(Color(red: 0.15, green: 0.80, blue: 0.38).opacity(0.4), lineWidth: 0.8)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                
+                // Test Call
+                Button(action: {
+                    state.triggerCallNotification(
+                        callerName: "Wesley Tingey",
+                        subtitle: "from iPhone"
+                    )
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "phone.fill")
+                            .font(.system(size: 9, weight: .bold))
+                        Text("Call")
+                            .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4.5)
+                    .background(Color.green.opacity(0.25))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .stroke(Color.green.opacity(0.4), lineWidth: 0.8)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                
+                // Test AirDrop
+                Button(action: {
+                    state.triggerAirDropComplete(
+                        senderName: "Ferrel",
+                        fileName: "Icon-Composer.dmg"
+                    )
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "wave.3.forward.circle.fill")
+                            .font(.system(size: 9, weight: .bold))
+                        Text("AirDrop")
+                            .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4.5)
+                    .background(Color.blue.opacity(0.25))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .stroke(Color.blue.opacity(0.4), lineWidth: 0.8)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+    
     // MARK: - Helpers
     private func tabIcon(for tab: IslandTab) -> some View {
         switch tab {
@@ -2080,6 +2539,8 @@ public struct DynamicIslandView: View {
             return Image(systemName: "slider.horizontal.3").font(.system(size: 9.5, weight: .bold, design: .rounded))
         case .music:
             return Image(systemName: "music.note").font(.system(size: 9.5, weight: .bold, design: .rounded))
+        case .timer:
+            return Image(systemName: "timer").font(.system(size: 9.5, weight: .bold, design: .rounded))
         case .notes:
             return Image(systemName: "checklist").font(.system(size: 9.5, weight: .bold, design: .rounded))
         case .devices:
@@ -2353,5 +2814,86 @@ struct TrashCanBodyShape: Shape {
         )
         path.closeSubpath()
         return path
+    }
+}
+
+// MARK: - OLED Horizontal Ruler Dial Component (Interactive Scrubbing Dial)
+public struct RulerDialView: View {
+    @Binding var selectedMinutes: Int
+    var isEnabled: Bool = true
+    
+    private let tickSpacing: CGFloat = 12.0
+    private let minMinutes: Int = 5
+    private let maxMinutes: Int = 120
+    
+    @State private var dragOffset: CGFloat = 0
+    @State private var initialMinute: Int = 49
+    
+    public init(selectedMinutes: Binding<Int>, isEnabled: Bool = true) {
+        self._selectedMinutes = selectedMinutes
+        self.isEnabled = isEnabled
+    }
+    
+    public var body: some View {
+        GeometryReader { geo in
+            let midX = geo.size.width / 2.0
+            let currentOffset = midX - (CGFloat(selectedMinutes) * tickSpacing) + dragOffset
+            
+            ZStack(alignment: .bottom) {
+                // Ticks track
+                HStack(alignment: .bottom, spacing: 0) {
+                    ForEach(minMinutes...maxMinutes, id: \.self) { min in
+                        let isMajor = (min % 5 == 0)
+                        let isSelected = (min == selectedMinutes)
+                        
+                        VStack(spacing: 4) {
+                            if isMajor {
+                                Text("\(min)")
+                                    .font(.system(size: 9.5, weight: isSelected ? .bold : .medium, design: .rounded))
+                                    .foregroundColor(isSelected ? .orange : .white.opacity(0.40))
+                            } else {
+                                Spacer().frame(height: 12)
+                            }
+                            
+                            Rectangle()
+                                .fill(isSelected ? Color.orange : (isMajor ? Color.white.opacity(0.55) : Color.white.opacity(0.20)))
+                                .frame(width: isSelected ? 2.0 : (isMajor ? 1.4 : 1.0), height: isSelected ? 20 : (isMajor ? 14 : 8))
+                        }
+                        .frame(width: tickSpacing, height: 42, alignment: .bottom)
+                    }
+                }
+                .offset(x: currentOffset)
+                
+                // Orange Center Triangle Indicator ▲
+                Image(systemName: "triangle.fill")
+                    .font(.system(size: 8))
+                    .foregroundColor(.orange)
+                    .offset(y: 11)
+            }
+            .frame(width: geo.size.width, height: 48, alignment: .bottom)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { val in
+                        guard isEnabled else { return }
+                        dragOffset = val.translation.width
+                        let deltaMins = Int(round(-dragOffset / tickSpacing))
+                        let candidate = initialMinute + deltaMins
+                        let clamped = max(minMinutes, min(maxMinutes, candidate))
+                        if selectedMinutes != clamped {
+                            selectedMinutes = clamped
+                        }
+                    }
+                    .onEnded { _ in
+                        guard isEnabled else { return }
+                        dragOffset = 0
+                        initialMinute = selectedMinutes
+                    }
+            )
+            .onAppear {
+                initialMinute = selectedMinutes
+            }
+        }
+        .frame(height: 52)
     }
 }

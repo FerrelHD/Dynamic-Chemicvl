@@ -12,9 +12,105 @@ public enum IslandMode: Equatable {
 public enum IslandTab: String, CaseIterable {
     case control = "Controls"
     case music = "Music"
+    case timer = "Timer"
     case notes = "Reminders"
     case devices = "Devices"
     case shelf = "Shelf"
+}
+
+public enum ChatApp: String, CaseIterable, Identifiable {
+    case whatsapp = "WhatsApp"
+    case telegram = "Telegram"
+    case imessage = "Messages"
+    case discord = "Discord"
+    case slack = "Slack"
+    
+    public var id: String { rawValue }
+    
+    public var iconName: String {
+        switch self {
+        case .whatsapp: return "message.fill"
+        case .telegram: return "paperplane.fill"
+        case .imessage: return "message.fill"
+        case .discord: return "bubble.left.and.bubble.right.fill"
+        case .slack: return "number"
+        }
+    }
+    
+    public var badgeColor: Color {
+        switch self {
+        case .whatsapp: return Color(red: 0.15, green: 0.80, blue: 0.38)
+        case .telegram: return Color(red: 0.18, green: 0.65, blue: 0.95)
+        case .imessage: return Color(red: 0.20, green: 0.82, blue: 0.40)
+        case .discord: return Color(red: 0.35, green: 0.40, blue: 0.95)
+        case .slack: return Color(red: 0.88, green: 0.20, blue: 0.45)
+        }
+    }
+}
+
+public struct ChatNotification: Identifiable, Equatable {
+    public let id = UUID()
+    public let sender: String
+    public let message: String
+    public let app: ChatApp
+    public let timestamp: String
+    public let avatarImage: NSImage?
+    
+    public init(sender: String, message: String, app: ChatApp = .whatsapp, timestamp: String = "now", avatarImage: NSImage? = nil) {
+        self.sender = sender
+        self.message = message
+        self.app = app
+        self.timestamp = timestamp
+        self.avatarImage = avatarImage
+    }
+    
+    public static func == (lhs: ChatNotification, rhs: ChatNotification) -> Bool {
+        lhs.id == rhs.id
+    }
+}
+
+public enum CallState: Equatable {
+    case incoming
+    case active(durationSeconds: Int)
+}
+
+public struct CallNotification: Identifiable, Equatable {
+    public let id = UUID()
+    public let callerName: String
+    public let subtitle: String
+    public var state: CallState
+    public let avatarImage: NSImage?
+    
+    public init(callerName: String, subtitle: String = "from iPhone", state: CallState = .incoming, avatarImage: NSImage? = nil) {
+        self.callerName = callerName
+        self.subtitle = subtitle
+        self.state = state
+        self.avatarImage = avatarImage
+    }
+    
+    public static func == (lhs: CallNotification, rhs: CallNotification) -> Bool {
+        lhs.id == rhs.id && lhs.state == rhs.state
+    }
+}
+
+public enum AirDropPhase: Equatable {
+    case transferring(progress: Double)
+    case completed(fileName: String, fileURL: URL?)
+}
+
+public struct AirDropNotification: Identifiable, Equatable {
+    public let id = UUID()
+    public let senderName: String
+    public var phase: AirDropPhase
+    
+    public init(senderName: String = "Ferrel", phase: AirDropPhase) {
+        self.senderName = senderName
+        self.phase = phase
+    }
+    
+    public static func == (lhs: AirDropNotification, rhs: AirDropNotification) -> Bool {
+        lhs.id == rhs.id && lhs.phase == rhs.phase
+    }
 }
 
 public enum AnimationStyle: String, CaseIterable, Identifiable {
@@ -118,6 +214,7 @@ public class IslandState: ObservableObject {
     private let seamlessMenuBarStorageKey = "DynamicIsland_SeamlessMenuBarEnabled"
     
     public var isIslandVisible: Bool {
+        if activeChatNotification != nil || activeCallNotification != nil || activeAirDropNotification != nil { return true }
         if mode == .expanded { return true }
         if isShowingVolumeHUD || isShowingBatteryHUD || isShowingWifiHUD || isShowingBluetoothHUD || isShowingCapsLockHUD { return true }
         
@@ -135,6 +232,28 @@ public class IslandState: ObservableObject {
         if !isIslandVisible {
             return (width: 48, height: 4)
         }
+        if activeChatNotification != nil {
+            return (width: 412, height: 76)
+        }
+        if let call = activeCallNotification {
+            switch call.state {
+            case .incoming:
+                return (width: 396, height: 74)
+            case .active:
+                if mode == .compact {
+                    return (width: 175, height: 30)
+                }
+                return (width: 396, height: 74)
+            }
+        }
+        if let airdrop = activeAirDropNotification {
+            switch airdrop.phase {
+            case .completed:
+                return (width: 396, height: 98)
+            case .transferring:
+                return (width: 228, height: 32)
+            }
+        }
         switch mode {
         case .compact:
             return compactDimensions
@@ -149,6 +268,12 @@ public class IslandState: ObservableObject {
         }
         if isShowingCapsLockHUD {
             return (width: 240, height: 44)
+        }
+        if let airdrop = activeAirDropNotification, case .transferring = airdrop.phase {
+            return (width: 228, height: 32)
+        }
+        if let call = activeCallNotification, case .active = call.state {
+            return (width: 175, height: 30)
         }
         if isTimerRunning {
             return (width: 170, height: 30)
@@ -168,6 +293,8 @@ public class IslandState: ObservableObject {
             return (width: 720, height: 216) // Spacious Responsive Split View for Apple Music Lyrics
         }
         switch activeTab {
+        case .timer:
+            return (width: 448, height: 216) // Dedicated horizontal ruler timer tab
         case .devices:
             return (width: 448, height: 216) // Standardized 216pt matching Control tab
         case .music:
@@ -270,10 +397,23 @@ public class IslandState: ObservableObject {
     private var lastSeekTimestamp: Date = .distantPast
     
     // Focus / Pomodoro Timer
-    @Published public var timerRemainingSeconds: Int = 25 * 60
-    @Published public var timerTotalSeconds: Int = 25 * 60
+    @Published public var timerRemainingSeconds: Int = 49 * 60
+    @Published public var timerTotalSeconds: Int = 49 * 60
+    @Published public var timerSelectedMinutes: Int = 49
     @Published public var isTimerRunning: Bool = false
     private var timerCancellable: AnyCancellable?
+    
+    // Chat Notification
+    @Published public var activeChatNotification: ChatNotification?
+    private var chatDismissWorkItem: DispatchWorkItem?
+    
+    // Incoming & Active Call Notification
+    @Published public var activeCallNotification: CallNotification?
+    private var callTimerCancellable: AnyCancellable?
+    
+    // AirDrop Notification
+    @Published public var activeAirDropNotification: AirDropNotification?
+    private var airDropDismissWorkItem: DispatchWorkItem?
     
     // Quick Notes & To-Do List (Persistent)
     @Published public var todos: [TodoItem] = []
@@ -333,6 +473,8 @@ public class IslandState: ObservableObject {
         } else {
             self.isSeamlessMenuBarEnabled = MenuBarTintService.shared.isSeamlessActive
         }
+        
+        self.startAirDropMonitoring()
         
         DispatchQueue.main.async { [weak self] in
             if let audio = AudioService.shared.getSystemAudioState() {
@@ -1071,10 +1213,23 @@ public class IslandState: ObservableObject {
     }
     
     public func setTimerPreset(minutes: Int) {
+        setTimerMinutes(minutes)
+    }
+    
+    public func setTimerMinutes(_ minutes: Int) {
+        let clamped = max(1, min(180, minutes))
+        timerSelectedMinutes = clamped
+        if !isTimerRunning {
+            timerTotalSeconds = clamped * 60
+            timerRemainingSeconds = clamped * 60
+        }
+    }
+    
+    public func resetTimer() {
         isTimerRunning = false
-        timerTotalSeconds = minutes * 60
-        timerRemainingSeconds = minutes * 60
         updateTimerRunner()
+        timerTotalSeconds = timerSelectedMinutes * 60
+        timerRemainingSeconds = timerSelectedMinutes * 60
     }
     
     private func updateTimerRunner() {
@@ -1097,6 +1252,164 @@ public class IslandState: ObservableObject {
             timerCancellable?.cancel()
             timerCancellable = nil
         }
+    }
+    
+    // MARK: - Chat Notification Controls
+    public func triggerChatNotification(
+        sender: String = "Liam Patterson",
+        message: String = "Hey, are we still on for coffee later?\nI might be 10–15 minutes late, traffic looks...",
+        app: ChatApp = .whatsapp,
+        avatar: NSImage? = nil
+    ) {
+        chatDismissWorkItem?.cancel()
+        withAnimation(animationStyle.springAnimation) {
+            self.activeChatNotification = ChatNotification(
+                sender: sender,
+                message: message,
+                app: app,
+                timestamp: "now",
+                avatarImage: avatar
+            )
+        }
+        let work = DispatchWorkItem { [weak self] in
+            withAnimation(self?.animationStyle.springAnimation ?? .easeInOut(duration: 0.25)) {
+                self?.activeChatNotification = nil
+            }
+        }
+        chatDismissWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4.5, execute: work)
+    }
+    
+    public func dismissChatNotification() {
+        chatDismissWorkItem?.cancel()
+        chatDismissWorkItem = nil
+        withAnimation(animationStyle.springAnimation) {
+            self.activeChatNotification = nil
+        }
+    }
+    
+    // MARK: - Incoming & Active Call Notification Controls
+    public func triggerCallNotification(
+        callerName: String = "Wesley Tingey",
+        subtitle: String = "from iPhone",
+        avatar: NSImage? = nil
+    ) {
+        callTimerCancellable?.cancel()
+        withAnimation(animationStyle.springAnimation) {
+            self.activeCallNotification = CallNotification(
+                callerName: callerName,
+                subtitle: subtitle,
+                state: .incoming,
+                avatarImage: avatar
+            )
+        }
+    }
+    
+    public func acceptCall() {
+        guard let current = activeCallNotification else { return }
+        callTimerCancellable?.cancel()
+        var seconds = 0
+        withAnimation(animationStyle.springAnimation) {
+            self.activeCallNotification = CallNotification(
+                callerName: current.callerName,
+                subtitle: "00:00",
+                state: .active(durationSeconds: 0),
+                avatarImage: current.avatarImage
+            )
+        }
+        callTimerCancellable = Timer.publish(every: 1.0, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                guard let self = self, let notif = self.activeCallNotification, case .active(let dur) = notif.state else { return }
+                seconds = dur + 1
+                self.activeCallNotification = CallNotification(
+                    callerName: notif.callerName,
+                    subtitle: self.formatCallDuration(seconds),
+                    state: .active(durationSeconds: seconds),
+                    avatarImage: notif.avatarImage
+                )
+            }
+    }
+    
+    public func declineCall() {
+        callTimerCancellable?.cancel()
+        callTimerCancellable = nil
+        withAnimation(animationStyle.springAnimation) {
+            self.activeCallNotification = nil
+        }
+    }
+    
+    public func endCall() {
+        declineCall()
+    }
+    
+    public func formatCallDuration(_ totalSeconds: Int) -> String {
+        let mins = totalSeconds / 60
+        let secs = totalSeconds % 60
+        return String(format: "%02d:%02d", mins, secs)
+    }
+    
+    // MARK: - AirDrop Notifications Controls
+    public func triggerAirDropTransfer(senderName: String = "Ferrel", progress: Double = 0.65) {
+        airDropDismissWorkItem?.cancel()
+        withAnimation(animationStyle.springAnimation) {
+            self.activeAirDropNotification = AirDropNotification(senderName: senderName, phase: .transferring(progress: progress))
+        }
+    }
+    
+    public func triggerAirDropComplete(senderName: String = "Ferrel", fileName: String = "Icon-Composer.dmg", fileURL: URL? = nil) {
+        airDropDismissWorkItem?.cancel()
+        withAnimation(animationStyle.springAnimation) {
+            self.activeAirDropNotification = AirDropNotification(senderName: senderName, phase: .completed(fileName: fileName, fileURL: fileURL))
+        }
+    }
+    
+    public func dismissAirDrop() {
+        airDropDismissWorkItem?.cancel()
+        airDropDismissWorkItem = nil
+        withAnimation(animationStyle.springAnimation) {
+            self.activeAirDropNotification = nil
+        }
+    }
+    
+    // MARK: - AirDrop Real-time Folder Monitor (Zero CPU, Event-Driven GCD DispatchSource)
+    private var downloadsFolderSource: DispatchSourceFileSystemObject?
+    private var lastKnownDownloadsFiles: Set<String> = []
+    
+    public func startAirDropMonitoring() {
+        guard let downloadsURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first else { return }
+        
+        if let initialFiles = try? FileManager.default.contentsOfDirectory(atPath: downloadsURL.path) {
+            lastKnownDownloadsFiles = Set(initialFiles)
+        }
+        
+        let fd = open(downloadsURL.path, O_EVTONLY)
+        guard fd >= 0 else { return }
+        
+        let source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: fd, eventMask: .write, queue: .global(qos: .utility))
+        source.setEventHandler { [weak self] in
+            guard let self = self else { return }
+            guard let currentFiles = try? FileManager.default.contentsOfDirectory(atPath: downloadsURL.path) else { return }
+            let currentSet = Set(currentFiles)
+            let newFiles = currentSet.subtracting(self.lastKnownDownloadsFiles)
+            self.lastKnownDownloadsFiles = currentSet
+            
+            for fileName in newFiles {
+                if fileName.hasPrefix(".") || fileName.hasSuffix(".download") || fileName.hasSuffix(".crdownload") {
+                    continue
+                }
+                let fileURL = downloadsURL.appendingPathComponent(fileName)
+                DispatchQueue.main.async {
+                    self.triggerAirDropComplete(senderName: "AirDrop", fileName: fileName, fileURL: fileURL)
+                }
+                break
+            }
+        }
+        source.setCancelHandler {
+            close(fd)
+        }
+        source.resume()
+        downloadsFolderSource = source
     }
     
     // MARK: - File Shelf Controls (Max 10 items)
