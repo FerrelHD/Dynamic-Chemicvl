@@ -89,6 +89,7 @@ public struct ChatNotification: Identifiable, Equatable {
     public let app: ChatApp
     public let timestamp: String
     public let avatarImage: NSImage?
+    public let isCustomAvatar: Bool
     public let customBundleIdentifier: String?
     
     public init(
@@ -97,6 +98,7 @@ public struct ChatNotification: Identifiable, Equatable {
         app: ChatApp = .whatsapp,
         timestamp: String = "now",
         avatarImage: NSImage? = nil,
+        isCustomAvatar: Bool = false,
         customBundleIdentifier: String? = nil
     ) {
         self.sender = sender
@@ -104,6 +106,7 @@ public struct ChatNotification: Identifiable, Equatable {
         self.app = app
         self.timestamp = timestamp
         self.avatarImage = avatarImage
+        self.isCustomAvatar = isCustomAvatar
         self.customBundleIdentifier = customBundleIdentifier
     }
     
@@ -1403,6 +1406,7 @@ public class IslandState: ObservableObject {
         message: String = "Hey, are we still on for coffee later?\nI might be 10–15 minutes late, traffic looks...",
         app: ChatApp = .whatsapp,
         avatar: NSImage? = nil,
+        isCustomAvatar: Bool = false,
         customBundleIdentifier: String? = nil
     ) {
         chatDismissWorkItem?.cancel()
@@ -1413,6 +1417,7 @@ public class IslandState: ObservableObject {
                 app: app,
                 timestamp: "now",
                 avatarImage: avatar,
+                isCustomAvatar: isCustomAvatar,
                 customBundleIdentifier: customBundleIdentifier
             )
         }

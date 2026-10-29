@@ -594,16 +594,18 @@ public struct DynamicIslandView: View {
                             )
                     }
                     
-                    // App Badge (WhatsApp, Telegram, etc.)
-                    ZStack {
-                        Circle()
-                            .fill(chat.app.badgeColor)
-                            .frame(width: 16, height: 16)
-                        Image(systemName: chat.app.iconName)
-                            .font(.system(size: 8.5, weight: .bold))
-                            .foregroundColor(.white)
+                    // App Badge (WhatsApp, Telegram, etc.) - Only overlay when displaying a real contact photo
+                    if chat.isCustomAvatar {
+                        ZStack {
+                            Circle()
+                                .fill(chat.app.badgeColor)
+                                .frame(width: 16, height: 16)
+                            Image(systemName: chat.app.iconName)
+                                .font(.system(size: 8.5, weight: .bold))
+                                .foregroundColor(.white)
+                        }
+                        .offset(x: 3, y: 3)
                     }
-                    .offset(x: 3, y: 3)
                 }
                 .frame(width: 42, height: 42)
                 

@@ -11,6 +11,14 @@ public class NotificationListenerService {
     private var isRunning = false
     private let queue = DispatchQueue(label: "com.ferrel.notchflow.notificationcenter", qos: .utility)
     
+    // Direct WhatsApp Monitoring (KeyNotch-grade event driven)
+    private let whatsAppSharedURL = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent("Library/Group Containers/group.net.whatsapp.WhatsApp.shared")
+    private var whatsAppWalSource: DispatchSourceFileSystemObject?
+    private var lastSeenWhatsAppPK: Int64 = 0
+    private var lastDeliveredText: String = ""
+    private var lastDeliveredTime: Date = Date.distantPast
+    
     private init() {}
     
     public func startMonitoring() {
@@ -20,19 +28,21 @@ public class NotificationListenerService {
         queue.async { [weak self] in
             guard let self = self else { return }
             self.dbPath = self.locateNotificationCenterDatabase()
-            guard let path = self.dbPath else {
-                NSLog("[NotchFlow] Notification Center DB not found in /var/folders")
-                return
+            
+            // 1. Establish Notification Center baseline
+            if let path = self.dbPath {
+                self.lastSeenRecId = self.fetchLatestRecId(at: path)
+                NSLog("[NotchFlow] Notification Center monitor initialized at rec_id: %lld (db: %@)", self.lastSeenRecId, path)
             }
             
-            // Baseline: catch up to latest rec_id so old historical notifications are not spammed
-            self.lastSeenRecId = self.fetchLatestRecId(at: path)
-            NSLog("[NotchFlow] Notification Center monitor initialized at rec_id: %lld (db: %@)", self.lastSeenRecId, path)
+            // 2. Establish WhatsApp direct baseline & setup WAL listener
+            self.setupWhatsAppDirectListener()
             
             let t = DispatchSource.makeTimerSource(queue: self.queue)
             t.schedule(deadline: .now() + 0.5, repeating: 0.5, leeway: .milliseconds(50))
             t.setEventHandler { [weak self] in
                 self?.pollNewNotifications()
+                self?.checkNewWhatsAppMessages()
             }
             t.resume()
             self.timerSource = t
@@ -43,6 +53,8 @@ public class NotificationListenerService {
         isRunning = false
         timerSource?.cancel()
         timerSource = nil
+        whatsAppWalSource?.cancel()
+        whatsAppWalSource = nil
     }
     
     // MARK: - Health & Full Disk Access Inspection
@@ -95,6 +107,144 @@ public class NotificationListenerService {
         return maxId
     }
     
+    // MARK: - KeyNotch-Grade Direct WhatsApp Event Listener & Avatar Resolver
+    private func setupWhatsAppDirectListener() {
+        let chatDBPath = whatsAppSharedURL.appendingPathComponent("ChatStorage.sqlite").path
+        guard FileManager.default.fileExists(atPath: chatDBPath) else { return }
+        
+        var db: OpaquePointer?
+        let uri = "file:\(chatDBPath)?mode=ro"
+        if sqlite3_open_v2(uri, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_URI | SQLITE_OPEN_NOMUTEX, nil) == SQLITE_OK {
+            var stmt: OpaquePointer?
+            let sql = "SELECT MAX(Z_PK) FROM ZWAMESSAGE WHERE ZISFROMME = 0 AND ZMESSAGETYPE NOT IN (59, 10);"
+            if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+                if sqlite3_step(stmt) == SQLITE_ROW {
+                    self.lastSeenWhatsAppPK = sqlite3_column_int64(stmt, 0)
+                }
+                sqlite3_finalize(stmt)
+            }
+            sqlite3_close(db)
+            NSLog("[NotchFlow] 💬 WhatsApp direct listener initialized at PK: %lld", self.lastSeenWhatsAppPK)
+        }
+        
+        // Listen to ChatStorage.sqlite-wal file changes
+        let walPath = whatsAppSharedURL.appendingPathComponent("ChatStorage.sqlite-wal").path
+        guard FileManager.default.fileExists(atPath: walPath) else { return }
+        let walFD = open(walPath, O_EVTONLY)
+        guard walFD >= 0 else { return }
+        
+        let src = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: walFD,
+            eventMask: [.write, .extend],
+            queue: queue
+        )
+        src.setEventHandler { [weak self] in
+            self?.checkNewWhatsAppMessages()
+        }
+        src.setCancelHandler {
+            close(walFD)
+        }
+        src.resume()
+        self.whatsAppWalSource = src
+    }
+    
+    private func checkNewWhatsAppMessages() {
+        let chatDBPath = whatsAppSharedURL.appendingPathComponent("ChatStorage.sqlite").path
+        guard FileManager.default.fileExists(atPath: chatDBPath) else { return }
+        
+        var db: OpaquePointer?
+        let uri = "file:\(chatDBPath)?mode=ro"
+        guard sqlite3_open_v2(uri, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_URI | SQLITE_OPEN_NOMUTEX, nil) == SQLITE_OK else {
+            return
+        }
+        defer { sqlite3_close(db) }
+        
+        let query = """
+        SELECT m.Z_PK, COALESCE(s.ZPARTNERNAME, 'WhatsApp'), COALESCE(m.ZTEXT, ''), COALESCE(s.ZCONTACTJID, '')
+        FROM ZWAMESSAGE m
+        LEFT JOIN ZWACHATSESSION s ON m.ZCHATSESSION = s.Z_PK
+        WHERE m.ZISFROMME = 0 AND m.ZMESSAGETYPE NOT IN (59, 10) AND m.Z_PK > ?
+        ORDER BY m.Z_PK ASC LIMIT 5;
+        """
+        
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK else { return }
+        defer { sqlite3_finalize(stmt) }
+        
+        sqlite3_bind_int64(stmt, 1, lastSeenWhatsAppPK)
+        
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            let pk = sqlite3_column_int64(stmt, 0)
+            let sender = sqlite3_column_text(stmt, 1).map { String(cString: $0) } ?? "WhatsApp"
+            var text = sqlite3_column_text(stmt, 2).map { String(cString: $0) } ?? ""
+            let jid = sqlite3_column_text(stmt, 3).map { String(cString: $0) } ?? ""
+            
+            self.lastSeenWhatsAppPK = max(self.lastSeenWhatsAppPK, pk)
+            
+            text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if text.isEmpty { text = "New Message" }
+            
+            let customAvatar = resolveWhatsAppAvatar(for: jid)
+            let finalAvatar = customAvatar ?? ChatApp.whatsapp.appIcon
+            let hasCustom = (customAvatar != nil)
+            
+            self.lastDeliveredText = text
+            self.lastDeliveredTime = Date()
+            
+            NSLog("[NotchFlow] 💬 WHATSAPP DIRECT DETECTED: pk=%lld, sender=%@, text=%@", pk, sender, text)
+            DispatchQueue.main.async {
+                IslandState.shared.triggerChatNotification(
+                    sender: sender,
+                    message: text,
+                    app: .whatsapp,
+                    avatar: finalAvatar,
+                    isCustomAvatar: hasCustom,
+                    customBundleIdentifier: "net.whatsapp.WhatsApp"
+                )
+            }
+        }
+    }
+    
+    private func resolveWhatsAppAvatar(for jid: String) -> NSImage? {
+        let trimmed = jid.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let cleanJID = trimmed.components(separatedBy: "@").first ?? trimmed
+        
+        let dbPath = whatsAppSharedURL.appendingPathComponent("ChatStorage.sqlite").path
+        guard FileManager.default.fileExists(atPath: dbPath) else { return nil }
+        
+        var db: OpaquePointer?
+        let uri = "file:\(dbPath)?mode=ro"
+        guard sqlite3_open_v2(uri, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_URI | SQLITE_OPEN_NOMUTEX, nil) == SQLITE_OK else {
+            return nil
+        }
+        defer { sqlite3_close(db) }
+        
+        let query = "SELECT ZPATH FROM ZWAPROFILEPICTUREITEM WHERE ZJID LIKE '%' || ? || '%' AND ZPATH IS NOT NULL ORDER BY Z_PK DESC LIMIT 1;"
+        var stmt: OpaquePointer?
+        if sqlite3_prepare_v2(db, query, -1, &stmt, nil) == SQLITE_OK {
+            sqlite3_bind_text(stmt, 1, (cleanJID as NSString).utf8String, -1, nil)
+            if sqlite3_step(stmt) == SQLITE_ROW {
+                if let text = sqlite3_column_text(stmt, 0) {
+                    let relPath = String(cString: text)
+                    sqlite3_finalize(stmt)
+                    
+                    let fullJpg = whatsAppSharedURL.appendingPathComponent("\(relPath).jpg").path
+                    if FileManager.default.fileExists(atPath: fullJpg), let img = NSImage(contentsOfFile: fullJpg) {
+                        return img
+                    }
+                    let fullThumb = whatsAppSharedURL.appendingPathComponent("\(relPath).thumb").path
+                    if FileManager.default.fileExists(atPath: fullThumb), let img = NSImage(contentsOfFile: fullThumb) {
+                        return img
+                    }
+                    return nil
+                }
+            }
+            sqlite3_finalize(stmt)
+        }
+        return nil
+    }
+    
     private func pollNewNotifications() {
         guard isRunning, let path = dbPath else { return }
         
@@ -142,8 +292,13 @@ public class NotificationListenerService {
                 continue
             }
             
+            // Deduplicate if already triggered via WhatsApp direct WAL listener
+            if lowerApp.contains("whatsapp") && body == self.lastDeliveredText && Date().timeIntervalSince(self.lastDeliveredTime) < 3.0 {
+                continue
+            }
+            
             let chatApp: ChatApp = {
-                if lowerApp.contains("whatsapp") { return .whatsapp }
+                if lowerApp.contains("whatsapp") || title.lowercased().contains("whatsapp") { return .whatsapp }
                 if lowerApp.contains("telegram") { return .telegram }
                 if lowerApp.contains("mobilesms") || lowerApp.contains("ichat") { return .imessage }
                 if lowerApp.contains("discord") { return .discord }
@@ -168,6 +323,7 @@ public class NotificationListenerService {
                     message: body,
                     app: chatApp,
                     avatar: appIcon,
+                    isCustomAvatar: false,
                     customBundleIdentifier: appId
                 )
             }
