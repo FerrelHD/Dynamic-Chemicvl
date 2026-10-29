@@ -509,10 +509,19 @@ public class DynamicIslandPanel: NSPanel {
                     self?.expandedExitTimer?.invalidate()
                     self?.expandedExitTimer = nil
                 } else if self?.hasEnteredExpanded == true {
-                    // Cursor previously entered and now exited expanded notch: trigger 0.15s micro-buffer auto-collapse
+                    // Do NOT auto-collapse if mouse is currently pressed/dragged (e.g. user is dragging a file out of the shelf)
+                    if NSEvent.pressedMouseButtons != 0 {
+                        self?.expandedExitTimer?.invalidate()
+                        self?.expandedExitTimer = nil
+                        return
+                    }
+                    
+                    // Cursor previously entered and now exited expanded notch: trigger 0.20s micro-buffer auto-collapse
                     if self?.expandedExitTimer == nil {
-                        self?.expandedExitTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: false) { [weak self] _ in
+                        self?.expandedExitTimer = Timer.scheduledTimer(withTimeInterval: 0.20, repeats: false) { [weak self] _ in
                             self?.expandedExitTimer = nil
+                            // Double-check: never collapse while mouse button is held
+                            if NSEvent.pressedMouseButtons != 0 { return }
                             let currentLoc = NSEvent.mouseLocation
                             let stillInsideX = abs(currentLoc.x - midX) <= (dims.width / 2.0 + 8.0)
                             let stillInsideY = (currentLoc.y >= topY - dims.height - 8.0) && (currentLoc.y <= topY + 2.0)

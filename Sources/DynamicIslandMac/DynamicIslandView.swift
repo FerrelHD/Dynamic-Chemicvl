@@ -952,8 +952,9 @@ public struct DynamicIslandView: View {
     }
     
     // MARK: - 2. Expanded View (Apple Minimal Card with Swipe & Pinned Page Dots)
+    @ViewBuilder
     private var expandedContent: some View {
-        ZStack(alignment: .bottom) {
+        let content = ZStack(alignment: .bottom) {
             // Tab Contents (Spacious Content-first presentation)
             Group {
                 if state.isShowingSettings {
@@ -990,16 +991,22 @@ public struct DynamicIslandView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle())
-        .gesture(
-            DragGesture(minimumDistance: 25)
-                .onEnded { value in
-                    if value.translation.width < -35 {
-                        state.nextTab()
-                    } else if value.translation.width > 35 {
-                        state.previousTab()
-                    }
-                }
-        )
+        
+        if state.isShowingSettings || state.activeTab == .shelf {
+            content
+        } else {
+            content
+                .gesture(
+                    DragGesture(minimumDistance: 25)
+                        .onEnded { value in
+                            if value.translation.width < -35 {
+                                state.nextTab()
+                            } else if value.translation.width > 35 {
+                                state.previousTab()
+                            }
+                        }
+                )
+        }
     }
     
     // MARK: - Apple-Style Minimal Page Dots Indicator
@@ -2161,7 +2168,11 @@ public struct DynamicIslandView: View {
         }
         .frame(width: 54)
         .contentShape(Rectangle())
-        .onDrag { NSItemProvider(contentsOf: url)! }
+        .onDrag {
+            let provider = NSItemProvider(object: url as NSURL)
+            provider.suggestedName = url.lastPathComponent
+            return provider
+        }
     }
     
     private var clipboardEmptyView: some View {
