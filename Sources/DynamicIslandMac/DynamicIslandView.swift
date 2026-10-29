@@ -136,6 +136,9 @@ public struct DynamicIslandView: View {
     @ObservedObject var state: IslandState
     @State private var isDropTargeted = false
     @State private var isGenieClearing = false
+    @State private var isClearShelfButtonPulsing = false
+    @State private var isGenieClearingClipboard = false
+    @State private var isClearClipboardButtonPulsing = false
     @State private var isScrubbingAudio = false
     @State private var localScrubProgress: Double = 0.0
     
@@ -1592,15 +1595,23 @@ public struct DynamicIslandView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
                         ForEach(Array(state.shelfFiles.enumerated()), id: \.element) { idx, url in
+                            let targetX = max(40, 310 - CGFloat(idx * 64))
                             shelfFileCard(url: url, index: idx)
-                                .scaleEffect(isGenieClearing ? 0.02 : 1.0, anchor: .bottomTrailing)
-                                .rotationEffect(.degrees(isGenieClearing ? Double((idx % 2 == 0 ? 1 : -1) * (6 + idx * 2)) : 0))
+                                .scaleEffect(
+                                    x: isGenieClearing ? 0.05 : 1.0,
+                                    y: isGenieClearing ? 0.02 : 1.0,
+                                    anchor: .bottomTrailing
+                                )
+                                .rotationEffect(.degrees(isGenieClearing ? Double(10 - (idx % 3) * 6) : 0))
                                 .offset(
-                                    x: isGenieClearing ? 140 : 0,
-                                    y: isGenieClearing ? 35 : 0
+                                    x: isGenieClearing ? targetX : 0,
+                                    y: isGenieClearing ? 52 : 0
                                 )
                                 .opacity(isGenieClearing ? 0.0 : 1.0)
-                                .animation(.easeInOut(duration: 0.30), value: isGenieClearing)
+                                .animation(
+                                    .easeInOut(duration: 0.32).delay(Double(idx) * 0.035),
+                                    value: isGenieClearing
+                                )
                         }
                     }
                     .padding(.horizontal, 2)
@@ -1621,6 +1632,7 @@ public struct DynamicIslandView: View {
                                 .font(.system(size: 9.5, weight: .bold, design: .rounded))
                         }
                         .foregroundColor(.red)
+                        .scaleEffect(isClearShelfButtonPulsing ? 1.15 : 1.0)
                     }
                     .buttonStyle(.plain)
                 }
@@ -1634,12 +1646,22 @@ public struct DynamicIslandView: View {
     
     private func triggerGenieClearShelf() {
         guard !isGenieClearing, !state.shelfFiles.isEmpty else { return }
-        withAnimation(.easeInOut(duration: 0.30)) {
+        
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.65)) {
+            isClearShelfButtonPulsing = true
+        }
+        
+        withAnimation(.easeInOut(duration: 0.32)) {
             isGenieClearing = true
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.30) {
+        
+        let totalDelay = 0.32 + Double(min(state.shelfFiles.count, 6)) * 0.035
+        DispatchQueue.main.asyncAfter(deadline: .now() + totalDelay) {
             state.clearShelf()
             isGenieClearing = false
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.70)) {
+                isClearShelfButtonPulsing = false
+            }
         }
     }
     
@@ -1777,6 +1799,20 @@ public struct DynamicIslandView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                             }
                             .buttonStyle(.plain)
+                            .scaleEffect(
+                                x: isGenieClearingClipboard ? 0.05 : 1.0,
+                                y: isGenieClearingClipboard ? 0.02 : 1.0,
+                                anchor: .bottomTrailing
+                            )
+                            .offset(
+                                x: isGenieClearingClipboard ? 160 : 0,
+                                y: isGenieClearingClipboard ? 45 : 0
+                            )
+                            .opacity(isGenieClearingClipboard ? 0.0 : 1.0)
+                            .animation(
+                                .easeInOut(duration: 0.26).delay(Double(min(idx, 6)) * 0.025),
+                                value: isGenieClearingClipboard
+                            )
                         }
                     }
                 }
@@ -1787,13 +1823,39 @@ public struct DynamicIslandView: View {
                         .font(.system(size: 9.5, weight: .medium, design: .rounded))
                         .foregroundColor(.white.opacity(0.60))
                     Spacer()
-                    Button(action: { state.clearClipboard() }) {
-                        Text("Clear All")
-                            .font(.system(size: 9.5, weight: .bold, design: .rounded))
-                            .foregroundColor(.red.opacity(0.85))
+                    Button(action: { triggerGenieClearClipboard() }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "trash")
+                                .font(.system(size: 9, weight: .bold))
+                            Text("Clear All")
+                                .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                        }
+                        .foregroundColor(.red)
+                        .scaleEffect(isClearClipboardButtonPulsing ? 1.15 : 1.0)
                     }
                     .buttonStyle(.plain)
                 }
+            }
+        }
+    }
+    
+    private func triggerGenieClearClipboard() {
+        guard !isGenieClearingClipboard, !state.clipboardHistory.isEmpty else { return }
+        
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.65)) {
+            isClearClipboardButtonPulsing = true
+        }
+        
+        withAnimation(.easeInOut(duration: 0.28)) {
+            isGenieClearingClipboard = true
+        }
+        
+        let totalDelay = 0.28 + Double(min(state.clipboardHistory.count, 6)) * 0.025
+        DispatchQueue.main.asyncAfter(deadline: .now() + totalDelay) {
+            state.clearClipboard()
+            isGenieClearingClipboard = false
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.70)) {
+                isClearClipboardButtonPulsing = false
             }
         }
     }
