@@ -930,20 +930,29 @@ public class IslandState: ObservableObject {
     }
     
     public func toggleTodo(id: UUID) {
-        if let idx = todos.firstIndex(where: { $0.id == id }) {
-            todos[idx].isDone.toggle()
-            saveTodos()
+        withAnimation(.spring(response: 0.22, dampingFraction: 0.75)) {
+            if let idx = todos.firstIndex(where: { $0.id == id }) {
+                todos[idx].isDone.toggle()
+                saveTodos()
+            }
         }
+        triggerHaptic(.alignment)
     }
     
     public func deleteTodo(id: UUID) {
-        todos.removeAll { $0.id == id }
-        saveTodos()
+        withAnimation(.spring(response: 0.22, dampingFraction: 0.75)) {
+            todos.removeAll { $0.id == id }
+            saveTodos()
+        }
+        triggerHaptic(.alignment)
     }
     
     public func clearCompletedTodos() {
-        todos.removeAll { $0.isDone }
-        saveTodos()
+        withAnimation(.spring(response: 0.22, dampingFraction: 0.75)) {
+            todos.removeAll { $0.isDone }
+            saveTodos()
+        }
+        triggerHaptic(.alignment)
     }
     
     private func saveTodos() {

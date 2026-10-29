@@ -1816,8 +1816,10 @@ public struct DynamicIslandView: View {
                         HStack(spacing: 8) {
                             Button(action: { state.toggleTodo(id: todo.id) }) {
                                 Image(systemName: todo.isDone ? "checkmark.circle.fill" : "circle")
-                                    .font(.system(size: 13.5, weight: .bold, design: .rounded))
-                                    .foregroundColor(todo.isDone ? Color.blue : Color.white.opacity(0.45))
+                                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                                    .foregroundColor(todo.isDone ? Color(red: 0.0, green: 0.48, blue: 1.0) : Color.white.opacity(0.45))
+                                    .frame(width: 24, height: 24)
+                                    .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
                             
@@ -1831,13 +1833,15 @@ public struct DynamicIslandView: View {
                             
                             Button(action: { state.deleteTodo(id: todo.id) }) {
                                 Image(systemName: "trash")
-                                    .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                                    .font(.system(size: 11, weight: .medium, design: .rounded))
                                     .foregroundColor(.white.opacity(0.40))
+                                    .frame(width: 24, height: 24)
+                                    .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
                         }
                         .padding(.horizontal, 9)
-                        .padding(.vertical, 4.5)
+                        .padding(.vertical, 3)
                         .background(Color.white.opacity(0.07))
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
