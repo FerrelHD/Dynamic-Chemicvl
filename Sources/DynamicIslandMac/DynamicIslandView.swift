@@ -946,11 +946,13 @@ public struct DynamicIslandView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .padding(.horizontal, 32) // Standardized 32pt horizontal margin for generous breathing room across all tabs
             .padding(.top, (state.activeTab == .music && state.isLyricsEnabled) ? 22 : 14)
-            .padding(.bottom, 36) // Generous clearance ensuring tab content never touches the dots
+            .padding(.bottom, state.isShowingSettings ? 16 : 36)
             
-            // Minimal Apple-Style Page Dots & Settings (••• ⚙️) Pinned Permanently at Bottom
-            pageDotsBar
-                .padding(.bottom, 18) // Exact anchor from Control tab across all tabs
+            // Minimal Apple-Style Page Dots & Settings (••• ⚙️) Pinned Permanently at Bottom (hidden in Settings view)
+            if !state.isShowingSettings {
+                pageDotsBar
+                    .padding(.bottom, 18) // Exact anchor from Control tab across all tabs
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle())
@@ -2258,11 +2260,12 @@ public struct DynamicIslandView: View {
     
     // MARK: - Tab 6: Settings & Customization
     private var settingsTabView: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 9) {
             settingsHeaderView
             systemAndPermissionsSection
             animationPhysicsSection
             dismissBehaviorSection
+            settingsFooterView
         }
         .padding(.vertical, 2)
     }
@@ -2524,24 +2527,6 @@ public struct DynamicIslandView: View {
                     .foregroundColor(.white.opacity(0.50))
                 
                 Spacer()
-                
-                // Quit NotchFlow Action
-                Button(action: {
-                    NSApp.terminate(nil)
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "power")
-                            .font(.system(size: 9.5, weight: .bold))
-                        Text("Quit App")
-                            .font(.system(size: 9.5, weight: .bold, design: .rounded))
-                    }
-                    .foregroundColor(Color(red: 1.0, green: 0.40, blue: 0.40))
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(Color(red: 1.0, green: 0.2, blue: 0.2).opacity(0.14))
-                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                }
-                .buttonStyle(.plain)
             }
             
             HStack(spacing: 8) {
@@ -2549,6 +2534,51 @@ public struct DynamicIslandView: View {
                 dismissModeCard(mode: .clickOnly, title: "Click Only", subtitle: "Stay open until clicked", icon: "cursorarrow.click.2")
             }
         }
+    }
+    
+    private var settingsFooterView: some View {
+        HStack {
+            // Quit NotchFlow Action
+            Button(action: {
+                NSApp.terminate(nil)
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "power")
+                        .font(.system(size: 9.5, weight: .bold))
+                    Text("Quit NotchFlow")
+                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                }
+                .foregroundColor(Color(red: 1.0, green: 0.40, blue: 0.40))
+                .padding(.horizontal, 9)
+                .padding(.vertical, 4.5)
+                .background(Color(red: 1.0, green: 0.2, blue: 0.2).opacity(0.14))
+                .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            
+            Spacer()
+            
+            // Close / Done Settings Button
+            Button(action: {
+                withAnimation(state.activeSpringAnimation) {
+                    state.isShowingSettings = false
+                }
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 9, weight: .bold))
+                    Text("Done")
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                }
+                .foregroundColor(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 4.5)
+                .background(Color.white.opacity(0.12))
+                .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.top, 4)
     }
     
     private func dismissModeCard(mode: DismissMode, title: String, subtitle: String, icon: String) -> some View {
