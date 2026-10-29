@@ -312,7 +312,7 @@ public struct DynamicIslandView: View {
             
             Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .animation(state.animationStyle.springAnimation, value: state.isIslandVisible)
         .animation(state.animationStyle.springAnimation, value: state.activeTab)
         .animation(state.animationStyle.springAnimation, value: state.isLyricsEnabled)
@@ -951,11 +951,10 @@ public struct DynamicIslandView: View {
         .frame(maxWidth: .infinity, alignment: .top)
     }
     
-    // MARK: - 2. Expanded View (Apple Minimal Card with Swipe & Pinned Page Dots)
-    @ViewBuilder
+    // MARK: - 2. Expanded View (Apple Minimal Card with Uniform Tab Crossfade & Pinned Page Dots)
     private var expandedContent: some View {
-        let content = ZStack(alignment: .bottom) {
-            // Tab Contents (Spacious Content-first presentation)
+        ZStack(alignment: .top) {
+            // Tab Contents (Spacious Content-first presentation, pinned securely to top)
             Group {
                 if state.isShowingSettings {
                     settingsTabView
@@ -986,27 +985,12 @@ public struct DynamicIslandView: View {
             // Minimal Apple-Style Page Dots & Settings (••• ⚙️) Pinned Permanently at Bottom (hidden in Settings view)
             if !state.isShowingSettings {
                 pageDotsBar
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                     .padding(.bottom, 18) // Exact anchor from Control tab across all tabs
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .contentShape(Rectangle())
-        
-        if state.isShowingSettings || state.activeTab == .shelf {
-            content
-        } else {
-            content
-                .gesture(
-                    DragGesture(minimumDistance: 25)
-                        .onEnded { value in
-                            if value.translation.width < -35 {
-                                state.nextTab()
-                            } else if value.translation.width > 35 {
-                                state.previousTab()
-                            }
-                        }
-                )
-        }
     }
     
     // MARK: - Apple-Style Minimal Page Dots Indicator
@@ -1418,7 +1402,7 @@ public struct DynamicIslandView: View {
             
             Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
     
     // MARK: - Apple Music Lyrics Split View (Left: Compact Controls | Right: Synchronized Lyrics)
