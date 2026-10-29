@@ -48,8 +48,9 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         }
         
         // Check if inside the curved notch path (including concave ear fillets)
-        let earRadius: CGFloat = (state.activeChatNotification != nil || state.activeCallNotification != nil || state.activeAirDropNotification != nil) ? 13 : ((state.mode == .expanded) ? 15 : ((state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD) ? 11 : 9))
-        let bottomRadius: CGFloat = (state.activeChatNotification != nil || state.activeCallNotification != nil || state.activeAirDropNotification != nil) ? 22 : ((state.mode == .expanded) ? 24 : ((state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD) ? 14 : 14))
+        let isTallNotification = state.isTallNotificationActive
+        let earRadius: CGFloat = isTallNotification ? 13 : ((state.mode == .expanded) ? 15 : ((state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD) ? 11 : 9))
+        let bottomRadius: CGFloat = isTallNotification ? 22 : ((state.mode == .expanded) ? 24 : ((state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD) ? 14 : 14))
         
         let pointInNotch = CGPoint(x: localPoint.x - notchX, y: localPoint.y - notchY)
         let localNotchRect = CGRect(origin: .zero, size: CGSize(width: dims.width, height: dims.height))
@@ -270,10 +271,12 @@ public class DynamicIslandPanel: NSPanel {
             return
         }
         
+        self.orderFrontRegardless()
+        
         if state.mode == .expanded {
             expandWindowImmediately()
         } else {
-            let isTallNotification = (state.activeChatNotification != nil || state.activeCallNotification != nil || state.activeAirDropNotification != nil)
+            let isTallNotification = state.isTallNotificationActive
             
             if isTallNotification {
                 collapseWorkItem?.cancel()

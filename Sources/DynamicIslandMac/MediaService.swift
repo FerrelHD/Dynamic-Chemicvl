@@ -350,6 +350,10 @@ public class MediaService {
         let script = """
         tell application "Google Chrome"
             if not (exists windows) then return ""
+            try
+                set u to URL of active tab of front window
+                if u contains "music.youtube.com/watch" or u contains "youtube.com/watch" then return u
+            end try
             repeat with w in windows
                 repeat with t in tabs of w
                     set u to URL of t
@@ -411,7 +415,9 @@ public class MediaService {
         completion: @escaping (Data?) -> Void
     ) {
         guard index < candidates.count else {
-            DispatchQueue.main.async { completion(nil) }
+            // Ponytail: iTunes search exhausted with 0 matches (non-official upload/cover/remix).
+            // Fallback to YouTube thumbnail search using cleanTitle and cleanArt.
+            searchYouTubeThumbnailFallback(cleanTitle: cleanTitle, cleanArt: cleanArt, cacheKey: cacheKey, completion: completion)
             return
         }
         
@@ -487,6 +493,80 @@ public class MediaService {
                     self?.searchVerifiedArtwork(candidates: candidates, index: index + 1, cleanTitle: cleanTitle, cleanArt: cleanArt, cacheKey: cacheKey, completion: completion)
                 }
             }.resume()
+        }.resume()
+    }
+    
+    // MARK: - Ponytail Fallback: Non-Official YouTube Music Thumbnail Search (Zero API Key)
+    private func searchYouTubeThumbnailFallback(
+        cleanTitle: String,
+        cleanArt: String,
+        cacheKey: String,
+        completion: @escaping (Data?) -> Void
+    ) {
+        // 1. Priority: If browser has an active YouTube watch tab, use it directly
+        if let ytVideoId = MediaService.extractActiveYouTubeVideoId() {
+            let ytCacheKey = "yt_\(ytVideoId)"
+            if let cachedYt = onlineArtworkCache[ytCacheKey] {
+                completion(cachedYt)
+                return
+            }
+            fetchYouTubeThumbnail(videoId: ytVideoId) { [weak self] ytData in
+                if let ytData = ytData, !ytData.isEmpty {
+                    self?.onlineArtworkCache[ytCacheKey] = ytData
+                    self?.onlineArtworkCache[cacheKey] = ytData
+                    completion(ytData)
+                    return
+                } else {
+                    self?.queryYouTubeSearchForThumbnail(cleanTitle: cleanTitle, cleanArt: cleanArt, cacheKey: cacheKey, completion: completion)
+                }
+            }
+            return
+        }
+        
+        // 2. Query YouTube search HTML directly for top matching videoId
+        queryYouTubeSearchForThumbnail(cleanTitle: cleanTitle, cleanArt: cleanArt, cacheKey: cacheKey, completion: completion)
+    }
+    
+    private func queryYouTubeSearchForThumbnail(
+        cleanTitle: String,
+        cleanArt: String,
+        cacheKey: String,
+        completion: @escaping (Data?) -> Void
+    ) {
+        let hasArtist = !cleanArt.isEmpty && cleanArt != "System Audio" && cleanArt.lowercased() != "youtube" && cleanArt.lowercased() != "google chrome"
+        let queryText = hasArtist ? "\(cleanArt) \(cleanTitle)" : cleanTitle
+        guard let encoded = queryText.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: "https://www.youtube.com/results?search_query=\(encoded)") else {
+            DispatchQueue.main.async { completion(nil) }
+            return
+        }
+        
+        var req = URLRequest(url: url)
+        req.timeoutInterval = 3.5
+        req.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", forHTTPHeaderField: "User-Agent")
+        
+        URLSession.shared.dataTask(with: req) { [weak self] data, _, _ in
+            guard let self = self, let data = data, let html = String(data: data, encoding: .utf8) else {
+                DispatchQueue.main.async { completion(nil) }
+                return
+            }
+            
+            // Regex match the first videoId in YouTube search results
+            if let regex = try? NSRegularExpression(pattern: "\"videoId\"\\s*:\\s*\"([a-zA-Z0-9_-]{11})\""),
+               let match = regex.firstMatch(in: html, options: [], range: NSRange(html.startIndex..., in: html)),
+               let r = Range(match.range(at: 1), in: html) {
+                let videoId = String(html[r])
+                self.fetchYouTubeThumbnail(videoId: videoId) { ytData in
+                    if let ytData = ytData, !ytData.isEmpty {
+                        self.onlineArtworkCache[cacheKey] = ytData
+                        completion(ytData)
+                    } else {
+                        completion(nil)
+                    }
+                }
+            } else {
+                DispatchQueue.main.async { completion(nil) }
+            }
         }.resume()
     }
 }

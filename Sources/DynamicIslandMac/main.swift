@@ -46,6 +46,43 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             suspensionBehavior: .deliverImmediately
         )
         
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleTestAcceptCall(_:)),
+            name: NSNotification.Name("com.ferrel.NotchFlow.testAcceptCall"),
+            object: nil,
+            suspensionBehavior: .deliverImmediately
+        )
+        
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleTestEndCall(_:)),
+            name: NSNotification.Name("com.ferrel.NotchFlow.testEndCall"),
+            object: nil,
+            suspensionBehavior: .deliverImmediately
+        )
+        
+        // Fast file-based test trigger for automated headless verification (/tmp/notchflow_trigger)
+        let triggerTimer = Timer(timeInterval: 0.2, repeats: true) { _ in
+            let path = "/tmp/notchflow_trigger"
+            if FileManager.default.fileExists(atPath: path),
+               let cmd = try? String(contentsOfFile: path, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines) {
+                try? FileManager.default.removeItem(atPath: path)
+                NSLog("[NotchFlow] 🎯 Received file trigger: %@", cmd)
+                if cmd == "call" {
+                    let avatar = NSImage(systemSymbolName: "phone.circle.fill", accessibilityDescription: nil)
+                    IslandState.shared.triggerCallNotification(callerName: "Sarah Jenkins", subtitle: "WhatsApp Audio...", avatar: avatar)
+                } else if cmd == "accept" {
+                    IslandState.shared.acceptCall()
+                } else if cmd == "end" {
+                    IslandState.shared.endCall()
+                } else if cmd == "toggle" {
+                    IslandState.shared.toggleExpand()
+                }
+            }
+        }
+        RunLoop.main.add(triggerTimer, forMode: .common)
+        
         print("🏝️ Native Dynamic Island Active (iOS Design & Full English)")
     }
     
@@ -184,8 +221,25 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func handleTestCallNotification(_ notif: Notification) {
         let caller = notif.userInfo?["caller"] as? String ?? "Sarah Jenkins"
         let subtitle = notif.userInfo?["subtitle"] as? String ?? "WhatsApp Audio..."
+        NSLog("[NotchFlow] 📞 handleTestCallNotification called with caller: %@, subtitle: %@", caller, subtitle)
         let avatar = NSImage(systemSymbolName: "phone.circle.fill", accessibilityDescription: nil)
-        IslandState.shared.triggerCallNotification(callerName: caller, subtitle: subtitle, avatar: avatar)
+        DispatchQueue.main.async {
+            IslandState.shared.triggerCallNotification(callerName: caller, subtitle: subtitle, avatar: avatar)
+        }
+    }
+    
+    @objc private func handleTestAcceptCall(_ notif: Notification) {
+        NSLog("[NotchFlow] 🟢 handleTestAcceptCall called")
+        DispatchQueue.main.async {
+            IslandState.shared.acceptCall()
+        }
+    }
+    
+    @objc private func handleTestEndCall(_ notif: Notification) {
+        NSLog("[NotchFlow] 🔴 handleTestEndCall called")
+        DispatchQueue.main.async {
+            IslandState.shared.endCall()
+        }
     }
     
     @objc private func testChatAction() {

@@ -160,6 +160,10 @@ public struct DynamicIslandView: View {
         state.currentDimensions.height
     }
     
+    private var isTallBanner: Bool {
+        state.isTallNotificationActive
+    }
+    
     private var bottomRadius: CGFloat {
         if state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD {
             return 16
@@ -167,7 +171,7 @@ public struct DynamicIslandView: View {
         if state.isShowingCapsLockHUD {
             return 14
         }
-        if state.activeChatNotification != nil || state.activeCallNotification != nil || state.activeAirDropNotification != nil {
+        if isTallBanner {
             return 22 // Curvature matching reference notification banners
         }
         switch state.mode {
@@ -179,7 +183,7 @@ public struct DynamicIslandView: View {
     }
     
     private var earRadius: CGFloat {
-        if state.activeChatNotification != nil || state.activeCallNotification != nil || state.activeAirDropNotification != nil {
+        if isTallBanner {
             return 13
         }
         if state.mode == .expanded {
@@ -277,8 +281,13 @@ public struct DynamicIslandView: View {
                         chatNotificationContent(chat: chat)
                             .transition(.opacity)
                     } else if let call = state.activeCallNotification {
-                        callNotificationContent(call: call)
-                            .transition(.opacity)
+                        if state.mode == .compact, case .active(let dur) = call.state {
+                            compactCallContent(call: call, duration: dur)
+                                .transition(.opacity)
+                        } else {
+                            callNotificationContent(call: call)
+                                .transition(.opacity)
+                        }
                     } else if let airdrop = state.activeAirDropNotification, case .completed = airdrop.phase {
                         airDropCompleteContent(airdrop: airdrop)
                             .transition(.opacity)
@@ -672,6 +681,28 @@ public struct DynamicIslandView: View {
         .buttonStyle(.plain)
     }
     
+    // MARK: - Compact Active Call Pill (Pure Apple Dynamic Island)
+    private func compactCallContent(call: CallNotification, duration: Int) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "phone.fill")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundColor(Color(red: 0.20, green: 0.85, blue: 0.40))
+            
+            Spacer(minLength: 0)
+            
+            HStack(spacing: 7) {
+                Text(state.formatCallDuration(duration))
+                    .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundColor(.white)
+                
+                waveformView(height: 10)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        .padding(.horizontal, 14)
+    }
+    
     // MARK: - Incoming & Active Call Notification Content
     private func callNotificationContent(call: CallNotification) -> some View {
         HStack(spacing: 12) {
@@ -695,10 +726,29 @@ public struct DynamicIslandView: View {
             
             // 2. Subtitle & Caller Name
             VStack(alignment: .leading, spacing: 1.5) {
-                Text(call.subtitle)
-                    .font(.system(size: 10.5, weight: .medium, design: .rounded))
-                    .foregroundColor(.white.opacity(0.60))
-                    .lineLimit(1)
+                switch call.state {
+                case .incoming:
+                    Text(call.subtitle)
+                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                        .foregroundColor(.white.opacity(0.60))
+                        .lineLimit(1)
+                case .active(let dur):
+                    HStack(spacing: 4.5) {
+                        Text(state.formatCallDuration(dur))
+                            .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundColor(Color(red: 0.20, green: 0.85, blue: 0.40))
+                        
+                        Text("•")
+                            .font(.system(size: 9.5, weight: .bold))
+                            .foregroundColor(.white.opacity(0.35))
+                        
+                        Text(call.callType)
+                            .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.60))
+                            .lineLimit(1)
+                    }
+                }
                 
                 Text(call.callerName)
                     .font(.system(size: 13.5, weight: .bold, design: .rounded))
@@ -739,8 +789,8 @@ public struct DynamicIslandView: View {
                     .buttonStyle(.plain)
                 }
             case .active:
-                HStack(spacing: 10) {
-                    waveformView(height: 12)
+                HStack(spacing: 12) {
+                    waveformView(height: 14)
                     
                     // End Call (Red)
                     Button(action: { state.endCall() }) {
@@ -760,6 +810,12 @@ public struct DynamicIslandView: View {
         .padding(.horizontal, 22)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .offset(y: 2)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if case .active = call.state {
+                state.minimize()
+            }
+        }
     }
     
     // MARK: - AirDrop Complete Notification Card
@@ -889,19 +945,6 @@ public struct DynamicIslandView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 .padding(.horizontal, 14)
-            } else if let call = state.activeCallNotification, case .active(let dur) = call.state {
-                HStack(spacing: 6) {
-                    Image(systemName: "phone.fill")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(Color(red: 0.20, green: 0.85, blue: 0.40))
-                    
-                    Text(state.formatCallDuration(dur))
-                        .font(.system(size: 12.5, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundColor(.white)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                .padding(.horizontal, 12)
             } else if state.isTimerRunning {
                 HStack(spacing: 5.5) {
                     Image(systemName: "timer")

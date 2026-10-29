@@ -130,12 +130,20 @@ public struct CallNotification: Identifiable, Equatable {
     public let id = UUID()
     public let callerName: String
     public let subtitle: String
+    public let callType: String
     public var state: CallState
     public let avatarImage: NSImage?
     
-    public init(callerName: String, subtitle: String = "from iPhone", state: CallState = .incoming, avatarImage: NSImage? = nil) {
+    public init(
+        callerName: String,
+        subtitle: String = "from iPhone",
+        callType: String = "WhatsApp Audio",
+        state: CallState = .incoming,
+        avatarImage: NSImage? = nil
+    ) {
         self.callerName = callerName
         self.subtitle = subtitle
+        self.callType = callType
         self.state = state
         self.avatarImage = avatarImage
     }
@@ -280,6 +288,17 @@ public class IslandState: ObservableObject {
         return true
     }
     
+    public var isTallNotificationActive: Bool {
+        if activeChatNotification != nil { return true }
+        if let call = activeCallNotification {
+            return mode == .expanded || call.state == .incoming
+        }
+        if let airdrop = activeAirDropNotification, case .completed = airdrop.phase {
+            return true
+        }
+        return false
+    }
+    
     // MARK: - Dynamic Adaptive Dimensions for Physical NSWindow Frame
     public var currentDimensions: (width: CGFloat, height: CGFloat) {
         if !isIslandVisible {
@@ -294,7 +313,7 @@ public class IslandState: ObservableObject {
                 return (width: 396, height: 74)
             case .active:
                 if mode == .compact {
-                    return (width: 175, height: 30)
+                    return (width: 180, height: 30)
                 }
                 return (width: 396, height: 74)
             }
@@ -326,7 +345,7 @@ public class IslandState: ObservableObject {
             return (width: 228, height: 32)
         }
         if let call = activeCallNotification, case .active = call.state {
-            return (width: 175, height: 30)
+            return (width: 180, height: 30)
         }
         if isTimerRunning {
             return (width: 170, height: 30)
@@ -1300,14 +1319,22 @@ public class IslandState: ObservableObject {
     // Physical Multi-Band Equalizer State (7 Bands: Sub-Bass, Bass, Low-Mid, Mid, Upper-Mid, Presence, Brilliance)
     private var currentBandEnergies: [Double] = Array(repeating: 0.20, count: 7)
 
+    public var isCallActive: Bool {
+        if let call = activeCallNotification, case .active = call.state {
+            return true
+        }
+        return false
+    }
+
     // MARK: - On-Demand Physical Multi-Band Equalizer (Attack-Decay Inertia, Zero CPU Idle when Paused)
-    private func updateWaveformTimer() {
-        if isPlaying {
+    public func updateWaveformTimer() {
+        let shouldAnimate = isPlaying || isCallActive
+        if shouldAnimate {
             if waveformCancellable == nil {
                 waveformCancellable = Timer.publish(every: 0.05, on: .main, in: .common)
                     .autoconnect()
                     .sink { [weak self] _ in
-                        guard let self = self, self.isPlaying else { return }
+                        guard let self = self, (self.isPlaying || self.isCallActive) else { return }
                         let t = Date().timeIntervalSinceReferenceDate
                         
                         // Tempo beat clock (~124 BPM typical tempo = ~2.07 Hz)
@@ -1487,10 +1514,23 @@ public class IslandState: ObservableObject {
         callTimerCancellable?.cancel()
         callDismissWorkItem?.cancel()
         
+        let lower = subtitle.lowercased()
+        let callType: String
+        if lower.contains("whatsapp") {
+            callType = "WhatsApp Audio"
+        } else if lower.contains("facetime") {
+            callType = "FaceTime Audio"
+        } else if lower.contains("iphone") {
+            callType = "iPhone"
+        } else {
+            callType = "Audio Call"
+        }
+        
         withAnimation(animationStyle.springAnimation) {
             self.activeCallNotification = CallNotification(
                 callerName: callerName,
                 subtitle: subtitle,
+                callType: callType,
                 state: .incoming,
                 avatarImage: avatar
             )
@@ -1510,14 +1550,18 @@ public class IslandState: ObservableObject {
         callDismissWorkItem = nil
         callTimerCancellable?.cancel()
         var seconds = 0
+        let type = current.callType
         withAnimation(animationStyle.springAnimation) {
+            self.mode = .compact
             self.activeCallNotification = CallNotification(
                 callerName: current.callerName,
                 subtitle: "00:00",
+                callType: type,
                 state: .active(durationSeconds: 0),
                 avatarImage: current.avatarImage
             )
         }
+        updateWaveformTimer()
         callTimerCancellable = Timer.publish(every: 1.0, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
@@ -1526,6 +1570,7 @@ public class IslandState: ObservableObject {
                 self.activeCallNotification = CallNotification(
                     callerName: notif.callerName,
                     subtitle: self.formatCallDuration(seconds),
+                    callType: notif.callType,
                     state: .active(durationSeconds: seconds),
                     avatarImage: notif.avatarImage
                 )
@@ -1540,6 +1585,7 @@ public class IslandState: ObservableObject {
         withAnimation(animationStyle.springAnimation) {
             self.activeCallNotification = nil
         }
+        updateWaveformTimer()
     }
     
     public func endCall() {
