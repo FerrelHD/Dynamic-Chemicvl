@@ -193,40 +193,40 @@ public struct DynamicIslandView: View {
     private var ambientGlowView: some View {
         let dominant = state.artworkDominantColor ?? Color(red: 0.16, green: 0.10, blue: 0.28)
         return ZStack(alignment: .bottom) {
-            // 1. Point 1: Full-width vertical ambient wash
+            // 1. Point 1: Full-width vertical ambient wash (Top 38% pure jet-black OLED, zero bleed to camera/menubar)
             LinearGradient(
                 stops: [
-                    .init(color: .clear, location: 0.05),
-                    .init(color: dominant.opacity(0.20), location: 0.35),
-                    .init(color: dominant.opacity(0.48), location: 0.65),
-                    .init(color: dominant.opacity(0.75), location: 1.0)
+                    .init(color: .clear, location: 0.38),
+                    .init(color: dominant.opacity(0.18), location: 0.55),
+                    .init(color: dominant.opacity(0.50), location: 0.78),
+                    .init(color: dominant.opacity(0.80), location: 1.0)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
             )
             
-            // 2. Point 2: Bottom-trailing corner radial anchor (KeyNotch lighting)
+            // 2. Point 2: Bottom-trailing corner radial anchor (KeyNotch lighting, confined to bottom corners)
             RadialGradient(
                 colors: [
-                    dominant.opacity(0.88),
-                    dominant.opacity(0.40),
+                    dominant.opacity(0.85),
+                    dominant.opacity(0.38),
                     .clear
                 ],
                 center: .bottomTrailing,
                 startRadius: 15,
-                endRadius: 360
+                endRadius: 185
             )
             
-            // 3. Point 3: Bottom-leading corner radial anchor (KeyNotch lighting)
+            // 3. Point 3: Bottom-leading corner radial anchor (KeyNotch lighting, confined to bottom corners)
             RadialGradient(
                 colors: [
-                    dominant.opacity(0.78),
-                    dominant.opacity(0.35),
+                    dominant.opacity(0.75),
+                    dominant.opacity(0.32),
                     .clear
                 ],
                 center: .bottomLeading,
                 startRadius: 10,
-                endRadius: 280
+                endRadius: 165
             )
         }
         .allowsHitTesting(false)
