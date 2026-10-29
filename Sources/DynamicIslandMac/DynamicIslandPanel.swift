@@ -232,7 +232,7 @@ public class DynamicIslandPanel: NSPanel {
         collapseWorkItem = nil
         let screenRect = screen.frame
         let targetW: CGFloat = DynamicIslandPanel.stableCanvasWidth
-        let targetH: CGFloat = max(IslandState.shared.currentDimensions.height + 10.0, 345.0)
+        let targetH: CGFloat = max(IslandState.shared.currentDimensions.height + 10.0, 365.0)
         let targetX = floor(screenRect.minX + ((screenRect.width - targetW) / 2.0))
         let targetY = screenRect.maxY - targetH
         let targetFrame = NSRect(x: targetX, y: targetY, width: targetW, height: targetH)

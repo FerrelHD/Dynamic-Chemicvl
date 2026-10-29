@@ -206,7 +206,7 @@ public struct DynamicIslandView: View {
                     )
                 
                 // MARK: - Dynamic Ambient Artwork Glow (Music Tab Bottom Gradient)
-                if state.isIslandVisible && state.mode == .expanded && state.activeTab == .music {
+                if state.isIslandVisible && state.mode == .expanded && state.activeTab == .music && !state.isShowingSettings {
                     let dominant = state.artworkDominantColor ?? Color(red: 0.16, green: 0.10, blue: 0.28)
                     ZStack(alignment: .bottom) {
                         // 1. Point 1: Full-width vertical ambient wash
@@ -2298,6 +2298,8 @@ public struct DynamicIslandView: View {
             animationPhysicsSection
             dismissBehaviorSection
             settingsFooterView
+                .padding(.top, 4)
+                .padding(.bottom, 6)
         }
         .padding(.vertical, 2)
     }

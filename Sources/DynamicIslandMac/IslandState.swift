@@ -333,7 +333,7 @@ public class IslandState: ObservableObject {
     
     public var expandedDimensions: (width: CGFloat, height: CGFloat) {
         if isShowingSettings {
-            return (width: 448, height: 335) // Spacious settings pane with dedicated footer
+            return (width: 448, height: 352) // Spacious settings pane with dedicated footer
         }
         if activeTab == .music && isLyricsEnabled {
             return (width: 720, height: 216) // Spacious Responsive Split View for Apple Music Lyrics
