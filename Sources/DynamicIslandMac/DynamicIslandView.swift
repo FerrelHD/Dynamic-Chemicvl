@@ -2292,158 +2292,177 @@ public struct DynamicIslandView: View {
         }
     }
     
-    // MARK: - Tab 6: Settings & Customization
+    // MARK: - Tab 6: Settings & Customization (Apple macOS Grouped Inset Style)
     private var settingsTabView: some View {
-        VStack(spacing: 9) {
+        VStack(spacing: 8) {
             settingsHeaderView
             systemAndPermissionsSection
             animationPhysicsSection
             dismissBehaviorSection
             settingsFooterView
-                .padding(.top, 4)
+                .padding(.top, 2)
                 .padding(.bottom, 6)
         }
         .padding(.vertical, 2)
     }
     
+    private func appleIconBadge(icon: String, bg: Color) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 5.5, style: .continuous)
+                .fill(bg)
+                .frame(width: 20, height: 20)
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(.white)
+        }
+    }
+    
+    private func appleToggleSwitch(isOn: Bool) -> some View {
+        ZStack {
+            Capsule()
+                .fill(isOn ? Color(red: 0.20, green: 0.85, blue: 0.40) : Color.white.opacity(0.18))
+                .frame(width: 30, height: 18)
+            Circle()
+                .fill(Color.white)
+                .frame(width: 14, height: 14)
+                .shadow(color: Color.black.opacity(0.20), radius: 1.5, x: 0, y: 1)
+                .offset(x: isOn ? 6 : -6)
+        }
+        .animation(.spring(response: 0.22, dampingFraction: 0.72), value: isOn)
+    }
+    
     private var systemAndPermissionsSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text("SYSTEM & PERMISSIONS")
-                    .font(.system(size: 9.5, weight: .bold, design: .rounded))
-                    .foregroundColor(.white.opacity(0.50))
-                
-                Spacer()
-                
-                // Full Disk Access Status Pill / Action
-                if state.hasNotificationAccess {
-                    HStack(spacing: 3.5) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 8.5, weight: .bold))
-                            .foregroundColor(Color(red: 0.20, green: 0.85, blue: 0.40))
-                        Text("Notifications Active")
-                            .font(.system(size: 9, weight: .bold, design: .rounded))
-                            .foregroundColor(Color(red: 0.20, green: 0.85, blue: 0.40))
-                    }
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 2.5)
-                    .background(Color(red: 0.20, green: 0.85, blue: 0.40).opacity(0.14))
-                    .clipShape(Capsule())
-                } else {
-                    Button(action: {
-                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") {
-                            NSWorkspace.shared.open(url)
-                        }
-                    }) {
-                        HStack(spacing: 3.5) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .font(.system(size: 8.5, weight: .bold))
-                            Text("Grant Access ↗")
-                                .font(.system(size: 9, weight: .bold, design: .rounded))
-                        }
-                        .foregroundColor(Color.orange)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 2.5)
-                        .background(Color.orange.opacity(0.18))
-                        .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
+        VStack(alignment: .leading, spacing: 4) {
+            Text("SYSTEM & PERMISSIONS")
+                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .foregroundColor(.white.opacity(0.45))
+                .padding(.leading, 4)
             
-            HStack(spacing: 8) {
-                // Launch at Login Switch Card
+            VStack(spacing: 0) {
+                // Row 1: Launch at Login
                 Button(action: {
                     state.toggleLaunchAtLogin()
                     state.triggerHaptic(.generic)
                 }) {
-                    HStack(spacing: 7) {
-                        Image(systemName: state.isLaunchAtLoginEnabled ? "sparkles" : "power")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(state.isLaunchAtLoginEnabled ? Color(red: 0.0, green: 0.48, blue: 1.0) : .white.opacity(0.50))
-                            .frame(width: 14)
+                    HStack(spacing: 9) {
+                        appleIconBadge(icon: "desktopcomputer", bg: Color(red: 0.0, green: 0.48, blue: 1.0))
                         
                         VStack(alignment: .leading, spacing: 1) {
                             Text("Launch at Login")
-                                .font(.system(size: 10.5, weight: state.isLaunchAtLoginEnabled ? .bold : .medium, design: .rounded))
+                                .font(.system(size: 11, weight: .medium, design: .rounded))
                                 .foregroundColor(.white)
-                            Text(state.isLaunchAtLoginEnabled ? "Enabled" : "Manual Start")
+                            Text("Start automatically on system boot")
                                 .font(.system(size: 8.5, weight: .regular, design: .rounded))
-                                .foregroundColor(state.isLaunchAtLoginEnabled ? Color.white.opacity(0.75) : .white.opacity(0.40))
+                                .foregroundColor(.white.opacity(0.48))
                         }
                         
                         Spacer(minLength: 0)
                         
-                        ZStack {
-                            Capsule()
-                                .fill(state.isLaunchAtLoginEnabled ? Color(red: 0.0, green: 0.48, blue: 1.0) : Color.white.opacity(0.15))
-                                .frame(width: 28, height: 16)
-                            Circle()
-                                .fill(Color.white)
-                                .frame(width: 12, height: 12)
-                                .offset(x: state.isLaunchAtLoginEnabled ? 6 : -6)
-                        }
+                        appleToggleSwitch(isOn: state.isLaunchAtLoginEnabled)
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 5)
-                    .frame(maxWidth: .infinity)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(state.isLaunchAtLoginEnabled ? Color(red: 0.0, green: 0.48, blue: 1.0).opacity(0.15) : Color.white.opacity(0.06))
-                    )
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5.5)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 
-                // Trackpad Haptics Switch Card
+                Divider()
+                    .background(Color.white.opacity(0.08))
+                    .padding(.leading, 38)
+                
+                // Row 2: Trackpad Haptic
                 Button(action: {
                     state.setHapticEnabled(!state.isHapticEnabled)
                     state.triggerHaptic(.alignment)
                 }) {
-                    HStack(spacing: 7) {
-                        Image(systemName: state.isHapticEnabled ? "hand.tap.fill" : "hand.tap")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(state.isHapticEnabled ? Color.pink : .white.opacity(0.50))
-                            .frame(width: 14)
+                    HStack(spacing: 9) {
+                        appleIconBadge(icon: "hand.tap.fill", bg: Color.orange)
                         
                         VStack(alignment: .leading, spacing: 1) {
                             Text("Trackpad Haptic")
-                                .font(.system(size: 10.5, weight: state.isHapticEnabled ? .bold : .medium, design: .rounded))
+                                .font(.system(size: 11, weight: .medium, design: .rounded))
                                 .foregroundColor(.white)
-                            Text(state.isHapticEnabled ? "Taptic Feedback" : "Muted")
+                            Text("Taptic feedback on dials and interactions")
                                 .font(.system(size: 8.5, weight: .regular, design: .rounded))
-                                .foregroundColor(state.isHapticEnabled ? Color.white.opacity(0.75) : .white.opacity(0.40))
+                                .foregroundColor(.white.opacity(0.48))
                         }
                         
                         Spacer(minLength: 0)
                         
-                        ZStack {
-                            Capsule()
-                                .fill(state.isHapticEnabled ? Color.pink : Color.white.opacity(0.15))
-                                .frame(width: 28, height: 16)
-                            Circle()
-                                .fill(Color.white)
-                                .frame(width: 12, height: 12)
-                                .offset(x: state.isHapticEnabled ? 6 : -6)
-                        }
+                        appleToggleSwitch(isOn: state.isHapticEnabled)
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 5)
-                    .frame(maxWidth: .infinity)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(state.isHapticEnabled ? Color.pink.opacity(0.15) : Color.white.opacity(0.06))
-                    )
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5.5)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                
+                Divider()
+                    .background(Color.white.opacity(0.08))
+                    .padding(.leading, 38)
+                
+                // Row 3: Notifications
+                HStack(spacing: 9) {
+                    appleIconBadge(icon: "bell.badge.fill", bg: Color(red: 0.20, green: 0.85, blue: 0.40))
+                    
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Notifications Listener")
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundColor(.white)
+                        Text("Active for System & WhatsApp HUD alerts")
+                            .font(.system(size: 8.5, weight: .regular, design: .rounded))
+                            .foregroundColor(.white.opacity(0.48))
+                    }
+                    
+                    Spacer(minLength: 0)
+                    
+                    if state.hasNotificationAccess {
+                        HStack(spacing: 3) {
+                            Circle()
+                                .fill(Color(red: 0.20, green: 0.85, blue: 0.40))
+                                .frame(width: 5.5, height: 5.5)
+                            Text("Active")
+                                .font(.system(size: 9.5, weight: .semibold, design: .rounded))
+                                .foregroundColor(Color(red: 0.20, green: 0.85, blue: 0.40))
+                        }
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2.5)
+                        .background(Color(red: 0.20, green: 0.85, blue: 0.40).opacity(0.12))
+                        .clipShape(Capsule())
+                    } else {
+                        Button(action: {
+                            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }) {
+                            Text("Grant Access ↗")
+                                .font(.system(size: 9, weight: .semibold, design: .rounded))
+                                .foregroundColor(.orange)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2.5)
+                                .background(Color.orange.opacity(0.15))
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 9)
+                .padding(.vertical, 5.5)
             }
+            .background(Color.white.opacity(0.06))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
+            )
         }
     }
     
     private var settingsHeaderView: some View {
         HStack {
-            HStack(spacing: 5) {
+            HStack(spacing: 6) {
                 Image(systemName: "gearshape.fill")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(.system(size: 12.5, weight: .semibold))
                     .foregroundColor(.white.opacity(0.85))
                 Text("Settings & Customization")
                     .font(.system(size: 13, weight: .bold, design: .rounded))
@@ -2455,19 +2474,22 @@ public struct DynamicIslandView: View {
                 .foregroundColor(.white.opacity(0.40))
         }
         .padding(.top, 2)
+        .padding(.horizontal, 4)
     }
     
     private var animationPhysicsSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 4) {
             HStack {
                 Text("ANIMATION PHYSICS")
-                    .font(.system(size: 9.5, weight: .bold, design: .rounded))
-                    .foregroundColor(.white.opacity(0.50))
+                    .font(.system(size: 9, weight: .bold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.45))
+                    .padding(.leading, 4)
                 
                 Spacer()
                 
                 Button(action: {
                     state.resetAnimationDefaults()
+                    state.triggerHaptic(.alignment)
                 }) {
                     Text("Reset Defaults")
                         .font(.system(size: 9, weight: .semibold, design: .rounded))
@@ -2476,100 +2498,158 @@ public struct DynamicIslandView: View {
                 .buttonStyle(.plain)
             }
             
-            HStack(spacing: 6) {
-                ForEach(AnimationStyle.allCases) { style in
-                    let isSelected = state.animationStyle == style
-                    Button(action: {
-                        state.setAnimationStyle(style)
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: style == .bouncy ? "sparkles" : (style == .smooth ? "waveform.path" : "bolt.fill"))
-                                .font(.system(size: 10, weight: .bold))
-                            Text(style.rawValue)
-                                .font(.system(size: 11, weight: isSelected ? .bold : .medium, design: .rounded))
+            VStack(spacing: 0) {
+                // Segmented Style Picker
+                HStack(spacing: 3) {
+                    ForEach(AnimationStyle.allCases) { style in
+                        let isSelected = state.animationStyle == style
+                        Button(action: {
+                            state.setAnimationStyle(style)
+                            state.triggerHaptic(.alignment)
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: style == .bouncy ? "sparkles" : (style == .smooth ? "waveform.path" : "bolt.fill"))
+                                    .font(.system(size: 9.5, weight: .bold))
+                                Text(style.rawValue)
+                                    .font(.system(size: 10.5, weight: isSelected ? .semibold : .medium, design: .rounded))
+                            }
+                            .foregroundColor(isSelected ? .white : .white.opacity(0.65))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 4.5)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .fill(isSelected ? Color.white.opacity(0.18) : Color.clear)
+                            )
                         }
-                        .foregroundColor(isSelected ? .white : .white.opacity(0.65))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 5)
-                        .background(
-                            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .fill(isSelected ? Color(red: 0.0, green: 0.48, blue: 1.0) : Color.white.opacity(0.08))
-                        )
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
-            }
-            
-            // Numerical Physics Sliders
-            VStack(spacing: 5) {
-                HStack(spacing: 8) {
-                    Text("Bounciness")
-                        .font(.system(size: 10, weight: .medium, design: .rounded))
-                        .foregroundColor(.white.opacity(0.75))
-                        .frame(width: 65, alignment: .leading)
-                    
-                    Slider(
-                        value: Binding(
-                            get: { state.customBounciness },
-                            set: { state.setCustomBounciness($0) }
-                        ),
-                        in: 0.45...1.00,
-                        step: 0.01
-                    )
-                    .accentColor(Color.pink)
-                    
-                    Text(String(format: "%.2f", state.customBounciness))
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundColor(.white)
-                        .frame(width: 32, alignment: .trailing)
-                }
+                .padding(2.5)
+                .background(Color.black.opacity(0.25))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .padding(.horizontal, 9)
+                .padding(.top, 6)
+                .padding(.bottom, 5)
                 
-                HStack(spacing: 8) {
-                    Text("Duration")
-                        .font(.system(size: 10, weight: .medium, design: .rounded))
-                        .foregroundColor(.white.opacity(0.75))
-                        .frame(width: 65, alignment: .leading)
+                Divider()
+                    .background(Color.white.opacity(0.08))
+                    .padding(.horizontal, 9)
+                
+                // Sliders
+                VStack(spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text("Bounciness")
+                            .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.70))
+                            .frame(width: 66, alignment: .leading)
+                        
+                        Slider(
+                            value: Binding(
+                                get: { state.customBounciness },
+                                set: { state.setCustomBounciness($0) }
+                            ),
+                            in: 0.45...1.00,
+                            step: 0.01
+                        )
+                        .accentColor(Color(red: 0.0, green: 0.48, blue: 1.0))
+                        
+                        Text(String(format: "%.2f", state.customBounciness))
+                            .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundColor(.white)
+                            .frame(width: 32, alignment: .trailing)
+                    }
                     
-                    Slider(
-                        value: Binding(
-                            get: { state.customDuration },
-                            set: { state.setCustomDuration($0) }
-                        ),
-                        in: 0.20...0.55,
-                        step: 0.01
-                    )
-                    .accentColor(Color.blue)
-                    
-                    Text(String(format: "%.2fs", state.customDuration))
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundColor(.white)
-                        .frame(width: 32, alignment: .trailing)
+                    HStack(spacing: 8) {
+                        Text("Duration")
+                            .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.70))
+                            .frame(width: 66, alignment: .leading)
+                        
+                        Slider(
+                            value: Binding(
+                                get: { state.customDuration },
+                                set: { state.setCustomDuration($0) }
+                            ),
+                            in: 0.20...0.55,
+                            step: 0.01
+                        )
+                        .accentColor(Color(red: 0.0, green: 0.48, blue: 1.0))
+                        
+                        Text(String(format: "%.2fs", state.customDuration))
+                            .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundColor(.white)
+                            .frame(width: 32, alignment: .trailing)
+                    }
                 }
+                .padding(.horizontal, 9)
+                .padding(.vertical, 5)
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .background(Color.white.opacity(0.05))
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .background(Color.white.opacity(0.06))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
+            )
         }
     }
     
     private var dismissBehaviorSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text("DISMISS BEHAVIOR")
-                    .font(.system(size: 9.5, weight: .bold, design: .rounded))
-                    .foregroundColor(.white.opacity(0.50))
-                
-                Spacer()
-            }
+        VStack(alignment: .leading, spacing: 4) {
+            Text("DISMISS BEHAVIOR")
+                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .foregroundColor(.white.opacity(0.45))
+                .padding(.leading, 4)
             
-            HStack(spacing: 8) {
+            HStack(spacing: 7) {
                 dismissModeCard(mode: .cursorAway, title: "Cursor Away", subtitle: "Auto-close on exit", icon: "cursorarrow.motionlines")
                 dismissModeCard(mode: .clickOnly, title: "Click Only", subtitle: "Stay open until clicked", icon: "cursorarrow.click.2")
             }
         }
+    }
+    
+    private func dismissModeCard(mode: DismissMode, title: String, subtitle: String, icon: String) -> some View {
+        let isSelected = state.dismissMode == mode
+        return Button(action: {
+            state.setDismissMode(mode)
+            state.triggerHaptic(.alignment)
+        }) {
+            HStack(spacing: 7) {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(isSelected ? Color(red: 0.0, green: 0.48, blue: 1.0) : .white.opacity(0.50))
+                
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(.system(size: 10.5, weight: isSelected ? .bold : .medium, design: .rounded))
+                        .foregroundColor(.white)
+                    Text(subtitle)
+                        .font(.system(size: 8.5, weight: .regular, design: .rounded))
+                        .foregroundColor(.white.opacity(0.45))
+                }
+                
+                Spacer(minLength: 0)
+                
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 9.5, weight: .bold))
+                        .foregroundColor(Color(red: 0.0, green: 0.48, blue: 1.0))
+                }
+            }
+            .padding(.horizontal, 9)
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(isSelected ? Color(red: 0.0, green: 0.48, blue: 1.0).opacity(0.12) : Color.white.opacity(0.06))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .stroke(isSelected ? Color(red: 0.0, green: 0.48, blue: 1.0).opacity(0.40) : Color.white.opacity(0.08), lineWidth: 0.6)
+            )
+        }
+        .buttonStyle(.plain)
     }
     
     private var settingsFooterView: some View {
@@ -2580,14 +2660,14 @@ public struct DynamicIslandView: View {
             }) {
                 HStack(spacing: 4) {
                     Image(systemName: "power")
-                        .font(.system(size: 9.5, weight: .bold))
+                        .font(.system(size: 9.5, weight: .semibold))
                     Text("Quit NotchFlow")
-                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
                 }
                 .foregroundColor(Color(red: 1.0, green: 0.40, blue: 0.40))
-                .padding(.horizontal, 9)
+                .padding(.horizontal, 10)
                 .padding(.vertical, 4.5)
-                .background(Color(red: 1.0, green: 0.2, blue: 0.2).opacity(0.14))
+                .background(Color(red: 1.0, green: 0.20, blue: 0.20).opacity(0.10))
                 .clipShape(Capsule())
             }
             .buttonStyle(.plain)
@@ -2602,57 +2682,19 @@ public struct DynamicIslandView: View {
             }) {
                 HStack(spacing: 4) {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.system(size: 9.5, weight: .bold))
                     Text("Done")
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .font(.system(size: 10.5, weight: .semibold, design: .rounded))
                 }
                 .foregroundColor(.white)
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 14)
                 .padding(.vertical, 4.5)
-                .background(Color.white.opacity(0.12))
+                .background(Color.white.opacity(0.14))
                 .clipShape(Capsule())
             }
             .buttonStyle(.plain)
         }
         .padding(.top, 4)
-    }
-    
-    private func dismissModeCard(mode: DismissMode, title: String, subtitle: String, icon: String) -> some View {
-        let isSelected = state.dismissMode == mode
-        return Button(action: {
-            state.setDismissMode(mode)
-        }) {
-            HStack(spacing: 7) {
-                Image(systemName: icon)
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(isSelected ? .white : .white.opacity(0.60))
-                
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(title)
-                        .font(.system(size: 11, weight: isSelected ? .bold : .medium, design: .rounded))
-                        .foregroundColor(isSelected ? .white : .white.opacity(0.85))
-                    Text(subtitle)
-                        .font(.system(size: 8.5, weight: .regular, design: .rounded))
-                        .foregroundColor(isSelected ? .white.opacity(0.75) : .white.opacity(0.45))
-                }
-                
-                Spacer(minLength: 0)
-                
-                if isSelected {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 9.5, weight: .bold))
-                        .foregroundColor(.white)
-                }
-            }
-            .padding(.horizontal, 9)
-            .padding(.vertical, 6)
-            .frame(maxWidth: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(isSelected ? Color(red: 0.0, green: 0.48, blue: 1.0) : Color.white.opacity(0.06))
-            )
-        }
-        .buttonStyle(.plain)
     }
     
     
