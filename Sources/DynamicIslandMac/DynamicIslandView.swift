@@ -373,7 +373,7 @@ public struct DynamicIslandView: View {
                     .frame(width: 38, alignment: .trailing)
             }
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 32)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .offset(y: 2) // optical vertical center alignment inside top-bezel notch
     }
@@ -433,7 +433,7 @@ public struct DynamicIslandView: View {
                 .foregroundColor(.white)
                 .lineLimit(1)
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 32)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .offset(y: 2) // optical vertical center alignment for top-bezel notch
     }
@@ -535,7 +535,7 @@ public struct DynamicIslandView: View {
             
             Spacer()
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 32)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .offset(y: 2)
     }
@@ -619,7 +619,7 @@ public struct DynamicIslandView: View {
             .transition(.opacity)
             .id(state.isShowingSettings ? "settings" : state.activeTab.rawValue)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .padding(.horizontal, 24) // Standardized 24pt horizontal margin matching Devices tab across all tabs
+            .padding(.horizontal, 32) // Standardized 32pt horizontal margin for generous breathing room across all tabs
             .padding(.top, (state.activeTab == .music && state.isLyricsEnabled) ? 22 : 14)
             .padding(.bottom, 36) // Generous clearance ensuring tab content never touches the dots
             
