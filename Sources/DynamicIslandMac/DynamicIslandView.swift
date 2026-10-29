@@ -205,8 +205,7 @@ public struct DynamicIslandView: View {
                     )
                 
                 // MARK: - Dynamic Ambient Artwork Glow (Music Tab Bottom Gradient)
-                if state.isIslandVisible && state.mode == .expanded && state.activeTab == .music,
-                   let dominant = state.artworkDominantColor {
+                if state.isIslandVisible, let dominant = state.artworkDominantColor {
                     ZStack(alignment: .bottom) {
                         LinearGradient(
                             stops: [
@@ -228,7 +227,9 @@ public struct DynamicIslandView: View {
                     }
                     .clipShape(NotchShape(earRadius: earRadius, bottomRadius: bottomRadius))
                     .allowsHitTesting(false)
-                    .transition(.opacity)
+                    .opacity((state.mode == .expanded && state.activeTab == .music) ? 1.0 : 0.0)
+                    .animation(.easeInOut(duration: 0.25), value: state.mode)
+                    .animation(.easeInOut(duration: 0.25), value: state.activeTab)
                     .animation(.easeInOut(duration: 0.35), value: state.artworkDominantColor)
                 }
                 
@@ -564,7 +565,7 @@ public struct DynamicIslandView: View {
     // MARK: - Chat Notification Content (Matching Dynamic Island Reference)
     private func chatNotificationContent(chat: ChatNotification) -> some View {
         Button(action: {
-            openChatApp(chat.app)
+            openChatApp(chat)
             state.dismissChatNotification()
         }) {
             HStack(spacing: 12) {
@@ -815,8 +816,9 @@ public struct DynamicIslandView: View {
         .offset(y: 2)
     }
     
-    private func openChatApp(_ app: ChatApp) {
-        if let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: app.bundleIdentifier) {
+    private func openChatApp(_ chat: ChatNotification) {
+        let bundleId = chat.customBundleIdentifier ?? chat.app.bundleIdentifier
+        if !bundleId.isEmpty, let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleId) {
             NSWorkspace.shared.openApplication(at: appURL, configuration: NSWorkspace.OpenConfiguration())
         }
     }

@@ -24,6 +24,8 @@ public enum ChatApp: String, CaseIterable, Identifiable {
     case imessage = "Messages"
     case discord = "Discord"
     case slack = "Slack"
+    case mail = "Mail"
+    case other = "Notification"
     
     public var id: String { rawValue }
     
@@ -34,6 +36,8 @@ public enum ChatApp: String, CaseIterable, Identifiable {
         case .imessage: return "message.fill"
         case .discord: return "bubble.left.and.bubble.right.fill"
         case .slack: return "number"
+        case .mail: return "envelope.fill"
+        case .other: return "bell.fill"
         }
     }
     
@@ -44,6 +48,8 @@ public enum ChatApp: String, CaseIterable, Identifiable {
         case .imessage: return Color(red: 0.20, green: 0.82, blue: 0.40)
         case .discord: return Color(red: 0.35, green: 0.40, blue: 0.95)
         case .slack: return Color(red: 0.88, green: 0.20, blue: 0.45)
+        case .mail: return Color(red: 0.10, green: 0.50, blue: 0.95)
+        case .other: return Color(red: 0.45, green: 0.45, blue: 0.50)
         }
     }
     
@@ -54,6 +60,8 @@ public enum ChatApp: String, CaseIterable, Identifiable {
         case .imessage: return "com.apple.MobileSMS"
         case .discord: return "com.hnc.Discord"
         case .slack: return "com.tinyspeck.slackmacgap"
+        case .mail: return "com.apple.mail"
+        case .other: return ""
         }
     }
 }
@@ -65,13 +73,22 @@ public struct ChatNotification: Identifiable, Equatable {
     public let app: ChatApp
     public let timestamp: String
     public let avatarImage: NSImage?
+    public let customBundleIdentifier: String?
     
-    public init(sender: String, message: String, app: ChatApp = .whatsapp, timestamp: String = "now", avatarImage: NSImage? = nil) {
+    public init(
+        sender: String,
+        message: String,
+        app: ChatApp = .whatsapp,
+        timestamp: String = "now",
+        avatarImage: NSImage? = nil,
+        customBundleIdentifier: String? = nil
+    ) {
         self.sender = sender
         self.message = message
         self.app = app
         self.timestamp = timestamp
         self.avatarImage = avatarImage
+        self.customBundleIdentifier = customBundleIdentifier
     }
     
     public static func == (lhs: ChatNotification, rhs: ChatNotification) -> Bool {
@@ -375,6 +392,7 @@ public class IslandState: ObservableObject {
     @Published public var trackTitle: String = "No Media Playing"
     @Published public var artistName: String = "Play music or video from any app"
     @Published public var albumName: String = ""
+    @Published public var currentTrackToken: String = ""
     @Published public var isPlaying: Bool = false
     @Published public var playbackProgress: Double = 0.0
     @Published public var currentTime: String = "0:00"
@@ -525,13 +543,21 @@ public class IslandState: ObservableObject {
             self.albumName = info.album
             self.totalDurationSeconds = info.duration
             
+            let token = "\(info.title)_\(info.artist)"
+            self.currentTrackToken = token
+            
             if let artData = info.artworkData, !artData.isEmpty, let img = NSImage(data: artData) {
                 self.artworkImage = img
             } else if trackChanged || self.artworkImage == nil {
+                // Instantly reset old artwork on track change to prevent stale leaks
+                if trackChanged {
+                    self.artworkImage = nil
+                }
                 if !info.title.isEmpty && info.title != "No Media Playing" {
                     MediaService.shared.fetchOnlineArtwork(title: info.title, artist: info.artist, album: info.album) { [weak self] onlineData in
+                        guard let self = self, self.currentTrackToken == token else { return }
                         if let onlineData = onlineData, let img = NSImage(data: onlineData) {
-                            self?.artworkImage = img
+                            self.artworkImage = img
                         }
                     }
                 } else {
@@ -1269,7 +1295,8 @@ public class IslandState: ObservableObject {
         sender: String = "Liam Patterson",
         message: String = "Hey, are we still on for coffee later?\nI might be 10–15 minutes late, traffic looks...",
         app: ChatApp = .whatsapp,
-        avatar: NSImage? = nil
+        avatar: NSImage? = nil,
+        customBundleIdentifier: String? = nil
     ) {
         chatDismissWorkItem?.cancel()
         withAnimation(animationStyle.springAnimation) {
@@ -1278,7 +1305,8 @@ public class IslandState: ObservableObject {
                 message: message,
                 app: app,
                 timestamp: "now",
-                avatarImage: avatar
+                avatarImage: avatar,
+                customBundleIdentifier: customBundleIdentifier
             )
         }
         let work = DispatchWorkItem { [weak self] in
