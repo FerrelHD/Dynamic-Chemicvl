@@ -3,6 +3,7 @@ import Combine
 import SwiftUI
 import AppKit
 import IOBluetooth
+import ServiceManagement
 
 public enum IslandMode: Equatable {
     case compact
@@ -481,6 +482,11 @@ public class IslandState: ObservableObject {
     private let customBouncinessKey = "notchflow_custom_bounciness"
     private let customDurationKey = "notchflow_custom_duration"
     
+    // System Integration & Haptics
+    @Published public var isHapticEnabled: Bool = true
+    @Published public var isLaunchAtLoginEnabled: Bool = false
+    private let hapticStorageKey = "notchflow_haptic_enabled"
+    
     public var activeSpringAnimation: Animation {
         return .spring(response: customDuration, dampingFraction: customBounciness)
     }
@@ -516,6 +522,13 @@ public class IslandState: ObservableObject {
         } else {
             self.isSeamlessMenuBarEnabled = MenuBarTintService.shared.isSeamlessActive
         }
+        
+        if UserDefaults.standard.object(forKey: hapticStorageKey) != nil {
+            self.isHapticEnabled = UserDefaults.standard.bool(forKey: hapticStorageKey)
+        } else {
+            self.isHapticEnabled = true
+        }
+        checkLaunchAtLoginStatus()
         
         self.startAirDropMonitoring()
         
@@ -694,6 +707,7 @@ public class IslandState: ObservableObject {
                 isShowingSettings = false
             }
         }
+        triggerHaptic(.generic)
     }
     
     public func minimize() {
@@ -701,6 +715,7 @@ public class IslandState: ObservableObject {
             self.mode = .compact
             self.isShowingSettings = false
         }
+        triggerHaptic(.generic)
     }
     
     // MARK: - Swift Swipe Navigation (Next & Previous Tab)
@@ -774,6 +789,78 @@ public class IslandState: ObservableObject {
         if !isHoverPeekEnabled {
             isHoverRevealed = true
         }
+    }
+    
+    // MARK: - Native Haptic Feedback Performer
+    public func setHapticEnabled(_ enabled: Bool) {
+        self.isHapticEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: hapticStorageKey)
+    }
+    
+    public func triggerHaptic(_ type: NSHapticFeedbackManager.FeedbackPattern = .generic) {
+        guard isHapticEnabled else { return }
+        NSHapticFeedbackManager.defaultPerformer.perform(type, performanceTime: .now)
+    }
+    
+    // MARK: - Launch at Login (SMAppService on macOS 13+ with macOS 12 LaunchAgent Fallback)
+    public func checkLaunchAtLoginStatus() {
+        if #available(macOS 13.0, *) {
+            self.isLaunchAtLoginEnabled = (SMAppService.mainApp.status == .enabled)
+        } else {
+            let plistPath = ("~/Library/LaunchAgents/com.ferrel.notchflow.plist" as NSString).expandingTildeInPath
+            self.isLaunchAtLoginEnabled = FileManager.default.fileExists(atPath: plistPath)
+        }
+    }
+    
+    public func setLaunchAtLogin(enabled: Bool) {
+        if #available(macOS 13.0, *) {
+            let service = SMAppService.mainApp
+            do {
+                if enabled {
+                    try service.register()
+                } else {
+                    try service.unregister()
+                }
+            } catch {
+                NSLog("[NotchFlow] SMAppService error: %@", error.localizedDescription)
+            }
+            self.isLaunchAtLoginEnabled = (service.status == .enabled)
+        } else {
+            let plistPath = ("~/Library/LaunchAgents/com.ferrel.notchflow.plist" as NSString).expandingTildeInPath
+            let fm = FileManager.default
+            if enabled {
+                let launchAgentsDir = ("~/Library/LaunchAgents" as NSString).expandingTildeInPath
+                try? fm.createDirectory(atPath: launchAgentsDir, withIntermediateDirectories: true)
+                let appPath = Bundle.main.bundlePath
+                let plistContent = """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+                <plist version="1.0">
+                <dict>
+                    <key>Label</key>
+                    <string>com.ferrel.notchflow</string>
+                    <key>ProgramArguments</key>
+                    <array>
+                        <string>/usr/bin/open</string>
+                        <string>-a</string>
+                        <string>\(appPath)</string>
+                    </array>
+                    <key>RunAtLoad</key>
+                    <true/>
+                </dict>
+                </plist>
+                """
+                try? plistContent.write(toFile: plistPath, atomically: true, encoding: .utf8)
+                self.isLaunchAtLoginEnabled = fm.fileExists(atPath: plistPath)
+            } else {
+                try? fm.removeItem(atPath: plistPath)
+                self.isLaunchAtLoginEnabled = false
+            }
+        }
+    }
+    
+    public func toggleLaunchAtLogin() {
+        setLaunchAtLogin(enabled: !isLaunchAtLoginEnabled)
     }
     
     // MARK: - Control Center Actions

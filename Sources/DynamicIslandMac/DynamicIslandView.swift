@@ -338,6 +338,7 @@ public struct DynamicIslandView: View {
         
         group.notify(queue: .main) {
             state.addFiles(loadedUrls)
+            state.triggerHaptic(.alignment)
             if state.mode == .compact {
                 state.onModeChangedToExpanded?()
                 withAnimation(.spring(response: 0.32, dampingFraction: 0.76)) {
