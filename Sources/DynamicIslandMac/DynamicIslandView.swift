@@ -159,7 +159,7 @@ public struct DynamicIslandView: View {
     
     private var bottomRadius: CGFloat {
         if state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD {
-            return 14
+            return 16
         }
         if state.isShowingCapsLockHUD {
             return 14
@@ -436,14 +436,14 @@ public struct DynamicIslandView: View {
             .frame(width: 28, height: 28)
             
             // 2. Middle: Title + Subtitle
-            VStack(alignment: .leading, spacing: 1.5) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 13.5, weight: .bold, design: .rounded))
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
                     .lineLimit(1)
                 
                 Text(subtitle)
-                    .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
                     .foregroundColor(.white.opacity(0.68))
                     .lineLimit(1)
             }
@@ -452,11 +452,12 @@ public struct DynamicIslandView: View {
             
             // 3. Right: Prominent Percentage or Status
             Text(trailingText)
-                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .font(.system(size: 16.5, weight: .semibold, design: .rounded))
                 .foregroundColor(.white)
                 .lineLimit(1)
         }
         .padding(.horizontal, 24)
+        .padding(.vertical, 4)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
     
