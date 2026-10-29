@@ -376,7 +376,7 @@ public class IslandState: ObservableObject {
     @Published public var isShowingBluetoothHUD: Bool = false
     @Published public var bluetoothHUDSubtitle: String = ""
     @Published public var bluetoothDeviceName: String = ""
-    @Published public var bluetoothDeviceIcon: String = "wave.3.forward"
+    @Published public var bluetoothDeviceIcon: String = "antenna.radiowaves.left.and.right"
     @Published public var bluetoothDeviceBattery: Int? = nil
     private var bluetoothHUDWorkItem: DispatchWorkItem?
     
@@ -1042,7 +1042,7 @@ public class IslandState: ObservableObject {
     }
     
     // MARK: - Bluetooth & AirPods Connection HUD Trigger
-    public func triggerBluetoothHUD(connected: Bool, device: String? = nil, icon: String = "wave.3.forward", battery: Int? = nil) {
+    public func triggerBluetoothHUD(connected: Bool, device: String? = nil, icon: String = "antenna.radiowaves.left.and.right", battery: Int? = nil) {
         guard mode != .expanded else { return }
         bluetoothHUDWorkItem?.cancel()
         isBluetoothOn = connected
@@ -1052,7 +1052,7 @@ public class IslandState: ObservableObject {
             bluetoothDeviceBattery = battery
         } else {
             bluetoothDeviceName = ""
-            bluetoothDeviceIcon = "wave.3.forward"
+            bluetoothDeviceIcon = "antenna.radiowaves.left.and.right"
             bluetoothDeviceBattery = nil
         }
         bluetoothHUDSubtitle = connected ? (bluetoothDeviceName.isEmpty ? "Connected" : "Connected • \(bluetoothDeviceName)") : "Disconnected"
@@ -1122,7 +1122,7 @@ public class IslandState: ObservableObject {
             } else if lower.contains("bean") || lower.contains("speaker") || minor == 1 || minor == 16 {
                 icon = "headphones"
             } else {
-                icon = "wave.3.forward"
+                icon = "antenna.radiowaves.left.and.right"
             }
             
             let hidMap = getHIDBatteryLevels()

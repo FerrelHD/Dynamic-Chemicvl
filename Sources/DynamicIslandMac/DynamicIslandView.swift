@@ -529,7 +529,7 @@ public struct DynamicIslandView: View {
         let hasDevice = !state.bluetoothDeviceName.isEmpty
         let isAirPods = state.bluetoothDeviceIcon.contains("airpod") || state.bluetoothDeviceName.lowercased().contains("airpod") || state.bluetoothDeviceName.lowercased().contains("bud")
         let ringColor = isConnected ? (isAirPods ? Color(red: 0.18, green: 0.85, blue: 0.38) : Color(red: 0.20, green: 0.60, blue: 1.0)) : Color(white: 0.35)
-        let icon = isConnected ? (isAirPods ? "airpodspro" : state.bluetoothDeviceIcon) : "bluetooth.slash"
+        let icon = isConnected ? (isAirPods ? "airpodspro" : state.bluetoothDeviceIcon) : "antenna.radiowaves.left.and.right.slash"
         let title = hasDevice ? state.bluetoothDeviceName : "Bluetooth"
         let subtitle = isConnected ? (hasDevice ? "Connected" : "On") : "Disconnected"
         
@@ -1060,7 +1060,7 @@ public struct DynamicIslandView: View {
                 
                 // Bluetooth Tile
                 controlTile(
-                    icon: "dot.radiowaves.left.and.right",
+                    icon: "antenna.radiowaves.left.and.right",
                     title: "Bluetooth",
                     subtitle: state.isBluetoothOn ? "On" : "Off",
                     isActive: state.isBluetoothOn,
