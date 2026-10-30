@@ -199,15 +199,14 @@ public struct SettingsWindowView: View {
             state.triggerHaptic(.generic)
         }) {
             HStack(spacing: 9) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(tab.badgeColor)
-                        .frame(width: 22, height: 22)
-                    
-                    Image(systemName: tab.iconName)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundColor(.white)
-                }
+                Image(systemName: tab.iconName)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(width: 22, height: 22, alignment: .center)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(tab.badgeColor)
+                    )
                 
                 Text(tab.rawValue)
                     .font(.system(size: 13, weight: isSelected ? .semibold : .medium, design: .rounded))
@@ -229,15 +228,14 @@ public struct SettingsWindowView: View {
     // MARK: - Header
     private var contentHeaderView: some View {
         HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(selectedTab.badgeColor)
-                    .frame(width: 32, height: 32)
-                
-                Image(systemName: selectedTab.iconName)
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white)
-            }
+            Image(systemName: selectedTab.iconName)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(.white)
+                .frame(width: 32, height: 32, alignment: .center)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(selectedTab.badgeColor)
+                )
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(selectedTab.rawValue)

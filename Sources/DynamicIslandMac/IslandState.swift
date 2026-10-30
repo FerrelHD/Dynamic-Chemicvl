@@ -38,7 +38,7 @@ public enum ChatApp: String, CaseIterable, Identifiable {
     
     public var iconName: String {
         switch self {
-        case .whatsapp: return "phone.fill"
+        case .whatsapp: return "message.fill"
         case .telegram: return "paperplane.fill"
         case .imessage: return "message.fill"
         case .discord: return "bubble.left.and.bubble.right.fill"

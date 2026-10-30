@@ -412,7 +412,11 @@ public class MediaService {
         
         candidates.append(clean)
         
-        searchVerifiedArtwork(candidates: candidates, index: 0, cleanTitle: clean, cleanArt: cleanArt, album: album, duration: duration, cacheKey: cacheKey, completion: completion)
+        // Tier A: Official Deezer Music Catalog (Ultra-fast, zero auth, covers Spotify & Apple Music catalog)
+        searchDeezerArtwork(cleanTitle: clean, cleanArt: cleanArt, album: album, duration: duration, cacheKey: cacheKey, onMiss: { [weak self] in
+            // Tier B: Fallback to verified strict iTunes search
+            self?.searchVerifiedArtwork(candidates: candidates, index: 0, cleanTitle: clean, cleanArt: cleanArt, album: album, duration: duration, cacheKey: cacheKey, completion: completion)
+        }, completion: completion)
     }
     
     // MARK: - Native YouTube / YouTube Music Video ID Extractor (Multi-Browser Support)
@@ -516,9 +520,9 @@ public class MediaService {
         completion: @escaping (Data?) -> Void
     ) {
         guard index < candidates.count else {
-            // iTunes search exhausted with 0 matches (non-official upload/cover/remix).
-            // Fallback to validated YouTube thumbnail search using cleanTitle and cleanArt.
-            searchYouTubeThumbnailFallback(cleanTitle: cleanTitle, cleanArt: cleanArt, cacheKey: cacheKey, completion: completion)
+            // Both Deezer and iTunes exhausted without verified match: return nil.
+            // Better to show no cover than an embarrassing wrong thumbnail.
+            DispatchQueue.main.async { completion(nil) }
             return
         }
         
@@ -592,101 +596,81 @@ public class MediaService {
         }.resume()
     }
     
-    // MARK: - Ponytail Fallback: Non-Official YouTube Music Thumbnail Search (Zero API Key)
-    private func searchYouTubeThumbnailFallback(
+    // MARK: - Official Deezer Music Catalog Search (Zero API Key, High-Accuracy Covers)
+    private func searchDeezerArtwork(
         cleanTitle: String,
         cleanArt: String,
+        album: String,
+        duration: Double,
         cacheKey: String,
-        completion: @escaping (Data?) -> Void
-    ) {
-        // Tab YouTube yang aktif sudah dicoba di awal fetchOnlineArtwork. Langsung search YouTube HTML.
-        self.queryYouTubeSearchForThumbnail(cleanTitle: cleanTitle, cleanArt: cleanArt, cacheKey: cacheKey, completion: completion)
-    }
-    
-    private func validateYouTubeVideo(
-        _ id: String,
-        expectedTitle: String,
-        completion: @escaping (Bool) -> Void
-    ) {
-        let urlStr = "https://www.youtube.com/oembed?url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3D\(id)&format=json"
-        guard let url = URL(string: urlStr) else { completion(false); return }
-        var req = URLRequest(url: url)
-        req.timeoutInterval = 3
-        URLSession.shared.dataTask(with: req) { data, resp, _ in
-            guard let data = data,
-                  let http = resp as? HTTPURLResponse, http.statusCode == 200,
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let title = json["title"] as? String else { completion(false); return }
-            let want = TitleMatching.core(expectedTitle)
-            completion(!want.isEmpty && TitleMatching.normalize(title).contains(want))
-        }.resume()
-    }
-
-    private func firstValidVideoId(
-        _ ids: [String],
-        index: Int,
-        title: String,
-        completion: @escaping (String?) -> Void
-    ) {
-        guard index < ids.count else { completion(nil); return }
-        self.validateYouTubeVideo(ids[index], expectedTitle: title) { [weak self] ok in
-            guard let self = self else { return }
-            if ok {
-                completion(ids[index])
-            } else {
-                self.firstValidVideoId(ids, index: index + 1, title: title, completion: completion)
-            }
-        }
-    }
-    
-    private func queryYouTubeSearchForThumbnail(
-        cleanTitle: String,
-        cleanArt: String,
-        cacheKey: String,
+        onMiss: @escaping () -> Void,
         completion: @escaping (Data?) -> Void
     ) {
         let hasArtist = !cleanArt.isEmpty && cleanArt != "System Audio" && cleanArt.lowercased() != "youtube" && cleanArt.lowercased() != "google chrome"
-        let queryText = hasArtist ? "\(cleanArt) \(cleanTitle)" : cleanTitle
-        guard let encoded = queryText.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let url = URL(string: "https://www.youtube.com/results?search_query=\(encoded)") else {
-            DispatchQueue.main.async { completion(nil) }
+        let query = hasArtist ? "\(cleanArt) \(cleanTitle)" : cleanTitle
+        guard let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let url = URL(string: "https://api.deezer.com/search?q=\(encoded)&limit=10") else {
+            onMiss()
             return
         }
         
         var req = URLRequest(url: url)
         req.timeoutInterval = 3.5
-        req.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", forHTTPHeaderField: "User-Agent")
         
-        URLSession.shared.dataTask(with: req) { [weak self] data, _, _ in
-            guard let self = self, let data = data, let html = String(data: data, encoding: .utf8) else {
-                DispatchQueue.main.async { completion(nil) }
+        URLSession.shared.dataTask(with: req) { [weak self] data, resp, _ in
+            guard let self = self,
+                  let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let items = json["data"] as? [[String: Any]], !items.isEmpty else {
+                onMiss()
                 return
             }
             
-            var seen = Set<String>()
-            var ids: [String] = []
-            if let regex = try? NSRegularExpression(pattern: #""videoId"\s*:\s*"([A-Za-z0-9_-]{11})""#) {
-                for m in regex.matches(in: html, range: NSRange(html.startIndex..., in: html)) {
-                    if let r = Range(m.range(at: 1), in: html) {
-                        let id = String(html[r])
-                        if seen.insert(id).inserted { ids.append(id) }
-                        if ids.count >= 5 { break }
-                    }
+            let wantTitle = TitleMatching.core(cleanTitle)
+            let wantArtist = TitleMatching.normalize(cleanArt)
+            let isGenericArtist = wantArtist.isEmpty || ["system audio", "youtube", "google chrome", "safari"].contains(wantArtist)
+            
+            var matchedCoverUrl: String?
+            for item in items {
+                let trackName = item["title"] as? String ?? ""
+                guard TitleMatching.core(trackName) == wantTitle else { continue }
+                
+                if !isGenericArtist {
+                    let artistDict = item["artist"] as? [String: Any]
+                    let artistName = artistDict?["name"] as? String ?? ""
+                    guard TitleMatching.artistsMatch(artistName, cleanArt) else { continue }
+                }
+                
+                let trackDur = item["duration"] as? Double ?? 0
+                if duration > 0, trackDur > 0 {
+                    let tolerance: Double = isGenericArtist ? 6 : 15
+                    if abs(trackDur - duration) > tolerance { continue }
+                }
+                
+                let albumDict = item["album"] as? [String: Any]
+                if let coverXl = albumDict?["cover_xl"] as? String, !coverXl.isEmpty {
+                    matchedCoverUrl = coverXl
+                    break
+                } else if let coverBig = albumDict?["cover_big"] as? String, !coverBig.isEmpty {
+                    matchedCoverUrl = coverBig
+                    break
                 }
             }
-            self.firstValidVideoId(ids, index: 0, title: cleanTitle) { [weak self] validId in
+            
+            guard let coverStr = matchedCoverUrl, let coverUrl = URL(string: coverStr) else {
+                onMiss()
+                return
+            }
+            
+            URLSession.shared.dataTask(with: coverUrl) { [weak self] imgData, resp, _ in
                 guard let self = self else { return }
-                guard let validId = validId else { DispatchQueue.main.async { completion(nil) }; return }
-                self.fetchYouTubeThumbnail(videoId: validId) { [weak self] ytData in
-                    guard let self = self else { return }
-                    if let ytData = ytData, !ytData.isEmpty {
-                        self.artStore(cacheKey, ytData)
-                        completion(ytData)
-                    } else {
-                        completion(nil)
-                    }
+                if let http = resp as? HTTPURLResponse, http.statusCode == 200, let imgData = imgData, !imgData.isEmpty {
+                    self.artStore(cacheKey, imgData)
+                    DispatchQueue.main.async { completion(imgData) }
+                } else {
+                    onMiss()
                 }
-            }
+            }.resume()
         }.resume()
     }
 }

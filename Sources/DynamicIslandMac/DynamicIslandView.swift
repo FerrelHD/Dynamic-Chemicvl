@@ -645,8 +645,8 @@ public struct DynamicIslandView: View {
                             )
                     }
                     
-                    // App Badge (WhatsApp, Telegram, etc.) - Only overlay when displaying a real contact photo
-                    if chat.isCustomAvatar {
+                    // App Badge (WhatsApp, Telegram, etc.) - Only overlay when displaying a real contact photo, omitted for WhatsApp chat
+                    if chat.isCustomAvatar && chat.app != .whatsapp {
                         ZStack {
                             Circle()
                                 .fill(chat.app.badgeColor)
