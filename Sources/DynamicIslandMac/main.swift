@@ -122,16 +122,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
     
     @objc private func openSettingsAction() {
-        let state = IslandState.shared
-        state.isHoverRevealed = true
-        state.isShowingSettings = true
-        if state.mode != .expanded {
-            state.onModeChangedToExpanded?()
-            withAnimation(state.activeSpringAnimation) {
-                state.mode = .expanded
-            }
-        }
-        state.triggerHaptic(.generic)
+        SettingsWindowManager.shared.showSettings()
+        IslandState.shared.triggerHaptic(.generic)
     }
     
     @objc private func toggleLaunchAtLoginAction() {

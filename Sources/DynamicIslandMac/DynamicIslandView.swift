@@ -245,7 +245,6 @@ public struct DynamicIslandView: View {
         let isAmbientGlowVisible = state.isIslandVisible 
             && state.mode == .expanded 
             && state.activeTab == .music 
-            && !state.isShowingSettings
             && state.activeCallNotification == nil
             && state.activeChatNotification == nil
             && state.activeAirDropNotification == nil
@@ -337,7 +336,6 @@ public struct DynamicIslandView: View {
         .animation(state.animationStyle.springAnimation, value: state.isIslandVisible)
         .animation(state.animationStyle.springAnimation, value: state.activeTab)
         .animation(state.animationStyle.springAnimation, value: state.isLyricsEnabled)
-        .animation(state.animationStyle.springAnimation, value: state.isShowingSettings)
         .animation(.easeInOut(duration: 0.18), value: state.isPlaying)
         .animation(.easeInOut(duration: 0.20), value: state.isShowingVolumeHUD)
         .animation(.easeInOut(duration: 0.20), value: state.isShowingBatteryHUD)
@@ -1068,7 +1066,7 @@ public struct DynamicIslandView: View {
     private var pageDotsBar: some View {
         HStack(spacing: 6) {
             ForEach(Array(IslandTab.allCases.enumerated()), id: \.element) { index, tab in
-                let isCurrent = (state.activeTab == tab && !state.isShowingSettings)
+                let isCurrent = (state.activeTab == tab)
                 Button(action: {
                     state.switchToTab(tab)
                 }) {

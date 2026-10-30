@@ -371,9 +371,6 @@ public class IslandState: ObservableObject {
     }
     
     public var expandedDimensions: (width: CGFloat, height: CGFloat) {
-        if isShowingSettings {
-            return (width: 448, height: 420) // Spacious settings pane with generous breathing room
-        }
         if activeTab == .music && isLyricsEnabled {
             return (width: 720, height: 216) // Spacious Responsive Split View for Apple Music Lyrics
         }
@@ -1395,7 +1392,7 @@ public class IslandState: ObservableObject {
 
     private var isWaveformVisible: Bool {
         if mode == .compact { return true }
-        return activeTab == .music && !isLyricsEnabled && !isShowingSettings
+        return activeTab == .music && !isLyricsEnabled
     }
 
     // MARK: - On-Demand Physical Multi-Band Equalizer (Attack-Decay Inertia, Zero CPU Idle when Paused)
