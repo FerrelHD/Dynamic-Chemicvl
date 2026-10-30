@@ -146,6 +146,9 @@ public struct DynamicIslandView: View {
     @State private var localScrubProgress: Double = 0.0
     @State private var airPodsSpinAngle: Double = 0.0
     @State private var hoveredTrashId: UUID? = nil
+    @State private var lastUserLyricScroll: Date = Date.distantPast
+    @State private var lyricScrollMonitor: Any? = nil
+    @State private var isHoveringLyrics: Bool = false
     
     public init(state: IslandState = .shared) {
         self.state = state
@@ -1639,37 +1642,56 @@ public struct DynamicIslandView: View {
     }
     
     private var lyricsListScrollView: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 14) {
-                    Color.clear.frame(height: 35)
-                    
-                    ForEach(0..<state.lyricsLines.count, id: \.self) { idx in
-                        lyricRowButton(line: state.lyricsLines[idx], idx: idx)
+        GeometryReader { geo in
+            ScrollViewReader { proxy in
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 14) {
+                        // Dynamic top space agar baris pertama bisa berada di anchor 0.38
+                        Color.clear.frame(height: max(20, geo.size.height * 0.38))
+                        
+                        ForEach(state.lyricsLines.indices, id: \.self) { idx in
+                            lyricRowButton(line: state.lyricsLines[idx], idx: idx, proxy: proxy)
+                        }
+                        
+                        // Dynamic bottom space agar baris terakhir bisa berada di anchor 0.38
+                        Color.clear.frame(height: max(40, geo.size.height * 0.62))
                     }
-                    
-                    Color.clear.frame(height: 55)
+                    .padding(.horizontal, 6)
                 }
-                .padding(.horizontal, 6)
-            }
-            .onAppear {
-                scrollToActiveLyric(proxy: proxy, animated: false)
-            }
-            .onChange(of: state.currentLyricIndex) { newIdx in
-                if let newIdx = newIdx {
+                .onHover { hovering in
+                    isHoveringLyrics = hovering
+                }
+                .onAppear {
+                    scrollToActiveLyric(proxy: proxy, animated: false)
+                    
+                    if let m = lyricScrollMonitor { NSEvent.removeMonitor(m) }
+                    lyricScrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
+                        if isHoveringLyrics {
+                            lastUserLyricScroll = Date()
+                        }
+                        return event
+                    }
+                }
+                .onDisappear {
+                    if let m = lyricScrollMonitor { NSEvent.removeMonitor(m) }
+                    lyricScrollMonitor = nil
+                }
+                .onChange(of: state.currentLyricIndex) { newIdx in
+                    guard let newIdx = newIdx,
+                          Date().timeIntervalSince(lastUserLyricScroll) > 3.0 else { return }
                     withAnimation(.spring(response: 0.55, dampingFraction: 0.82)) {
                         proxy.scrollTo(newIdx, anchor: UnitPoint(x: 0.5, y: 0.38))
                     }
                 }
-            }
-            .onChange(of: state.isLoadingLyrics) { loading in
-                if !loading {
-                    scrollToActiveLyric(proxy: proxy, animated: true)
+                .onChange(of: state.isLoadingLyrics) { loading in
+                    if !loading {
+                        scrollToActiveLyric(proxy: proxy, animated: true)
+                    }
                 }
-            }
-            .onChange(of: state.isLyricsEnabled) { enabled in
-                if enabled {
-                    scrollToActiveLyric(proxy: proxy, animated: true)
+                .onChange(of: state.isLyricsEnabled) { enabled in
+                    if enabled {
+                        scrollToActiveLyric(proxy: proxy, animated: true)
+                    }
                 }
             }
         }
@@ -1688,23 +1710,32 @@ public struct DynamicIslandView: View {
         }
     }
     
-    private func lyricRowButton(line: LyricLine, idx: Int) -> some View {
-        let isCurrent = (state.currentLyricIndex == idx)
+    private func lyricRowButton(line: LyricLine, idx: Int, proxy: ScrollViewProxy) -> some View {
+        let active = state.currentLyricIndex
+        let isCurrent = (active == idx)
+        let distance = active.map { abs($0 - idx) } ?? 4
+        let blur: CGFloat = isCurrent ? 0 : min(CGFloat(distance), 4) * 0.7
         
         return Button(action: {
+            lastUserLyricScroll = .distantPast // Reset manual scroll timer so it jumps immediately
             state.seekTo(line.timestamp)
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
+                proxy.scrollTo(idx, anchor: UnitPoint(x: 0.5, y: 0.38))
+            }
         }) {
             Text(line.text)
-                .font(.system(size: isCurrent ? 15 : 13.5, weight: isCurrent ? .bold : .semibold, design: .rounded))
-                .foregroundColor(isCurrent ? .white : .white.opacity(0.38))
-                .blur(radius: isCurrent ? 0 : 0.35)
-                .scaleEffect(isCurrent ? 1.04 : 0.98, anchor: .leading)
+                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .foregroundColor(.white)
                 .multilineTextAlignment(.leading)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.trailing, 22)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .animation(.spring(response: 0.38, dampingFraction: 0.78), value: isCurrent)
+                .contentShape(Rectangle())
+                .opacity(isCurrent ? 1.0 : 0.38)
+                .blur(radius: blur)
+                .scaleEffect(isCurrent ? 1.0 : 0.92, anchor: .leading)
+                .animation(.spring(response: 0.45, dampingFraction: 0.8), value: isCurrent)
         }
         .buttonStyle(.plain)
         .id(idx)
