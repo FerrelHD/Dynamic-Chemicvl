@@ -1421,10 +1421,26 @@ public struct DynamicIslandView: View {
             // Row 2: Interactive Scrubber Bar with Knob & Realtime Seeking
             scrubberBarView()
             
-            // Row 3: Playback Controls (Perfect Center) + Secondary Actions (Lyrics & AirPlay on Right)
-            ZStack {
-                // Centered Main Playback Controls
-                HStack(spacing: 32) {
+            // Row 3: Symmetrical Playback Controls (Lyrics Left, Playback Center, AirPlay Right)
+            HStack {
+                // Left: Apple Music Synchronized Lyrics Toggle Button
+                Button(action: { state.toggleLyrics() }) {
+                    Image(systemName: "quote.bubble.fill")
+                        .font(.system(size: 14.5, weight: .semibold))
+                        .foregroundColor(state.isLyricsEnabled ? Color(red: 1.0, green: 0.22, blue: 0.38) : Color.white.opacity(0.70))
+                        .padding(5)
+                        .background(
+                            Circle()
+                                .fill(state.isLyricsEnabled ? Color.white.opacity(0.18) : Color.clear)
+                        )
+                }
+                .buttonStyle(.plain)
+                .frame(width: 32, alignment: .leading)
+                
+                Spacer()
+                
+                // Center: Main Playback Controls
+                HStack(spacing: 30) {
                     Button(action: { state.previousTrack() }) {
                         Image(systemName: "backward.fill")
                             .font(.system(size: 18, weight: .bold))
@@ -1447,38 +1463,23 @@ public struct DynamicIslandView: View {
                     .buttonStyle(.plain)
                 }
                 
-                // Right Secondary Actions (Spaced & Not Mepet)
-                HStack {
-                    Spacer()
-                    
-                    HStack(spacing: 14) {
-                        // Apple Music Synchronized Lyrics Toggle Button
-                        Button(action: { state.toggleLyrics() }) {
-                            Image(systemName: "quote.bubble.fill")
-                                .font(.system(size: 14.5, weight: .semibold))
-                                .foregroundColor(state.isLyricsEnabled ? Color(red: 1.0, green: 0.22, blue: 0.38) : Color.white.opacity(0.70))
-                                .padding(4)
-                                .background(
-                                    Circle()
-                                        .fill(state.isLyricsEnabled ? Color.white.opacity(0.18) : Color.clear)
-                                )
-                        }
-                        .buttonStyle(.plain)
-                        
-                        // AirPlay / Audio Output Route
-                        Button(action: {
-                            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.sound") {
-                                NSWorkspace.shared.open(url)
-                            }
-                        }) {
-                            Image(systemName: "airplayaudio")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundColor(.white.opacity(0.75))
-                        }
-                        .buttonStyle(.plain)
+                Spacer()
+                
+                // Right: AirPlay / Audio Output Route
+                Button(action: {
+                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.sound") {
+                        NSWorkspace.shared.open(url)
                     }
+                }) {
+                    Image(systemName: "airplayaudio")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.75))
+                        .padding(5)
                 }
+                .buttonStyle(.plain)
+                .frame(width: 32, alignment: .trailing)
             }
+            .padding(.horizontal, 6)
             .frame(maxWidth: .infinity)
             .padding(.top, 2)
             
