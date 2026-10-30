@@ -366,6 +366,7 @@ public class NotificationListenerService {
             } else {
                 appIcon = chatApp.appIcon
             }
+            appIcon?.size = NSSize(width: 76, height: 76)
             
             NSLog("[NotchFlow] 🔔 NOTIFICATION DETECTED: rec_id=%lld, app=%@, title=%@, body=%@", recId, appId, displaySender, body)
             

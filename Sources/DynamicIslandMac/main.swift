@@ -32,56 +32,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Distributed Notification Center for external test triggers and automation
         DistributedNotificationCenter.default().addObserver(
             self,
-            selector: #selector(handleTestCallNotification(_:)),
-            name: NSNotification.Name("com.ferrel.NotchFlow.testCall"),
-            object: nil,
-            suspensionBehavior: .deliverImmediately
-        )
-        
-        DistributedNotificationCenter.default().addObserver(
-            self,
             selector: #selector(handleTestChatNotification(_:)),
             name: NSNotification.Name("com.ferrel.NotchFlow.testChat"),
             object: nil,
             suspensionBehavior: .deliverImmediately
         )
-        
-        DistributedNotificationCenter.default().addObserver(
-            self,
-            selector: #selector(handleTestAcceptCall(_:)),
-            name: NSNotification.Name("com.ferrel.NotchFlow.testAcceptCall"),
-            object: nil,
-            suspensionBehavior: .deliverImmediately
-        )
-        
-        DistributedNotificationCenter.default().addObserver(
-            self,
-            selector: #selector(handleTestEndCall(_:)),
-            name: NSNotification.Name("com.ferrel.NotchFlow.testEndCall"),
-            object: nil,
-            suspensionBehavior: .deliverImmediately
-        )
-        
-        // Fast file-based test trigger for automated headless verification (/tmp/notchflow_trigger)
-        let triggerTimer = Timer(timeInterval: 0.2, repeats: true) { _ in
-            let path = "/tmp/notchflow_trigger"
-            if FileManager.default.fileExists(atPath: path),
-               let cmd = try? String(contentsOfFile: path, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines) {
-                try? FileManager.default.removeItem(atPath: path)
-                NSLog("[NotchFlow] 🎯 Received file trigger: %@", cmd)
-                if cmd == "call" {
-                    let avatar = NSImage(systemSymbolName: "phone.circle.fill", accessibilityDescription: nil)
-                    IslandState.shared.triggerCallNotification(callerName: "Sarah Jenkins", subtitle: "WhatsApp Audio...", avatar: avatar)
-                } else if cmd == "accept" {
-                    IslandState.shared.acceptCall()
-                } else if cmd == "end" {
-                    IslandState.shared.endCall()
-                } else if cmd == "toggle" {
-                    IslandState.shared.toggleExpand()
-                }
-            }
-        }
-        RunLoop.main.add(triggerTimer, forMode: .common)
         
         print("🏝️ Native Dynamic Island Active (iOS Design & Full English)")
     }
@@ -132,10 +87,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         
         // Test Notifications Submenu
         let testSubmenu = NSMenu()
-        let testCallItem = NSMenuItem(title: "Test WhatsApp Call", action: #selector(testCallAction), keyEquivalent: "")
-        testCallItem.target = self
-        testSubmenu.addItem(testCallItem)
-        
         let testChatItem = NSMenuItem(title: "Test WhatsApp Message", action: #selector(testChatAction), keyEquivalent: "")
         testChatItem.target = self
         testSubmenu.addItem(testChatItem)
@@ -206,39 +157,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             panel.orderOut(nil)
         } else {
             panel.orderFrontRegardless()
-        }
-    }
-    
-    @objc private func testCallAction() {
-        let avatar = NSImage(systemSymbolName: "phone.circle.fill", accessibilityDescription: nil)
-        IslandState.shared.triggerCallNotification(
-            callerName: "Sarah Jenkins",
-            subtitle: "WhatsApp Audio...",
-            avatar: avatar
-        )
-    }
-    
-    @objc private func handleTestCallNotification(_ notif: Notification) {
-        let caller = notif.userInfo?["caller"] as? String ?? "Sarah Jenkins"
-        let subtitle = notif.userInfo?["subtitle"] as? String ?? "WhatsApp Audio..."
-        NSLog("[NotchFlow] 📞 handleTestCallNotification called with caller: %@, subtitle: %@", caller, subtitle)
-        let avatar = NSImage(systemSymbolName: "phone.circle.fill", accessibilityDescription: nil)
-        DispatchQueue.main.async {
-            IslandState.shared.triggerCallNotification(callerName: caller, subtitle: subtitle, avatar: avatar)
-        }
-    }
-    
-    @objc private func handleTestAcceptCall(_ notif: Notification) {
-        NSLog("[NotchFlow] 🟢 handleTestAcceptCall called")
-        DispatchQueue.main.async {
-            IslandState.shared.acceptCall()
-        }
-    }
-    
-    @objc private func handleTestEndCall(_ notif: Notification) {
-        NSLog("[NotchFlow] 🔴 handleTestEndCall called")
-        DispatchQueue.main.async {
-            IslandState.shared.endCall()
         }
     }
     

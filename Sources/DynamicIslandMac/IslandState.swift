@@ -560,7 +560,9 @@ public class IslandState: ObservableObject {
         }
         checkLaunchAtLoginStatus()
         
-        self.startAirDropMonitoring()
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            self?.startAirDropMonitoring()
+        }
         
         DispatchQueue.main.async { [weak self] in
             if let audio = AudioService.shared.getSystemAudioState() {

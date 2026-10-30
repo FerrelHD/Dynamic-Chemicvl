@@ -239,7 +239,14 @@ public struct DynamicIslandView: View {
     }
     
     public var body: some View {
-        let isAmbientGlowVisible = state.isIslandVisible && state.mode == .expanded && state.activeTab == .music && !state.isShowingSettings
+        let isAmbientGlowVisible = state.isIslandVisible 
+            && state.mode == .expanded 
+            && state.activeTab == .music 
+            && !state.isShowingSettings
+            && state.activeCallNotification == nil
+            && state.activeChatNotification == nil
+            && state.activeAirDropNotification == nil
+            && !state.isTallNotificationActive
         
         VStack(spacing: 0) {
             // MARK: - OLED Jet-Black MacBook Notch (Seamless Bezel Integration & Morphing)
@@ -683,24 +690,28 @@ public struct DynamicIslandView: View {
     
     // MARK: - Compact Active Call Pill (Pure Apple Dynamic Island)
     private func compactCallContent(call: CallNotification, duration: Int) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: "phone.fill")
-                .font(.system(size: 11, weight: .bold))
-                .foregroundColor(Color(red: 0.20, green: 0.85, blue: 0.40))
-            
-            Spacer(minLength: 0)
-            
-            HStack(spacing: 7) {
-                Text(state.formatCallDuration(duration))
-                    .font(.system(size: 12.5, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundColor(.white)
+        ZStack {
+            HStack {
+                Image(systemName: "phone.fill")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(Color(red: 0.20, green: 0.85, blue: 0.40))
+                
+                Spacer()
                 
                 waveformView(height: 10)
             }
+            
+            Text(state.formatCallDuration(duration))
+                .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundColor(.white)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 16)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            state.toggleExpand()
+        }
     }
     
     // MARK: - Incoming & Active Call Notification Content
@@ -709,6 +720,7 @@ public struct DynamicIslandView: View {
             // 1. Caller Avatar
             if let avatar = call.avatarImage {
                 Image(nsImage: avatar)
+                    .interpolation(.high)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 38, height: 38)
