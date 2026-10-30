@@ -1537,50 +1537,9 @@ public struct DynamicIslandView: View {
                 // Mini Scrubber Bar
                 scrubberBarView()
                 
-                // Controls Row
-                HStack(spacing: 12) {
-                    Button(action: { state.previousTrack() }) {
-                        Image(systemName: "backward.fill")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(.white)
-                    }
-                    .buttonStyle(BouncyButtonStyle())
-                    
-                    Button(action: { state.togglePlayPause() }) {
-                        Image(systemName: state.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 22, weight: .bold))
-                            .foregroundColor(.white)
-                    }
-                    .buttonStyle(BouncyButtonStyle())
-                    
-                    Button(action: { state.nextTrack() }) {
-                        Image(systemName: "forward.fill")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundColor(.white)
-                    }
-                    .buttonStyle(BouncyButtonStyle())
-                    
-                    Spacer()
-                    
-                    // Lyrics Toggle (Active Pink Pill)
-                    Button(action: { state.toggleLyrics() }) {
-                        HStack(spacing: 5) {
-                            Image(systemName: "quote.bubble.fill")
-                                .font(.system(size: 11.5, weight: .bold))
-                            Text("Lyrics")
-                                .font(.system(size: 10.5, weight: .bold, design: .rounded))
-                                .lineLimit(1)
-                                .fixedSize(horizontal: true, vertical: false)
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 4.5)
-                        .background(Color(red: 1.0, green: 0.22, blue: 0.38))
-                        .clipShape(Capsule())
-                    }
-                    .buttonStyle(BouncyButtonStyle())
-                    
-                    // AirPlay / Audio Output Route
+                // Symmetrical Controls (AirPlay Left, Playback Center, Lyrics Right - Opsi B)
+                HStack {
+                    // Left: AirPlay / Audio Output Route
                     Button(action: {
                         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.sound") {
                             NSWorkspace.shared.open(url)
@@ -1589,9 +1548,55 @@ public struct DynamicIslandView: View {
                         Image(systemName: "airplayaudio")
                             .font(.system(size: 14.5, weight: .semibold))
                             .foregroundColor(.white.opacity(0.75))
+                            .padding(4)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(BouncyButtonStyle())
+                    .frame(width: 28, alignment: .leading)
+                    
+                    Spacer()
+                    
+                    // Center: Playback Controls
+                    HStack(spacing: 20) {
+                        Button(action: { state.previousTrack() }) {
+                            Image(systemName: "backward.fill")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(.white)
+                        }
+                        .buttonStyle(BouncyButtonStyle())
+                        
+                        Button(action: { state.togglePlayPause() }) {
+                            Image(systemName: state.isPlaying ? "pause.fill" : "play.fill")
+                                .font(.system(size: 22, weight: .bold))
+                                .foregroundColor(.white)
+                        }
+                        .buttonStyle(BouncyButtonStyle())
+                        
+                        Button(action: { state.nextTrack() }) {
+                            Image(systemName: "forward.fill")
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundColor(.white)
+                        }
+                        .buttonStyle(BouncyButtonStyle())
+                    }
+                    
+                    Spacer()
+                    
+                    // Right: Apple Music Synchronized Lyrics Toggle Button (Icon-only Opsi B)
+                    Button(action: { state.toggleLyrics() }) {
+                        Image(systemName: "quote.bubble.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Color(red: 1.0, green: 0.22, blue: 0.38))
+                            .padding(4)
+                            .background(
+                                Circle()
+                                    .fill(Color.white.opacity(0.18))
+                            )
+                    }
+                    .buttonStyle(BouncyButtonStyle())
+                    .frame(width: 28, alignment: .trailing)
                 }
+                .padding(.horizontal, 4)
+                .frame(maxWidth: .infinity)
                 
                 Spacer(minLength: 0)
             }
