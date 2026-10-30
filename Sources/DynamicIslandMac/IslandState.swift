@@ -72,19 +72,30 @@ public enum ChatApp: String, CaseIterable, Identifiable {
         }
     }
     
+    private static var iconCache: [ChatApp: NSImage] = [:]
+    
     public var appIcon: NSImage? {
-        if self == .whatsapp {
-            if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "net.whatsapp.WhatsApp") ?? NSWorkspace.shared.urlForApplication(withBundleIdentifier: "net.whatsapp.whatsapp") {
+        if let cached = ChatApp.iconCache[self] {
+            return cached
+        }
+        let icon: NSImage? = {
+            if self == .whatsapp {
+                if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "net.whatsapp.WhatsApp") ?? NSWorkspace.shared.urlForApplication(withBundleIdentifier: "net.whatsapp.whatsapp") {
+                    return NSWorkspace.shared.icon(forFile: url.path)
+                }
+                if FileManager.default.fileExists(atPath: "/Applications/WhatsApp.app") {
+                    return NSWorkspace.shared.icon(forFile: "/Applications/WhatsApp.app")
+                }
+            }
+            if !bundleIdentifier.isEmpty, let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) {
                 return NSWorkspace.shared.icon(forFile: url.path)
             }
-            if FileManager.default.fileExists(atPath: "/Applications/WhatsApp.app") {
-                return NSWorkspace.shared.icon(forFile: "/Applications/WhatsApp.app")
-            }
+            return nil
+        }()
+        if let icon = icon {
+            ChatApp.iconCache[self] = icon
         }
-        if !bundleIdentifier.isEmpty, let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) {
-            return NSWorkspace.shared.icon(forFile: url.path)
-        }
-        return nil
+        return icon
     }
 }
 

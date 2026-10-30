@@ -15,6 +15,7 @@ public class NotificationListenerService {
     private let whatsAppSharedURL = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Library/Group Containers/group.net.whatsapp.WhatsApp.shared")
     private var whatsAppWalSource: DispatchSourceFileSystemObject?
+    private var whatsAppWalDebounceWorkItem: DispatchWorkItem?
     private var lastSeenWhatsAppPK: Int64 = 0
     private var lastDeliveredText: String = ""
     private var lastDeliveredTime: Date = Date.distantPast
@@ -56,6 +57,8 @@ public class NotificationListenerService {
         isRunning = false
         timerSource?.cancel()
         timerSource = nil
+        whatsAppWalDebounceWorkItem?.cancel()
+        whatsAppWalDebounceWorkItem = nil
         whatsAppWalSource?.cancel()
         whatsAppWalSource = nil
     }
@@ -142,7 +145,13 @@ public class NotificationListenerService {
             queue: queue
         )
         src.setEventHandler { [weak self] in
-            self?.checkNewWhatsAppMessages()
+            guard let self = self else { return }
+            self.whatsAppWalDebounceWorkItem?.cancel()
+            let work = DispatchWorkItem { [weak self] in
+                self?.checkNewWhatsAppMessages()
+            }
+            self.whatsAppWalDebounceWorkItem = work
+            self.queue.asyncAfter(deadline: .now() + 0.20, execute: work)
         }
         src.setCancelHandler {
             close(walFD)
