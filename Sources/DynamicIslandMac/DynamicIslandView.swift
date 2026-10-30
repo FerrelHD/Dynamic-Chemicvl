@@ -1373,33 +1373,40 @@ public struct DynamicIslandView: View {
                         Image(nsImage: art)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
-                            .frame(width: 44, height: 44)
-                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .frame(width: 58, height: 58)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     } else {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .fill(LinearGradient(
                                 colors: [Color(red: 0.95, green: 0.25, blue: 0.45), Color(red: 0.48, green: 0.15, blue: 0.85)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             ))
-                            .frame(width: 44, height: 44)
+                            .frame(width: 58, height: 58)
                         
                         Image(systemName: "music.note")
-                            .font(.system(size: 18, weight: .bold, design: .rounded))
+                            .font(.system(size: 22, weight: .bold, design: .rounded))
                             .foregroundColor(.white)
                     }
                 }
-                .frame(width: 44, height: 44)
-                .shadow(color: .black.opacity(0.35), radius: 4, x: 0, y: 2)
+                .frame(width: 58, height: 58)
+                .scaleEffect(state.isPlaying ? 1.0 : 0.88)
+                .shadow(
+                    color: Color.black.opacity(state.isPlaying ? 0.45 : 0.20),
+                    radius: state.isPlaying ? 8 : 3,
+                    x: 0,
+                    y: state.isPlaying ? 4 : 2
+                )
+                .animation(.spring(response: 0.40, dampingFraction: 0.70), value: state.isPlaying)
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(state.trackTitle)
-                        .font(.system(size: 13.5, weight: .bold, design: .rounded))
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                         .lineLimit(1)
                     
                     Text(state.artistName)
-                        .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                        .font(.system(size: 12.5, weight: .medium, design: .rounded))
                         .foregroundColor(.white.opacity(0.68))
                         .lineLimit(1)
                 }
