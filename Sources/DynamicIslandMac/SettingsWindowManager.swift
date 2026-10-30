@@ -2,16 +2,21 @@ import AppKit
 import SwiftUI
 
 // MARK: - Dedicated Settings Window Manager (Single-Instance Retained Controller)
-public class SettingsWindowManager {
+public class SettingsWindowManager: NSObject, NSWindowDelegate {
     public static let shared = SettingsWindowManager()
     
     private var windowController: NSWindowController?
     
-    private init() {}
+    private override init() {
+        super.init()
+    }
     
     public func showSettings() {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
+            
+            // Allow window to receive key focus and frontmost activation
+            NSApp.setActivationPolicy(.regular)
             
             if self.windowController == nil {
                 let window = NSWindow(
@@ -25,6 +30,7 @@ public class SettingsWindowManager {
                 window.titlebarAppearsTransparent = true
                 window.titleVisibility = .hidden
                 window.isReleasedWhenClosed = false
+                window.delegate = self
                 window.minSize = NSSize(width: 740, height: 480)
                 window.backgroundColor = NSColor(red: 0.14, green: 0.15, blue: 0.18, alpha: 1.0)
                 
@@ -36,9 +42,16 @@ public class SettingsWindowManager {
             
             guard let wc = self.windowController, let window = wc.window else { return }
             
+            window.center()
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
         }
     }
+    
+    public func windowWillClose(_ notification: Notification) {
+        // Return to accessory mode when Settings window is dismissed
+        DispatchQueue.main.async {
+            NSApp.setActivationPolicy(.accessory)
+        }
+    }
 }
-
