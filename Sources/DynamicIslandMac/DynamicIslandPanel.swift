@@ -151,7 +151,6 @@ public class DynamicIslandPanel: NSPanel {
     private var screenChangeObserver: Any?
     private var spaceChangeObserver: Any?
     private var appActivateObserver: Any?
-    private var fullScreenPollTimer: Timer?
     
     public init() {
         let screenRect = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1280, height: 800)
@@ -351,6 +350,9 @@ public class DynamicIslandPanel: NSPanel {
             queue: .main
         ) { [weak self] _ in
             self?.checkFullScreenState()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                self?.checkFullScreenState()
+            }
         }
         
         appActivateObserver = center.addObserver(
@@ -361,8 +363,11 @@ public class DynamicIslandPanel: NSPanel {
             self?.checkFullScreenState()
         }
         
-        // Fast-track responsive polling timer (every 0.25s) to catch any active fullscreen window instantly
-        fullScreenPollTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
             self?.checkFullScreenState()
         }
         
