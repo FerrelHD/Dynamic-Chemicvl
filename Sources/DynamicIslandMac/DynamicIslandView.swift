@@ -2886,64 +2886,36 @@ public struct DynamicIslandView: View {
     }
 }
 
-// MARK: - Authentic Spider-Man Mascot Eyes View (Living Notch Mascot)
+// MARK: - Authentic Spider-Man Mascot Eyes View (Vector Living Notch Mascot)
 public struct SpiderMascotEyesView: View {
     @ObservedObject var state: IslandState
     
-    @State private var isBlinking: Bool = false
-    @State private var isWinkingLeft: Bool = false
-    @State private var isSquinting: Bool = false
+    @State private var leftEyelidClose: CGFloat = 0.0
+    @State private var rightEyelidClose: CGFloat = 0.0
+    @State private var squintAmount: CGFloat = 0.0
     @State private var lookOffsetX: CGFloat = 0
     @State private var lookOffsetY: CGFloat = 0
     @State private var lookTilt: Double = 0
     @State private var breathScale: CGFloat = 1.0
     
-    // Living organic action loop (fires every 2.4s to pick probabilistic actions)
-    private let actionTimer = Timer.publish(every: 2.4, on: .main, in: .common).autoconnect()
+    // Living organic action loop (fires every 2.8s to pick probabilistic actions)
+    private let actionTimer = Timer.publish(every: 2.8, on: .main, in: .common).autoconnect()
     
     public init(state: IslandState = .shared) {
         self.state = state
     }
     
     public var body: some View {
-        let leftScaleY: CGFloat = (isBlinking || isWinkingLeft) ? 0.10 : (isSquinting ? 0.68 : 1.0)
-        let rightScaleY: CGFloat = isBlinking ? 0.10 : (isSquinting ? 0.68 : 1.0)
-        let eyeScaleX: CGFloat = isSquinting ? 1.06 : 1.0
-        
-        HStack(spacing: 3.0) {
-            if let leftImg = SpiderEyesAssets.leftImage {
-                Image(nsImage: leftImg)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 13, height: 17)
-                    .scaleEffect(
-                        x: eyeScaleX * breathScale,
-                        y: leftScaleY * breathScale,
-                        anchor: .center
-                    )
-                    .rotationEffect(.degrees(lookTilt))
-            }
+        HStack(spacing: 3.5) {
+            SpiderSingleEyeView(isRightEye: false, eyelidClose: leftEyelidClose, squint: squintAmount)
+                .scaleEffect(breathScale, anchor: .center)
+                .rotationEffect(.degrees(lookTilt))
             
-            if let rightImg = SpiderEyesAssets.rightImage {
-                Image(nsImage: rightImg)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 13, height: 17)
-                    .scaleEffect(
-                        x: eyeScaleX * breathScale,
-                        y: rightScaleY * breathScale,
-                        anchor: .center
-                    )
-                    .rotationEffect(.degrees(lookTilt))
-            }
+            SpiderSingleEyeView(isRightEye: true, eyelidClose: rightEyelidClose, squint: squintAmount)
+                .scaleEffect(breathScale, anchor: .center)
+                .rotationEffect(.degrees(lookTilt))
         }
         .offset(x: lookOffsetX, y: lookOffsetY)
-        .animation(.spring(response: 0.15, dampingFraction: 0.75), value: isBlinking)
-        .animation(.spring(response: 0.18, dampingFraction: 0.75), value: isWinkingLeft)
-        .animation(.spring(response: 0.28, dampingFraction: 0.72), value: isSquinting)
-        .animation(.spring(response: 0.36, dampingFraction: 0.70), value: lookOffsetX)
-        .animation(.spring(response: 0.36, dampingFraction: 0.70), value: lookTilt)
-        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: breathScale)
         .onReceive(actionTimer) { _ in
             triggerOrganicAction()
         }
@@ -2954,7 +2926,7 @@ public struct SpiderMascotEyesView: View {
         
         // Discrete organic breath pulse (zero-CPU idle between ticks)
         withAnimation(.easeInOut(duration: 0.45)) {
-            breathScale = 1.03
+            breathScale = 1.04
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
             withAnimation(.easeInOut(duration: 0.55)) {
@@ -2965,49 +2937,50 @@ public struct SpiderMascotEyesView: View {
         let roll = Int.random(in: 1...100)
         
         if roll <= 35 {
-            // 1. Natural Single Blink (Camera Shutter)
             performBlink()
         } else if roll <= 50 {
-            // 2. Double Blink (Extra Alive & Cute)
             performDoubleBlink()
         } else if roll <= 75 {
-            // 3. Curious Glance (Look towards Clock / Around with Tilt)
             performGlance()
         } else if roll <= 90 {
-            // 4. MCU Spider-Man Shutter Squint (Focus & Thinking)
             performSquint()
         } else {
-            // 5. Playful Wink
             performWink()
         }
     }
     
     private func performBlink() {
-        withAnimation(.easeIn(duration: 0.07)) {
-            isBlinking = true
+        withAnimation(.easeIn(duration: 0.09)) {
+            leftEyelidClose = 0.95
+            rightEyelidClose = 0.95
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) {
-            withAnimation(.spring(response: 0.16, dampingFraction: 0.76)) {
-                isBlinking = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.11) {
+            withAnimation(.spring(response: 0.18, dampingFraction: 0.72)) {
+                self.leftEyelidClose = 0.0
+                self.rightEyelidClose = 0.0
             }
         }
     }
     
     private func performDoubleBlink() {
-        withAnimation(.easeIn(duration: 0.07)) {
-            isBlinking = true
+        withAnimation(.easeIn(duration: 0.08)) {
+            leftEyelidClose = 0.95
+            rightEyelidClose = 0.95
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.09) {
-            withAnimation(.easeOut(duration: 0.06)) {
-                isBlinking = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) {
+            withAnimation(.easeOut(duration: 0.08)) {
+                self.leftEyelidClose = 0.0
+                self.rightEyelidClose = 0.0
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-                withAnimation(.easeIn(duration: 0.07)) {
-                    isBlinking = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.09) {
+                withAnimation(.easeIn(duration: 0.08)) {
+                    self.leftEyelidClose = 0.95
+                    self.rightEyelidClose = 0.95
                 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) {
-                    withAnimation(.spring(response: 0.16, dampingFraction: 0.76)) {
-                        isBlinking = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.11) {
+                    withAnimation(.spring(response: 0.18, dampingFraction: 0.72)) {
+                        self.leftEyelidClose = 0.0
+                        self.rightEyelidClose = 0.0
                     }
                 }
             }
@@ -3016,44 +2989,44 @@ public struct SpiderMascotEyesView: View {
     
     private func performGlance() {
         let targets: [(CGFloat, CGFloat, Double)] = [
-            (2.6, 0.4, 2.2),    // Glance right at digital clock with subtle tilt
-            (-2.6, 0.2, -2.2),  // Glance left
-            (0.0, 1.2, 0.0),    // Glance down towards desktop screen
-            (1.8, -0.6, 1.5)    // Glance upper right
+            (2.4, 0.3, 2.5),
+            (-2.4, 0.2, -2.5),
+            (0.0, 1.2, 0.0),
+            (1.8, -0.6, 1.5)
         ]
         guard let choice = targets.randomElement() else { return }
-        withAnimation(.spring(response: 0.32, dampingFraction: 0.70)) {
+        withAnimation(.spring(response: 0.30, dampingFraction: 0.70)) {
             lookOffsetX = choice.0
             lookOffsetY = choice.1
             lookTilt = choice.2
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-            withAnimation(.spring(response: 0.36, dampingFraction: 0.74)) {
-                lookOffsetX = 0
-                lookOffsetY = 0
-                lookTilt = 0
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                self.lookOffsetX = 0
+                self.lookOffsetY = 0
+                self.lookTilt = 0
             }
         }
     }
     
     private func performSquint() {
         withAnimation(.spring(response: 0.22, dampingFraction: 0.70)) {
-            isSquinting = true
+            squintAmount = 0.65
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.85) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.90) {
             withAnimation(.spring(response: 0.26, dampingFraction: 0.74)) {
-                isSquinting = false
+                self.squintAmount = 0.0
             }
         }
     }
     
     private func performWink() {
-        withAnimation(.easeIn(duration: 0.08)) {
-            isWinkingLeft = true
+        withAnimation(.easeIn(duration: 0.10)) {
+            leftEyelidClose = 0.95
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) {
-            withAnimation(.spring(response: 0.18, dampingFraction: 0.76)) {
-                isWinkingLeft = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            withAnimation(.spring(response: 0.20, dampingFraction: 0.72)) {
+                self.leftEyelidClose = 0.0
             }
         }
     }
