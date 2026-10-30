@@ -35,6 +35,7 @@ public struct MascotView: View {
 
     public var body: some View {
         ZStack {
+            wavingHand
             face
 
             // Symmetrical eyes (supporting independent winking & sleeping)
@@ -48,7 +49,42 @@ public struct MascotView: View {
             )
         }
         .frame(width: size, height: size)
+        .scaleEffect(model.mascotScale)
         .rotationEffect(.degrees(model.tilt))
+    }
+    
+    // Waving Hand Mitten / Paw (Senior Architectural Design: anchor .bottomLeading, 12x15pt at Retina)
+    private var wavingHand: some View {
+        ZStack(alignment: .bottomLeading) {
+            // Palm / arm body
+            Capsule()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 1.0, green: 0.90, blue: 0.38),
+                            Color(red: 0.98, green: 0.72, blue: 0.12)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(width: size * 0.52, height: size * 0.72)
+                .overlay(
+                    Capsule()
+                        .stroke(Color.white.opacity(0.35), lineWidth: 0.6)
+                )
+                // Cute thumb protrusion on the inner-left of the paw
+                .overlay(
+                    Circle()
+                        .fill(Color(red: 1.0, green: 0.86, blue: 0.30))
+                        .frame(width: size * 0.26, height: size * 0.26)
+                        .offset(x: -size * 0.14, y: -size * 0.08),
+                    alignment: .center
+                )
+        }
+        .scaleEffect(model.handScale, anchor: .bottomLeading)
+        .rotationEffect(.degrees(model.handAngle), anchor: .bottomLeading)
+        .offset(x: size * 0.38, y: -size * 0.14)
     }
 
     private var glowMultiplier: Double {

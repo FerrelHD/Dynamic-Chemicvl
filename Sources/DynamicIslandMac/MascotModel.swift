@@ -19,6 +19,26 @@ public class MascotModel: ObservableObject {
     @Published public var isSleeping: Bool = false
     @Published public var glowPulse: CGFloat = 0.0
     
+    // Greeting Phase State Machine (Structured Linear Sequencer)
+    public enum GreetingPhase: Equatable {
+        case dormant
+        case popOut
+        case waving
+        case popIn
+        case slideToClock
+    }
+    
+    @Published public var greetingPhase: GreetingPhase = .dormant
+    @Published public var mascotScale: CGFloat = 1.0
+    @Published public var handScale: CGFloat = 0.0
+    @Published public var handAngle: Double = 0.0
+    @Published public var mascotCenterOffset: CGFloat = 0.0
+    
+    public var isGreetingActive: Bool {
+        greetingPhase != .dormant
+    }
+    
+    private var greetingTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
     
     public init() {
@@ -39,6 +59,8 @@ public class MascotModel: ObservableObject {
     }
     
     private func stepOrganicBehavior() {
+        guard !isGreetingActive else { return }
+        
         // Native macOS Hardware Event Idle Sensor (checks seconds since last mouse move)
         let idleSeconds = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .mouseMoved)
         
@@ -208,6 +230,113 @@ public class MascotModel: ObservableObject {
                 self.tilt = 0.0
             }
         }
+    }
+    
+    // MARK: - Waving Hand Greeting Sequence (Option B - Linear Structured Task)
+    public func triggerGreetingSequence() {
+        greetingTask?.cancel()
+        greetingTask = Task { @MainActor [weak self] in
+            guard let self = self else { return }
+            
+            // 0. Initial state: Notchy small at center, clock hidden
+            self.greetingPhase = .popOut
+            self.mascotScale = 0.1
+            self.mascotCenterOffset = 24.0
+            self.handScale = 0.0
+            self.handAngle = 0.0
+            self.smile = 0.0
+            self.tilt = 0.0
+            self.isSleeping = false
+            self.openness = 1.0
+            
+            // 1. Pop-out with bouncy fluid spring (0.35s)
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
+                self.mascotScale = 1.0
+            }
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            if Task.isCancelled { return }
+            
+            // 2. Extend hand & tilt head with warm smile (0.18s)
+            self.greetingPhase = .waving
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.70)) {
+                self.handScale = 1.0
+                self.handAngle = 35.0
+                self.tilt = -10.0
+                self.smile = 1.0
+                self.glowPulse = 0.5
+            }
+            try? await Task.sleep(nanoseconds: 180_000_000)
+            if Task.isCancelled { return }
+            
+            // 3. Exactly 2 Full Waving Cycles with Double Symmetrical Eye Blink (0.56s)
+            // Cycle 1 Left (-15°) + Squint/Blink
+            withAnimation(.easeInOut(duration: 0.14)) {
+                self.handAngle = -15.0
+                self.openness = 0.20
+            }
+            try? await Task.sleep(nanoseconds: 140_000_000)
+            if Task.isCancelled { return }
+            
+            // Cycle 1 Right (+35°) + Eyes open
+            withAnimation(.easeInOut(duration: 0.14)) {
+                self.handAngle = 35.0
+                self.openness = 1.0
+            }
+            try? await Task.sleep(nanoseconds: 140_000_000)
+            if Task.isCancelled { return }
+            
+            // Cycle 2 Left (-15°) + Squint/Blink
+            withAnimation(.easeInOut(duration: 0.14)) {
+                self.handAngle = -15.0
+                self.openness = 0.20
+            }
+            try? await Task.sleep(nanoseconds: 140_000_000)
+            if Task.isCancelled { return }
+            
+            // Cycle 2 Finish neutral (0°) + Eyes open
+            withAnimation(.easeInOut(duration: 0.14)) {
+                self.handAngle = 0.0
+                self.openness = 1.0
+            }
+            try? await Task.sleep(nanoseconds: 140_000_000)
+            if Task.isCancelled { return }
+            
+            // 4. Pop-in: hand folds cleanly inside Notchy (0.20s)
+            self.greetingPhase = .popIn
+            withAnimation(.spring(response: 0.24, dampingFraction: 0.78)) {
+                self.handScale = 0.0
+                self.tilt = 0.0
+                self.glowPulse = 0.0
+            }
+            try? await Task.sleep(nanoseconds: 200_000_000)
+            if Task.isCancelled { return }
+            
+            // 5. Slide to Clock: Notchy glides to left, clock morphs in from right (0.45s)
+            self.greetingPhase = .slideToClock
+            withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) {
+                self.mascotCenterOffset = 0.0
+                self.smile = 0.0
+            }
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            if Task.isCancelled { return }
+            
+            // 6. Complete and settle into dormant idle standby
+            self.greetingPhase = .dormant
+        }
+    }
+    
+    public func cancelGreeting() {
+        greetingTask?.cancel()
+        greetingTask = nil
+        greetingPhase = .dormant
+        mascotScale = 1.0
+        mascotCenterOffset = 0.0
+        handScale = 0.0
+        handAngle = 0.0
+        tilt = 0.0
+        smile = 0.0
+        openness = 1.0
+        glowPulse = 0.0
     }
 }
 

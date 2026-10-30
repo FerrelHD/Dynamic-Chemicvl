@@ -296,6 +296,7 @@ public class IslandState: ObservableObject {
     
     public var isIslandVisible: Bool {
         if activeChatNotification != nil || activeCallNotification != nil || activeAirDropNotification != nil { return true }
+        if mascotModel.isGreetingActive { return true }
         if mode == .expanded { return true }
         if isShowingVolumeHUD || isShowingBatteryHUD || isShowingWifiHUD || isShowingBluetoothHUD || isShowingCapsLockHUD { return true }
         
@@ -561,8 +562,13 @@ public class IslandState: ObservableObject {
     @Published public var isLaunchAtLoginEnabled: Bool = false
     private let hapticStorageKey = "notchflow_haptic_enabled"
     
+    // Mascot Launch Greeting Animation
+    @Published public var isLaunchGreetingEnabled: Bool = true
+    private let greetingStorageKey = "notchflow_greeting_enabled"
+    
     // Living Mascot Model
     public let mascotModel = MascotModel()
+    private var cancellables = Set<AnyCancellable>()
     
     public var activeSpringAnimation: Animation {
         return .spring(response: customDuration, dampingFraction: customBounciness)
@@ -570,6 +576,10 @@ public class IslandState: ObservableObject {
     
     public init() {
         loadTodos()
+        
+        mascotModel.objectWillChange.sink { [weak self] _ in
+            self?.objectWillChange.send()
+        }.store(in: &cancellables)
         
         if let savedAnim = UserDefaults.standard.string(forKey: animStyleStorageKey),
            let style = AnimationStyle(rawValue: savedAnim) {
@@ -615,7 +625,21 @@ public class IslandState: ObservableObject {
         } else {
             self.isHapticEnabled = true
         }
+        
+        if UserDefaults.standard.object(forKey: greetingStorageKey) != nil {
+            self.isLaunchGreetingEnabled = UserDefaults.standard.bool(forKey: greetingStorageKey)
+        } else {
+            self.isLaunchGreetingEnabled = true
+        }
         checkLaunchAtLoginStatus()
+        
+        // Launch Greeting Animation: Trigger smoothly on app start after UI stabilizes
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { [weak self] in
+            guard let self = self else { return }
+            if self.isLaunchGreetingEnabled && !self.isPlaying && !self.isTimerRunning && self.mode == .compact {
+                self.mascotModel.triggerGreetingSequence()
+            }
+        }
         
         DispatchQueue.global(qos: .utility).async { [weak self] in
             self?.startAirDropMonitoring()
@@ -793,6 +817,7 @@ public class IslandState: ObservableObject {
         let willExpand = (mode == .compact)
         if willExpand {
             isHoverRevealed = true
+            mascotModel.cancelGreeting()
             
             // Smart Dynamic Context: Contextual Routing matching active Compact Live Activity
             if isTimerRunning {
@@ -892,6 +917,17 @@ public class IslandState: ObservableObject {
     public func setSettingsTab(_ tab: SettingsTab) {
         selectedSettingsTab = tab
         UserDefaults.standard.set(tab.rawValue, forKey: settingsTabKey)
+    }
+    
+    public func setLaunchGreetingEnabled(_ enabled: Bool) {
+        isLaunchGreetingEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: greetingStorageKey)
+    }
+    
+    public func replayGreeting() {
+        guard mode == .compact else { return }
+        mascotModel.triggerGreetingSequence()
+        triggerHaptic(.generic)
     }
     
     public func resetAnimationDefaults() {

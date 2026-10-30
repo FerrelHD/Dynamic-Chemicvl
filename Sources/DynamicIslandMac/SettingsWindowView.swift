@@ -572,6 +572,40 @@ public struct SettingsWindowView: View {
                 
                 Divider().background(Color.white.opacity(0.08)).padding(.leading, 16)
                 
+                settingRow(title: "Launch Greeting Animation", subtitle: "Play welcoming wave and wink sequence when NotchFlow opens") {
+                    customToggle(isOn: Binding(
+                        get: { state.isLaunchGreetingEnabled },
+                        set: { state.setLaunchGreetingEnabled($0) }
+                    ))
+                }
+                
+                Divider().background(Color.white.opacity(0.08)).padding(.leading, 16)
+                
+                settingRow(title: "Replay Greeting Animation", subtitle: "Preview Notchy's waving hand intro on the compact notch") {
+                    Button(action: {
+                        state.replayGreeting()
+                    }) {
+                        HStack(spacing: 5) {
+                            Image(systemName: "arrow.counterclockwise")
+                                .font(.system(size: 11, weight: .bold))
+                            Text("Play Greeting")
+                                .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .stroke(Color.white.opacity(0.15), lineWidth: 0.8)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+                
+                Divider().background(Color.white.opacity(0.08)).padding(.leading, 16)
+                
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Interactive Mascot Preview")
                         .font(.system(size: 13, weight: .semibold, design: .rounded))

@@ -1017,10 +1017,14 @@ public struct DynamicIslandView: View {
                 // Living Notch Idle State: Animated Yellow Circle Emoji Mascot + Digital Clock
                 HStack(spacing: 8) {
                     MascotView(model: state.mascotModel, size: 20)
+                        .offset(x: state.mascotModel.mascotCenterOffset)
                     
-                    Text(currentShortTime)
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
+                    if state.mascotModel.greetingPhase == .dormant || state.mascotModel.greetingPhase == .slideToClock {
+                        Text(currentShortTime)
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                            .transition(.opacity.combined(with: .move(edge: .trailing)))
+                    }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 .padding(.horizontal, 12)

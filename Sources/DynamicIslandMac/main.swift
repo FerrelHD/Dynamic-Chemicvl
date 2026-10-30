@@ -79,6 +79,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             object: nil,
             suspensionBehavior: .deliverImmediately
         )
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleTestGreetingNotification(_:)),
+            name: NSNotification.Name("com.ferrel.NotchFlow.testGreeting"),
+            object: nil,
+            suspensionBehavior: .deliverImmediately
+        )
         
         print("🏝️ Native Dynamic Island Active (iOS Design & Full English)")
     }
@@ -232,6 +239,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let fileName = notif.userInfo?["fileName"] as? String ?? "Project-Design.fig"
         let source = notif.userInfo?["source"] as? String ?? "AirDrop"
         IslandState.shared.triggerAirDropComplete(senderName: source, fileName: fileName, fileURL: nil, transferType: .airdrop)
+    }
+    
+    @objc private func handleTestGreetingNotification(_ notif: Notification) {
+        IslandState.shared.replayGreeting()
     }
     
     @objc private func quitAppAction() {
