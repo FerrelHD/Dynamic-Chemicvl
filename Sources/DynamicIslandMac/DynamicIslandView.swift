@@ -1421,18 +1421,18 @@ public struct DynamicIslandView: View {
             // Row 2: Interactive Scrubber Bar with Knob & Realtime Seeking
             scrubberBarView()
             
-            // Row 3: Symmetrical Playback Controls (Lyrics Left, Playback Center, AirPlay Right)
+            // Row 3: Symmetrical Playback Controls (AirPlay Left, Playback Center, Lyrics Right)
             HStack {
-                // Left: Apple Music Synchronized Lyrics Toggle Button
-                Button(action: { state.toggleLyrics() }) {
-                    Image(systemName: "quote.bubble.fill")
-                        .font(.system(size: 14.5, weight: .semibold))
-                        .foregroundColor(state.isLyricsEnabled ? Color(red: 1.0, green: 0.22, blue: 0.38) : Color.white.opacity(0.70))
+                // Left: AirPlay / Audio Output Route
+                Button(action: {
+                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.sound") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }) {
+                    Image(systemName: "airplayaudio")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.75))
                         .padding(5)
-                        .background(
-                            Circle()
-                                .fill(state.isLyricsEnabled ? Color.white.opacity(0.18) : Color.clear)
-                        )
                 }
                 .buttonStyle(BouncyButtonStyle())
                 .frame(width: 32, alignment: .leading)
@@ -1465,16 +1465,16 @@ public struct DynamicIslandView: View {
                 
                 Spacer()
                 
-                // Right: AirPlay / Audio Output Route
-                Button(action: {
-                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.sound") {
-                        NSWorkspace.shared.open(url)
-                    }
-                }) {
-                    Image(systemName: "airplayaudio")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.75))
+                // Right: Apple Music Synchronized Lyrics Toggle Button
+                Button(action: { state.toggleLyrics() }) {
+                    Image(systemName: "quote.bubble.fill")
+                        .font(.system(size: 14.5, weight: .semibold))
+                        .foregroundColor(state.isLyricsEnabled ? Color(red: 1.0, green: 0.22, blue: 0.38) : Color.white.opacity(0.70))
                         .padding(5)
+                        .background(
+                            Circle()
+                                .fill(state.isLyricsEnabled ? Color.white.opacity(0.18) : Color.clear)
+                        )
                 }
                 .buttonStyle(BouncyButtonStyle())
                 .frame(width: 32, alignment: .trailing)
