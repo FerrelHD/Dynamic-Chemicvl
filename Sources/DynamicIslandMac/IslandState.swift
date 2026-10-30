@@ -536,7 +536,7 @@ public class IslandState: ObservableObject {
     private let animStyleStorageKey = "notchflow_anim_style"
     
     // Live Customizable Numerical Animation Physics
-    @Published public var customBounciness: Double = 0.68 // Damping fraction: 0.45 (bouncy) .. 1.00 (rigid)
+    @Published public var customBounciness: Double = 0.82 // Damping fraction: 0.45 (bouncy) .. 1.00 (rigid)
     @Published public var customDuration: Double = 0.35   // Response duration: 0.20s (snappy) .. 0.55s (slow)
     private let customBouncinessKey = "notchflow_custom_bounciness"
     private let customDurationKey = "notchflow_custom_duration"
