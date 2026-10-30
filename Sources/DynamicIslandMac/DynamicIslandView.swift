@@ -2938,11 +2938,7 @@ public struct SpiderMascotEyesView: View {
         .animation(.spring(response: 0.28, dampingFraction: 0.72), value: isSquinting)
         .animation(.spring(response: 0.36, dampingFraction: 0.70), value: lookOffsetX)
         .animation(.spring(response: 0.36, dampingFraction: 0.70), value: lookTilt)
-        .onAppear {
-            withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) {
-                breathScale = 1.04
-            }
-        }
+        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: breathScale)
         .onReceive(actionTimer) { _ in
             triggerOrganicAction()
         }
@@ -2950,6 +2946,16 @@ public struct SpiderMascotEyesView: View {
     
     private func triggerOrganicAction() {
         guard state.mode == .compact && !state.isPlaying else { return }
+        
+        // Discrete organic breath pulse (zero-CPU idle between ticks)
+        withAnimation(.easeInOut(duration: 0.45)) {
+            breathScale = 1.03
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+            withAnimation(.easeInOut(duration: 0.55)) {
+                self.breathScale = 1.0
+            }
+        }
         
         let roll = Int.random(in: 1...100)
         
