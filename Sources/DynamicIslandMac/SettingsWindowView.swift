@@ -42,10 +42,10 @@ public enum SettingsTab: String, CaseIterable, Identifiable {
         case .notes: return Color.yellow
         case .devices: return Color.green
         case .shelf: return Color.indigo
-        case .mascot: return Color.red
+        case .mascot: return Color.cyan
         case .appearance: return Color.purple
         case .permissions: return Color.teal
-        case .about: return Color.cyan
+        case .about: return Color.blue
         }
     }
 }
@@ -135,7 +135,7 @@ public struct SettingsWindowView: View {
                     
                     Text("Settings & Modules")
                         .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundColor(.white.opacity(0.50))
+                        .foregroundColor(.white.opacity(0.72))
                 }
                 
                 Spacer(minLength: 0)
@@ -186,7 +186,7 @@ public struct SettingsWindowView: View {
     private func sidebarSectionTitle(_ title: String) -> some View {
         Text(title)
             .font(.system(size: 10, weight: .bold, design: .rounded))
-            .foregroundColor(.white.opacity(0.40))
+            .foregroundColor(.white.opacity(0.60))
             .padding(.horizontal, 10)
             .padding(.top, 6)
             .padding(.bottom, 4)
@@ -211,7 +211,7 @@ public struct SettingsWindowView: View {
                 
                 Text(tab.rawValue)
                     .font(.system(size: 13, weight: isSelected ? .semibold : .medium, design: .rounded))
-                    .foregroundColor(isSelected ? .white : .white.opacity(0.70))
+                    .foregroundColor(isSelected ? .white : .white.opacity(0.78))
                 
                 Spacer(minLength: 0)
             }
@@ -273,7 +273,7 @@ public struct SettingsWindowView: View {
                 if let sub = subtitle {
                     Text(sub)
                         .font(.system(size: 11.5, weight: .regular, design: .rounded))
-                        .foregroundColor(.white.opacity(0.50))
+                        .foregroundColor(.white.opacity(0.72))
                 }
             }
             
@@ -340,24 +340,47 @@ public struct SettingsWindowView: View {
             settingCard {
                 settingRow(title: "System Volume Level", subtitle: "Current active audio output volume") {
                     Text("\(state.currentVolume)%")
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundColor(.blue)
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 3.5)
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(Capsule())
                 }
                 
                 Divider().background(Color.white.opacity(0.08)).padding(.leading, 16)
                 
                 settingRow(title: "Wi-Fi Status", subtitle: "Connected wireless network") {
-                    Text(state.isWifiOn ? state.wifiSSID : "Turned Off")
-                        .font(.system(size: 12.5, weight: .semibold, design: .rounded))
-                        .foregroundColor(state.isWifiOn ? .green : .white.opacity(0.40))
+                    HStack(spacing: 5) {
+                        Circle()
+                            .fill(state.isWifiOn ? Color(red: 0.20, green: 0.85, blue: 0.40) : Color.white.opacity(0.35))
+                            .frame(width: 6, height: 6)
+                        Text(state.isWifiOn ? state.wifiSSID : "Turned Off")
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundColor(.white)
+                    }
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 3.5)
+                    .background(Color.white.opacity(0.10))
+                    .clipShape(Capsule())
                 }
                 
                 Divider().background(Color.white.opacity(0.08)).padding(.leading, 16)
                 
                 settingRow(title: "Bluetooth Radio", subtitle: "Hardware radio power state") {
-                    Text(state.isBluetoothOn ? "Enabled" : "Disabled")
-                        .font(.system(size: 12.5, weight: .semibold, design: .rounded))
-                        .foregroundColor(state.isBluetoothOn ? .blue : .white.opacity(0.40))
+                    HStack(spacing: 5) {
+                        Circle()
+                            .fill(state.isBluetoothOn ? Color(red: 0.0, green: 0.48, blue: 1.0) : Color.white.opacity(0.35))
+                            .frame(width: 6, height: 6)
+                        Text(state.isBluetoothOn ? "Enabled" : "Disabled")
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundColor(.white)
+                    }
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 3.5)
+                    .background(Color.white.opacity(0.10))
+                    .clipShape(Capsule())
                 }
             }
         }
@@ -373,21 +396,18 @@ public struct SettingsWindowView: View {
                 Divider().background(Color.white.opacity(0.08)).padding(.leading, 16)
                 
                 settingRow(title: "Now Playing Status", subtitle: "Current media player track state") {
-                    Text(state.isPlaying ? "Playing" : "Paused")
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .foregroundColor(state.isPlaying ? .green : .white.opacity(0.50))
-                }
-            }
-            
-            settingCard {
-                settingRow(title: "Multi-Tier Cover Art Engine", subtitle: "Tier 1: MediaRemote | Tier 2: Spotify CDN | Tier 3: YouTube | Tier 4: Apple Music | Tier 5: iTunes") {
-                    Text("SuperIsland Engine")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundColor(Color(red: 0.15, green: 0.85, blue: 0.40))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Color(red: 0.15, green: 0.85, blue: 0.40).opacity(0.15))
-                        .clipShape(Capsule())
+                    HStack(spacing: 5) {
+                        Circle()
+                            .fill(state.isPlaying ? Color(red: 0.20, green: 0.85, blue: 0.40) : Color.white.opacity(0.40))
+                            .frame(width: 6, height: 6)
+                        Text(state.isPlaying ? "Playing" : "Paused")
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundColor(.white)
+                    }
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 3.5)
+                    .background(Color.white.opacity(0.10))
+                    .clipShape(Capsule())
                 }
             }
         }
@@ -396,18 +416,31 @@ public struct SettingsWindowView: View {
     private var timerSettingsView: some View {
         VStack(spacing: 16) {
             settingCard {
-                settingRow(title: "Timer Running Status", subtitle: "Live elapsed tracking on the dynamic island bar") {
-                    Text(state.isTimerRunning ? "Running" : "Idle")
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundColor(state.isTimerRunning ? .green : .white.opacity(0.50))
+                settingRow(title: "Timer Running Status", subtitle: "Live countdown tracking on the dynamic island bar") {
+                    HStack(spacing: 5) {
+                        Circle()
+                            .fill(state.isTimerRunning ? Color(red: 0.20, green: 0.85, blue: 0.40) : Color.white.opacity(0.35))
+                            .frame(width: 6, height: 6)
+                        Text(state.isTimerRunning ? "Running" : "Idle")
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundColor(.white)
+                    }
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 3.5)
+                    .background(Color.white.opacity(0.10))
+                    .clipShape(Capsule())
                 }
                 
                 Divider().background(Color.white.opacity(0.08)).padding(.leading, 16)
                 
                 settingRow(title: "Selected Preset Duration", subtitle: "Target countdown duration") {
                     Text("\(state.timerSelectedMinutes) Minutes")
-                        .font(.system(size: 12.5, weight: .bold, design: .rounded))
-                        .foregroundColor(.orange)
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 3.5)
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(Capsule())
                 }
             }
         }
@@ -418,8 +451,12 @@ public struct SettingsWindowView: View {
             settingCard {
                 settingRow(title: "Quick Reminders", subtitle: "Active checklist items stored in memory") {
                     Text("\(state.todos.count) Reminders")
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .foregroundColor(.yellow)
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 3.5)
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(Capsule())
                 }
             }
         }
@@ -431,7 +468,11 @@ public struct SettingsWindowView: View {
                 settingRow(title: "Connected Devices HUD", subtitle: "Tracks AirPods, Keyboards, Mice, and Bluetooth accessories") {
                     Text("\(state.connectedDevices.count) Paired")
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundColor(.white.opacity(0.80))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 3.5)
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(Capsule())
                 }
             }
         }
@@ -442,8 +483,12 @@ public struct SettingsWindowView: View {
             settingCard {
                 settingRow(title: "Clipboard History Storage", subtitle: "Total captured clipboard clippings") {
                     Text("\(state.clipboardHistory.count) Items")
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .foregroundColor(.indigo)
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 3.5)
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(Capsule())
                 }
                 
                 Divider().background(Color.white.opacity(0.08)).padding(.leading, 16)
@@ -453,11 +498,11 @@ public struct SettingsWindowView: View {
                         state.clearClipboard()
                         state.triggerHaptic(.generic)
                     }
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundColor(.red)
+                    .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                    .foregroundColor(Color(red: 1.0, green: 0.40, blue: 0.40))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(Color.red.opacity(0.15))
+                    .background(Color(red: 1.0, green: 0.20, blue: 0.20).opacity(0.15))
                     .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                     .buttonStyle(.plain)
                 }
@@ -468,16 +513,15 @@ public struct SettingsWindowView: View {
     private var mascotSettingsView: some View {
         VStack(spacing: 16) {
             settingCard {
-                settingRow(title: "Vector Living Mascot (Spider Eyes)", subtitle: "Pure vector Bézier shapes with natural blink, squint, and glance") {
-                    HStack(spacing: 4) {
-                        SpiderSingleEyeView(isRightEye: false, eyelidClose: 0, squint: 0)
-                            .scaleEffect(0.9)
-                        SpiderSingleEyeView(isRightEye: true, eyelidClose: 0, squint: 0)
-                            .scaleEffect(0.9)
+                settingRow(title: "Notchy Living Mascot", subtitle: "Signature capsule cyber-eyes matching the MacBook notch geometry with organic blinking and expressions") {
+                    HStack(spacing: 4.5) {
+                        NotchySingleEyeView(isRightEye: false, eyelidClose: 0, happyArc: 0)
+                        NotchySingleEyeView(isRightEye: true, eyelidClose: 0, happyArc: 0)
                     }
-                    .padding(4)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
                     .background(Color.black.opacity(0.40))
-                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
             }
         }
@@ -525,7 +569,7 @@ public struct SettingsWindowView: View {
                         Text(String(format: "%.2f", state.customBounciness))
                             .font(.system(size: 12, weight: .bold, design: .rounded))
                             .monospacedDigit()
-                            .foregroundColor(.white.opacity(0.80))
+                            .foregroundColor(.white)
                             .frame(width: 40, alignment: .trailing)
                     }
                 }
@@ -547,7 +591,7 @@ public struct SettingsWindowView: View {
                         Text(String(format: "%.2fs", state.customDuration))
                             .font(.system(size: 12, weight: .bold, design: .rounded))
                             .monospacedDigit()
-                            .foregroundColor(.white.opacity(0.80))
+                            .foregroundColor(.white)
                             .frame(width: 40, alignment: .trailing)
                     }
                 }
@@ -577,8 +621,8 @@ public struct SettingsWindowView: View {
                             NSWorkspace.shared.open(url)
                         }
                     }
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundColor(.blue)
+                    .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                    .foregroundColor(Color(red: 0.30, green: 0.65, blue: 1.0))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
                     .background(Color.blue.opacity(0.15))
@@ -614,7 +658,7 @@ public struct SettingsWindowView: View {
                         
                         Text("Version 1.0.0 Universal (Apple Silicon & Intel)")
                             .font(.system(size: 11.5, weight: .medium, design: .rounded))
-                            .foregroundColor(.white.opacity(0.50))
+                            .foregroundColor(.white.opacity(0.72))
                     }
                     
                     Spacer()
@@ -627,7 +671,7 @@ public struct SettingsWindowView: View {
                 settingRow(title: "Developer & Creator", subtitle: "Crafted for macOS power users") {
                     Text("Ferrel")
                         .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .foregroundColor(.white.opacity(0.85))
+                        .foregroundColor(.white)
                 }
                 
                 Divider().background(Color.white.opacity(0.08)).padding(.leading, 16)
@@ -642,8 +686,8 @@ public struct SettingsWindowView: View {
                             Text("GitHub")
                             Image(systemName: "arrow.up.right")
                         }
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundColor(.blue)
+                        .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                        .foregroundColor(Color(red: 0.30, green: 0.65, blue: 1.0))
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
                         .background(Color.blue.opacity(0.15))

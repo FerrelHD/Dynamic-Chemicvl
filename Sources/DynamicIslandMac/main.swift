@@ -37,6 +37,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             object: nil,
             suspensionBehavior: .deliverImmediately
         )
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleOpenSettingsNotification(_:)),
+            name: NSNotification.Name("com.ferrel.NotchFlow.openSettings"),
+            object: nil,
+            suspensionBehavior: .deliverImmediately
+        )
         
         print("🏝️ Native Dynamic Island Active (iOS Design & Full English)")
     }
@@ -124,6 +131,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func openSettingsAction() {
         SettingsWindowManager.shared.showSettings()
         IslandState.shared.triggerHaptic(.generic)
+    }
+    
+    @objc private func handleOpenSettingsNotification(_ notif: Notification) {
+        openSettingsAction()
     }
     
     @objc private func toggleLaunchAtLoginAction() {
