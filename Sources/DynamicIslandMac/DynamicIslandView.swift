@@ -1710,7 +1710,7 @@ public struct DynamicIslandView: View {
         .id(idx)
     }
     
-    // MARK: - Reusable Interactive Scrubber Bar
+    // MARK: - Apple Music Mini Player Scrubber Bar (Thumbless, Thick Capsule with Spring Expansion)
     private func scrubberBarView() -> some View {
         let displayProgress = isScrubbingAudio ? localScrubProgress : max(0, min(1.0, state.playbackProgress))
         let maxDur = (state.totalDurationSeconds.isFinite && !state.totalDurationSeconds.isNaN && state.totalDurationSeconds > 0) ? state.totalDurationSeconds : 180.0
@@ -1731,9 +1731,9 @@ public struct DynamicIslandView: View {
             }
         }()
         
-        return HStack(spacing: 7) {
+        return HStack(spacing: 8) {
             Text(displayCurrentTime)
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .font(.system(size: 11.5, weight: .medium, design: .rounded))
                 .monospacedDigit()
                 .foregroundColor(.white.opacity(0.65))
                 .frame(minWidth: 34, alignment: .leading)
@@ -1743,30 +1743,28 @@ public struct DynamicIslandView: View {
                 let currentWidth = barWidth * CGFloat(displayProgress)
                 
                 ZStack(alignment: .leading) {
-                    // Full track capsule
+                    // Track background (20% white opacity)
                     Capsule()
                         .fill(Color.white.opacity(0.20))
-                        .frame(height: 4.5)
                     
-                    // Progress fill capsule
+                    // Progress fill (70% white opacity, clipped to track)
                     Capsule()
-                        .fill(Color.white)
-                        .frame(width: max(0, currentWidth), height: 4.5)
-                    
-                    // Scrubbing thumb knob (elevates gently while scrubbing)
-                    Circle()
-                        .fill(Color.white)
-                        .frame(width: isScrubbingAudio ? 12 : 9.5, height: isScrubbingAudio ? 12 : 9.5)
-                        .shadow(color: Color.black.opacity(0.4), radius: 2, x: 0, y: 1)
-                        .offset(x: max(0, min(barWidth - (isScrubbingAudio ? 12 : 9.5), currentWidth - (isScrubbingAudio ? 6 : 4.75))))
+                        .fill(Color.white.opacity(0.70))
+                        .frame(width: max(0, currentWidth))
                 }
-                .frame(height: 28)
+                .clipShape(Capsule())
+                .frame(height: isScrubbingAudio ? 9.5 : 5.5)
+                .animation(.spring(response: 0.28, dampingFraction: 0.72), value: isScrubbingAudio)
                 .frame(maxHeight: .infinity, alignment: .center)
                 .contentShape(Rectangle())
                 .gesture(
                     DragGesture(minimumDistance: 0)
                         .onChanged { gesture in
-                            isScrubbingAudio = true
+                            if !isScrubbingAudio {
+                                withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
+                                    isScrubbingAudio = true
+                                }
+                            }
                             let locationX = max(0, min(barWidth, gesture.location.x))
                             let pct = max(0.0, min(1.0, Double(locationX / barWidth)))
                             localScrubProgress = pct
@@ -1776,17 +1774,16 @@ public struct DynamicIslandView: View {
                             let pct = max(0.0, min(1.0, Double(locationX / barWidth)))
                             let seekSeconds = pct * maxDur
                             state.seekTo(seekSeconds)
-                            // Buffer 0.15s visual anchor so the knob hands off seamlessly to the internal ticker
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                            withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
                                 isScrubbingAudio = false
                             }
                         }
                 )
             }
-            .frame(height: 28)
+            .frame(height: 24)
             
             Text(displayRemainingTime)
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .font(.system(size: 11.5, weight: .medium, design: .rounded))
                 .monospacedDigit()
                 .foregroundColor(.white.opacity(0.65))
                 .frame(minWidth: 38, alignment: .trailing)
