@@ -993,9 +993,9 @@ public struct DynamicIslandView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 .padding(.horizontal, 14)
             } else {
-                // Living Notch Idle State: Animated Spider-Man Mascot Eyes + Digital Clock
+                // Living Notch Idle State: Animated Notchy Cyber Mascot Eyes + Digital Clock
                 HStack(spacing: 8) {
-                    SpiderMascotEyesView(state: state)
+                    NotchyMascotEyesView(state: state)
                     
                     Text(currentShortTime)
                         .font(.system(size: 13, weight: .bold, design: .rounded))
@@ -1455,12 +1455,9 @@ public struct DynamicIslandView: View {
                 Button(action: { state.toggleLyrics() }) {
                     Image(systemName: "quote.bubble.fill")
                         .font(.system(size: 14.5, weight: .semibold))
-                        .foregroundColor(state.isLyricsEnabled ? Color(red: 1.0, green: 0.22, blue: 0.38) : Color.white.opacity(0.70))
-                        .padding(5)
-                        .background(
-                            Circle()
-                                .fill(state.isLyricsEnabled ? Color.white.opacity(0.18) : Color.clear)
-                        )
+                        .foregroundColor(state.isLyricsEnabled ? Color.white : Color.white.opacity(0.60))
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(BouncyButtonStyle())
                 .frame(width: 32, alignment: .trailing)
@@ -1571,12 +1568,9 @@ public struct DynamicIslandView: View {
                     Button(action: { state.toggleLyrics() }) {
                         Image(systemName: "quote.bubble.fill")
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(Color(red: 1.0, green: 0.22, blue: 0.38))
-                            .padding(4)
-                            .background(
-                                Circle()
-                                    .fill(Color.white.opacity(0.18))
-                            )
+                            .foregroundColor(Color.white)
+                            .frame(width: 28, height: 28)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(BouncyButtonStyle())
                     .frame(width: 28, alignment: .trailing)
@@ -2466,154 +2460,6 @@ public struct DynamicIslandView: View {
     }
 }
 
-// MARK: - Authentic Spider-Man Mascot Eyes View (Vector Living Notch Mascot)
-public struct SpiderMascotEyesView: View {
-    @ObservedObject var state: IslandState
-    
-    @State private var leftEyelidClose: CGFloat = 0.0
-    @State private var rightEyelidClose: CGFloat = 0.0
-    @State private var squintAmount: CGFloat = 0.0
-    @State private var lookOffsetX: CGFloat = 0
-    @State private var lookOffsetY: CGFloat = 0
-    @State private var lookTilt: Double = 0
-    @State private var breathScale: CGFloat = 1.0
-    
-    // Living organic action loop (fires every 2.8s to pick probabilistic actions)
-    private let actionTimer = Timer.publish(every: 2.8, on: .main, in: .common).autoconnect()
-    
-    public init(state: IslandState = .shared) {
-        self.state = state
-    }
-    
-    public var body: some View {
-        HStack(spacing: 3.5) {
-            SpiderSingleEyeView(isRightEye: false, eyelidClose: leftEyelidClose, squint: squintAmount)
-                .scaleEffect(breathScale, anchor: .center)
-                .rotationEffect(.degrees(lookTilt))
-            
-            SpiderSingleEyeView(isRightEye: true, eyelidClose: rightEyelidClose, squint: squintAmount)
-                .scaleEffect(breathScale, anchor: .center)
-                .rotationEffect(.degrees(lookTilt))
-        }
-        .offset(x: lookOffsetX, y: lookOffsetY)
-        .onReceive(actionTimer) { _ in
-            triggerOrganicAction()
-        }
-    }
-    
-    private func triggerOrganicAction() {
-        guard state.mode == .compact && !state.isPlaying else { return }
-        
-        // Discrete organic breath pulse (zero-CPU idle between ticks)
-        withAnimation(.easeInOut(duration: 0.45)) {
-            breathScale = 1.04
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
-            withAnimation(.easeInOut(duration: 0.55)) {
-                self.breathScale = 1.0
-            }
-        }
-        
-        let roll = Int.random(in: 1...100)
-        
-        if roll <= 35 {
-            performBlink()
-        } else if roll <= 50 {
-            performDoubleBlink()
-        } else if roll <= 75 {
-            performGlance()
-        } else if roll <= 90 {
-            performSquint()
-        } else {
-            performWink()
-        }
-    }
-    
-    private func performBlink() {
-        withAnimation(.easeIn(duration: 0.09)) {
-            leftEyelidClose = 0.95
-            rightEyelidClose = 0.95
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.11) {
-            withAnimation(.spring(response: 0.18, dampingFraction: 0.72)) {
-                self.leftEyelidClose = 0.0
-                self.rightEyelidClose = 0.0
-            }
-        }
-    }
-    
-    private func performDoubleBlink() {
-        withAnimation(.easeIn(duration: 0.08)) {
-            leftEyelidClose = 0.95
-            rightEyelidClose = 0.95
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) {
-            withAnimation(.easeOut(duration: 0.08)) {
-                self.leftEyelidClose = 0.0
-                self.rightEyelidClose = 0.0
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.09) {
-                withAnimation(.easeIn(duration: 0.08)) {
-                    self.leftEyelidClose = 0.95
-                    self.rightEyelidClose = 0.95
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.11) {
-                    withAnimation(.spring(response: 0.18, dampingFraction: 0.72)) {
-                        self.leftEyelidClose = 0.0
-                        self.rightEyelidClose = 0.0
-                    }
-                }
-            }
-        }
-    }
-    
-    private func performGlance() {
-        let targets: [(CGFloat, CGFloat, Double)] = [
-            (2.4, 0.3, 2.5),
-            (-2.4, 0.2, -2.5),
-            (0.0, 1.2, 0.0),
-            (1.8, -0.6, 1.5)
-        ]
-        guard let choice = targets.randomElement() else { return }
-        withAnimation(.spring(response: 0.30, dampingFraction: 0.70)) {
-            lookOffsetX = choice.0
-            lookOffsetY = choice.1
-            lookTilt = choice.2
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
-                self.lookOffsetX = 0
-                self.lookOffsetY = 0
-                self.lookTilt = 0
-            }
-        }
-    }
-    
-    private func performSquint() {
-        withAnimation(.spring(response: 0.22, dampingFraction: 0.70)) {
-            squintAmount = 0.65
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.90) {
-            withAnimation(.spring(response: 0.26, dampingFraction: 0.74)) {
-                self.squintAmount = 0.0
-            }
-        }
-    }
-    
-    private func performWink() {
-        withAnimation(.easeIn(duration: 0.10)) {
-            leftEyelidClose = 0.95
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            withAnimation(.spring(response: 0.20, dampingFraction: 0.72)) {
-                self.leftEyelidClose = 0.0
-            }
-        }
-    }
-}
-
-// Backward compatibility alias
-public typealias MascotEyesView = SpiderMascotEyesView
 
 private struct DeviceCardView: View {
     let dev: ConnectedDevice
