@@ -1079,7 +1079,7 @@ public struct DynamicIslandView: View {
                     state.switchToTab(tab)
                 }) {
                     Capsule()
-                        .fill(isCurrent ? Color.white : Color.white.opacity(0.28))
+                        .fill(isCurrent ? Color.white : Color.white.opacity(0.40))
                         .frame(width: isCurrent ? 14 : 5, height: 5)
                         .shadow(color: isCurrent ? Color.white.opacity(0.35) : Color.clear, radius: 2)
                         .animation(state.animationStyle.springAnimation, value: isCurrent)
@@ -1434,7 +1434,7 @@ public struct DynamicIslandView: View {
                                 .fill(state.isLyricsEnabled ? Color.white.opacity(0.18) : Color.clear)
                         )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(BouncyButtonStyle())
                 .frame(width: 32, alignment: .leading)
                 
                 Spacer()
@@ -1446,21 +1446,21 @@ public struct DynamicIslandView: View {
                             .font(.system(size: 18, weight: .bold))
                             .foregroundColor(.white)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(BouncyButtonStyle())
                     
                     Button(action: { state.togglePlayPause() }) {
                         Image(systemName: state.isPlaying ? "pause.fill" : "play.fill")
                             .font(.system(size: 26, weight: .bold))
                             .foregroundColor(.white)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(BouncyButtonStyle())
                     
                     Button(action: { state.nextTrack() }) {
                         Image(systemName: "forward.fill")
                             .font(.system(size: 18, weight: .bold))
                             .foregroundColor(.white)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(BouncyButtonStyle())
                 }
                 
                 Spacer()
@@ -1476,7 +1476,7 @@ public struct DynamicIslandView: View {
                         .foregroundColor(.white.opacity(0.75))
                         .padding(5)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(BouncyButtonStyle())
                 .frame(width: 32, alignment: .trailing)
             }
             .padding(.horizontal, 6)
@@ -1544,21 +1544,21 @@ public struct DynamicIslandView: View {
                             .font(.system(size: 15, weight: .bold))
                             .foregroundColor(.white)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(BouncyButtonStyle())
                     
                     Button(action: { state.togglePlayPause() }) {
                         Image(systemName: state.isPlaying ? "pause.fill" : "play.fill")
                             .font(.system(size: 22, weight: .bold))
                             .foregroundColor(.white)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(BouncyButtonStyle())
                     
                     Button(action: { state.nextTrack() }) {
                         Image(systemName: "forward.fill")
                             .font(.system(size: 15, weight: .bold))
                             .foregroundColor(.white)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(BouncyButtonStyle())
                     
                     Spacer()
                     
@@ -1578,7 +1578,7 @@ public struct DynamicIslandView: View {
                         .background(Color(red: 1.0, green: 0.22, blue: 0.38))
                         .clipShape(Capsule())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(BouncyButtonStyle())
                     
                     // AirPlay / Audio Output Route
                     Button(action: {
@@ -3435,5 +3435,16 @@ public struct ShelfThumbnailItemView: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Tactile Bouncy Button Style (Spring Press Feedback)
+public struct BouncyButtonStyle: ButtonStyle {
+    public init() {}
+    public func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.88 : 1.0)
+            .opacity(configuration.isPressed ? 0.75 : 1.0)
+            .animation(.spring(response: 0.25, dampingFraction: 0.65), value: configuration.isPressed)
     }
 }
