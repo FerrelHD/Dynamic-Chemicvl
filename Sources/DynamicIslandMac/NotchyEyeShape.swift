@@ -101,8 +101,9 @@ public struct MascotView: View {
                     lineWidth: max(0.5, size * 0.035)
                 )
         }
-        .shadow(color: Color.black.opacity(0.30), radius: 1.5, x: 0, y: 1.0)
-        .shadow(color: Color(red: 1.0, green: 0.82, blue: 0.20).opacity(0.35), radius: 3.5, x: 0, y: 0)
+        // Dual-layer golden bloom glow (Edge bloom + Outer ambient aura)
+        .shadow(color: Color(red: 1.0, green: 0.82, blue: 0.20).opacity(0.75), radius: 2.5, x: 0, y: 0)
+        .shadow(color: Color(red: 1.0, green: 0.82, blue: 0.20).opacity(0.45), radius: 6.0, x: 0, y: 0)
     }
 
     private var eyeView: some View {
