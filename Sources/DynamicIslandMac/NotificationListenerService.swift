@@ -39,10 +39,13 @@ public class NotificationListenerService {
             self.setupWhatsAppDirectListener()
             
             let t = DispatchSource.makeTimerSource(queue: self.queue)
-            t.schedule(deadline: .now() + 0.5, repeating: 0.5, leeway: .milliseconds(50))
+            t.schedule(deadline: .now() + 2.5, repeating: 2.5, leeway: .milliseconds(200))
             t.setEventHandler { [weak self] in
-                self?.pollNewNotifications()
-                self?.checkNewWhatsAppMessages()
+                guard let self = self else { return }
+                self.pollNewNotifications()
+                if self.whatsAppWalSource == nil {
+                    self.setupWhatsAppDirectListener()
+                }
             }
             t.resume()
             self.timerSource = t
