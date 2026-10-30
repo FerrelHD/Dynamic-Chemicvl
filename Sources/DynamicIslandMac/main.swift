@@ -163,6 +163,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
     
     @objc private func handleOpenSettingsNotification(_ notif: Notification) {
+        if let tabName = notif.userInfo?["tab"] as? String,
+           let tab = SettingsTab(rawValue: tabName) {
+            IslandState.shared.setSettingsTab(tab)
+        }
         openSettingsAction()
     }
     

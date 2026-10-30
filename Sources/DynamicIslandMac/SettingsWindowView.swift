@@ -53,7 +53,7 @@ public enum SettingsTab: String, CaseIterable, Identifiable {
 // MARK: - Discord / macOS Modern Inset Settings View
 public struct SettingsWindowView: View {
     @ObservedObject var state: IslandState = .shared
-    @State private var selectedTab: SettingsTab = .general
+    private var selectedTab: SettingsTab { state.selectedSettingsTab }
     
     public init() {}
     
@@ -195,7 +195,7 @@ public struct SettingsWindowView: View {
     private func sidebarItem(_ tab: SettingsTab) -> some View {
         let isSelected = selectedTab == tab
         return Button(action: {
-            selectedTab = tab
+            state.setSettingsTab(tab)
             state.triggerHaptic(.generic)
         }) {
             HStack(spacing: 9) {
@@ -517,12 +517,34 @@ public struct SettingsWindowView: View {
                 
                 Divider().background(Color.white.opacity(0.08)).padding(.leading, 16)
                 
+                settingRow(title: "Mascot Glow Intensity", subtitle: "Golden sunlight bloom: 0% (Off) to 100% (Vibrant)") {
+                    HStack(spacing: 8) {
+                        Slider(
+                            value: Binding(
+                                get: { state.mascotGlowIntensity },
+                                set: { state.setMascotGlowIntensity($0) }
+                            ),
+                            in: 0.0...1.0,
+                            step: 0.05
+                        )
+                        .frame(width: 140)
+                        
+                        Text("\(Int(state.mascotGlowIntensity * 100))%")
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundColor(.white)
+                            .frame(width: 40, alignment: .trailing)
+                    }
+                }
+                
+                Divider().background(Color.white.opacity(0.08)).padding(.leading, 16)
+                
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Interactive Mascot Preview")
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
                         .foregroundColor(.white)
                     
-                    Text("Watch Notchy blink naturally every 3-5 seconds, glance around after 2 minutes of idle inactivity, and smile during music playback.")
+                    Text("Watch Notchy blink naturally, wink playfully (😉), glance towards your cursor, and doze off into a peaceful sleep (💤) after 2 minutes of AFK inactivity.")
                         .font(.system(size: 11, weight: .regular))
                         .foregroundColor(.white.opacity(0.60))
                     

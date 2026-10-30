@@ -37,10 +37,10 @@ public struct MascotView: View {
         ZStack {
             face
 
-            // Symmetrical eyes (moving together inside the yellow circle)
+            // Symmetrical eyes (supporting independent winking & sleeping)
             ZStack {
-                eyeView.offset(x: -size * eyeGap / 2)
-                eyeView.offset(x:  size * eyeGap / 2)
+                eyeView(openness: model.leftOpenness).offset(x: -size * eyeGap / 2)
+                eyeView(openness: model.rightOpenness).offset(x:  size * eyeGap / 2)
             }
             .offset(
                 x: model.look.width,
@@ -49,6 +49,11 @@ public struct MascotView: View {
         }
         .frame(width: size, height: size)
         .rotationEffect(.degrees(model.tilt))
+    }
+
+    private var glowMultiplier: Double {
+        let base = IslandState.shared.mascotGlowIntensity
+        return min(1.5, base + Double(model.glowPulse) * 0.5)
     }
 
     // ponytail: clean radiant 3D yellow base without murky brown shadow or bottom banding
@@ -101,17 +106,27 @@ public struct MascotView: View {
                     lineWidth: max(0.5, size * 0.035)
                 )
         }
-        // Dual-layer golden bloom glow (Edge bloom + Outer ambient aura)
-        .shadow(color: Color(red: 1.0, green: 0.82, blue: 0.20).opacity(0.75), radius: 2.5, x: 0, y: 0)
-        .shadow(color: Color(red: 1.0, green: 0.82, blue: 0.20).opacity(0.45), radius: 6.0, x: 0, y: 0)
+        // Dual-layer golden bloom glow (Edge bloom + Outer ambient aura, customizable)
+        .shadow(
+            color: Color(red: 1.0, green: 0.82, blue: 0.20).opacity(min(1.0, 0.90 * glowMultiplier)),
+            radius: max(0.5, 3.0 * CGFloat(glowMultiplier)),
+            x: 0,
+            y: 0
+        )
+        .shadow(
+            color: Color(red: 1.0, green: 0.82, blue: 0.20).opacity(min(0.85, 0.60 * glowMultiplier)),
+            radius: max(1.0, 7.5 * CGFloat(glowMultiplier)),
+            x: 0,
+            y: 0
+        )
     }
 
-    private var eyeView: some View {
+    private func eyeView(openness: CGFloat) -> some View {
         ZStack {
             Capsule()
                 .fill(eyeColor)
                 .frame(width: size * eyeW, height: size * eyeH)
-                .scaleEffect(y: max(0.08, model.openness), anchor: .center)
+                .scaleEffect(y: max(0.08, openness), anchor: .center)
                 .opacity(Double(1.0 - model.smile))
                 .shadow(color: Color.white.opacity(0.40), radius: 0.75, x: 0, y: 0)
 

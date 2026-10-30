@@ -6,9 +6,18 @@ import Combine
 public class MascotModel: ObservableObject {
     @Published public var look: CGSize = .zero
     @Published public var tilt: Double = 0.0
-    @Published public var openness: CGFloat = 1.0 // 1.0 (fully open) to 0.0 (closed slit)
+    @Published public var leftOpenness: CGFloat = 1.0
+    @Published public var rightOpenness: CGFloat = 1.0
+    @Published public var openness: CGFloat = 1.0 { // backward-compatible sync
+        didSet {
+            leftOpenness = openness
+            rightOpenness = openness
+        }
+    }
     @Published public var smile: CGFloat = 0.0    // 0.0 (oval capsule) to 1.0 (smiling arc)
     @Published public var isHappy: Bool = false
+    @Published public var isSleeping: Bool = false
+    @Published public var glowPulse: CGFloat = 0.0
     
     private var cancellables = Set<AnyCancellable>()
     
@@ -32,10 +41,21 @@ public class MascotModel: ObservableObject {
     private func stepOrganicBehavior() {
         // Native macOS Hardware Event Idle Sensor (checks seconds since last mouse move)
         let idleSeconds = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .mouseMoved)
-        let isUserAFK = idleSeconds >= 30.0 // 30 seconds without user mouse/trackpad movement
         
-        if !isUserAFK {
-            // USER ACTIVE: Keep eyes centered and straight ahead, only soft natural blinks
+        // 1. AFK >= 2 minutes: Enter peaceful sleep mode (💤)
+        if idleSeconds >= 120.0 {
+            if !isSleeping {
+                enterSleep()
+            }
+            return
+        } else if isSleeping {
+            // User moved mouse/trackpad after sleeping -> wake up with quick double-blink!
+            wakeUp()
+            return
+        }
+        
+        // 2. USER ACTIVE (< 15s since last move): Keep eyes forward, random blink or wink
+        if idleSeconds < 15.0 {
             if look != .zero || tilt != 0 {
                 withAnimation(.spring(response: 0.25, dampingFraction: 0.82)) {
                     look = .zero
@@ -44,18 +64,22 @@ public class MascotModel: ObservableObject {
             }
             
             let roll = Int.random(in: 1...100)
-            if roll <= 45 {
+            if roll <= 40 {
                 performBlink()
-            } else if roll <= 60 {
+            } else if roll <= 55 {
                 performDoubleBlink()
+            } else if roll <= 68 {
+                performWink() // Playful wink 😉
             }
         } else {
-            // USER IDLE >= 2 MINUTES: Notchy enters curious exploration (glancing left/right, subtle head tilt)
+            // 3. USER IDLE (15s to 120s): Curious glancing around
             let roll = Int.random(in: 1...100)
-            if roll <= 50 {
+            if roll <= 45 {
                 performGlance()
-            } else if roll <= 80 {
+            } else if roll <= 75 {
                 performBlink()
+            } else if roll <= 85 {
+                performWink()
             } else {
                 performDoubleBlink()
             }
@@ -63,38 +87,107 @@ public class MascotModel: ObservableObject {
     }
     
     public func performBlink() {
+        guard !isSleeping else { return }
         withAnimation(.easeIn(duration: 0.09)) {
-            openness = 0.0
+            leftOpenness = 0.0
+            rightOpenness = 0.0
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.11) { [weak self] in
+            guard let self = self, !self.isSleeping else { return }
             withAnimation(.spring(response: 0.18, dampingFraction: 0.75)) {
-                self?.openness = 1.0
+                self.leftOpenness = 1.0
+                self.rightOpenness = 1.0
             }
         }
     }
     
     public func performDoubleBlink() {
+        guard !isSleeping else { return }
         withAnimation(.easeIn(duration: 0.08)) {
-            openness = 0.0
+            leftOpenness = 0.0
+            rightOpenness = 0.0
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) { [weak self] in
+            guard let self = self, !self.isSleeping else { return }
             withAnimation(.easeOut(duration: 0.08)) {
-                self?.openness = 1.0
+                self.leftOpenness = 1.0
+                self.rightOpenness = 1.0
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.09) { [weak self] in
+                guard let self = self, !self.isSleeping else { return }
                 withAnimation(.easeIn(duration: 0.08)) {
-                    self?.openness = 0.0
+                    self.leftOpenness = 0.0
+                    self.rightOpenness = 0.0
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.11) { [weak self] in
+                    guard let self = self, !self.isSleeping else { return }
                     withAnimation(.spring(response: 0.18, dampingFraction: 0.75)) {
-                        self?.openness = 1.0
+                        self.leftOpenness = 1.0
+                        self.rightOpenness = 1.0
                     }
                 }
             }
         }
     }
     
+    public func performWink() {
+        guard !isSleeping else { return }
+        let winkLeft = Bool.random()
+        withAnimation(.easeIn(duration: 0.08)) {
+            if winkLeft { leftOpenness = 0.0 } else { rightOpenness = 0.0 }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) { [weak self] in
+            guard let self = self, !self.isSleeping else { return }
+            withAnimation(.spring(response: 0.20, dampingFraction: 0.75)) {
+                self.leftOpenness = 1.0
+                self.rightOpenness = 1.0
+            }
+        }
+    }
+    
+    public func enterSleep() {
+        isSleeping = true
+        withAnimation(.spring(response: 0.65, dampingFraction: 0.80)) {
+            leftOpenness = 0.18
+            rightOpenness = 0.18
+            tilt = 12.0
+            look = CGSize(width: 0.8, height: 1.2)
+        }
+    }
+    
+    public func wakeUp() {
+        isSleeping = false
+        withAnimation(.spring(response: 0.22, dampingFraction: 0.70)) {
+            tilt = 0.0
+            look = .zero
+            leftOpenness = 1.0
+            rightOpenness = 1.0
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) { [weak self] in
+            self?.performDoubleBlink()
+        }
+    }
+    
+    public func glanceTowards(dx: CGFloat, dy: CGFloat) {
+        guard !isSleeping else { return }
+        withAnimation(.spring(response: 0.24, dampingFraction: 0.75)) {
+            look = CGSize(width: max(-2.5, min(2.5, dx)), height: max(-1.0, min(1.8, dy)))
+        }
+    }
+    
+    public func triggerPulse() {
+        withAnimation(.easeIn(duration: 0.20)) {
+            glowPulse = 1.0
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            withAnimation(.easeOut(duration: 0.50)) {
+                self?.glowPulse = 0.0
+            }
+        }
+    }
+    
     public func performGlance() {
+        guard !isSleeping else { return }
         let targets: [(CGFloat, CGFloat, Double)] = [
             (2.2, -0.4, 2.5),
             (-2.2, -0.4, -2.5),
@@ -109,9 +202,10 @@ public class MascotModel: ObservableObject {
         }
         
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.25) { [weak self] in
+            guard let self = self, !self.isSleeping else { return }
             withAnimation(.spring(response: 0.32, dampingFraction: 0.78)) {
-                self?.look = .zero
-                self?.tilt = 0.0
+                self.look = .zero
+                self.tilt = 0.0
             }
         }
     }

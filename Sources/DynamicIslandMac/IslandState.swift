@@ -541,6 +541,14 @@ public class IslandState: ObservableObject {
     private let customBouncinessKey = "notchflow_custom_bounciness"
     private let customDurationKey = "notchflow_custom_duration"
     
+    // Mascot Glow Intensity Customization (0.0 Off to 1.0 Vibrant)
+    @Published public var mascotGlowIntensity: Double = 0.85
+    private let mascotGlowKey = "notchflow_mascot_glow"
+    
+    // Settings Tab Selection
+    @Published public var selectedSettingsTab: SettingsTab = .general
+    private let settingsTabKey = "notchflow_settings_tab"
+    
     // System Integration & Haptics
     @Published public var isHapticEnabled: Bool = true
     @Published public var isLaunchAtLoginEnabled: Bool = false
@@ -568,6 +576,16 @@ public class IslandState: ObservableObject {
         if UserDefaults.standard.object(forKey: customDurationKey) != nil {
             let val = UserDefaults.standard.double(forKey: customDurationKey)
             if val >= 0.20 && val <= 0.55 { self.customDuration = val }
+        }
+        
+        if UserDefaults.standard.object(forKey: mascotGlowKey) != nil {
+            let val = UserDefaults.standard.double(forKey: mascotGlowKey)
+            self.mascotGlowIntensity = max(0.0, min(1.0, val))
+        }
+        
+        if let rawTab = UserDefaults.standard.string(forKey: settingsTabKey),
+           let tab = SettingsTab(rawValue: rawTab) {
+            self.selectedSettingsTab = tab
         }
         
         if let rawDismiss = UserDefaults.standard.string(forKey: dismissModeStorageKey),
@@ -732,6 +750,9 @@ public class IslandState: ObservableObject {
             
             if powerChanged {
                 self.triggerBatteryHUD()
+                if status.isPlugged || status.isCharging {
+                    self.mascotModel.triggerPulse()
+                }
             }
         }
         
@@ -856,8 +877,18 @@ public class IslandState: ObservableObject {
         UserDefaults.standard.set(customDuration, forKey: customDurationKey)
     }
     
+    public func setMascotGlowIntensity(_ value: Double) {
+        mascotGlowIntensity = max(0.0, min(1.0, value))
+        UserDefaults.standard.set(mascotGlowIntensity, forKey: mascotGlowKey)
+    }
+    
+    public func setSettingsTab(_ tab: SettingsTab) {
+        selectedSettingsTab = tab
+        UserDefaults.standard.set(tab.rawValue, forKey: settingsTabKey)
+    }
+    
     public func resetAnimationDefaults() {
-        setCustomBounciness(0.68)
+        setCustomBounciness(0.82)
         setCustomDuration(0.35)
         self.animationStyle = .bouncy
         UserDefaults.standard.set(animationStyle.rawValue, forKey: animStyleStorageKey)

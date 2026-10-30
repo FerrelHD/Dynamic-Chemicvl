@@ -581,6 +581,10 @@ public class DynamicIslandPanel: NSPanel {
                 self?.hideDebounceTimer?.invalidate()
                 self?.hideDebounceTimer = nil
                 
+                // Mascot curious gaze towards cursor
+                let dx = max(-2.0, min(2.0, (mouseLoc.x - midX) / 40.0))
+                state.mascotModel.glanceTowards(dx: dx, dy: 1.2)
+                
                 if !state.isHoverRevealed {
                     DispatchQueue.main.async { [weak self] in
                         self?.applyRevealedCompactFrame()
@@ -597,6 +601,7 @@ public class DynamicIslandPanel: NSPanel {
                         let stillInZone = (currentLoc.y >= topY - 56) && (abs(currentLoc.x - midX) <= 160)
                         if !stillInZone && state.mode != .expanded {
                             DispatchQueue.main.async { [weak self] in
+                                state.mascotModel.glanceTowards(dx: 0, dy: 0)
                                 withAnimation(.spring(response: 0.32, dampingFraction: 0.80)) {
                                     state.isHoverRevealed = false
                                 }
