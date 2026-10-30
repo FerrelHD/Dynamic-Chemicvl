@@ -1019,12 +1019,11 @@ public struct DynamicIslandView: View {
                     MascotView(model: state.mascotModel, size: 20)
                         .offset(x: state.mascotModel.mascotCenterOffset)
                     
-                    if state.mascotModel.greetingPhase == .dormant || state.mascotModel.greetingPhase == .slideToClock {
-                        Text(currentShortTime)
-                            .font(.system(size: 13, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
-                            .transition(.opacity.combined(with: .move(edge: .trailing)))
-                    }
+                    Text(currentShortTime)
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                        .scaleEffect(max(0.001, state.mascotModel.clockScale))
+                        .opacity(state.mascotModel.clockOpacity)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 .padding(.horizontal, 12)

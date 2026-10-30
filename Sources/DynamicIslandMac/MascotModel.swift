@@ -33,6 +33,8 @@ public class MascotModel: ObservableObject {
     @Published public var handScale: CGFloat = 0.0
     @Published public var handAngle: Double = 0.0
     @Published public var mascotCenterOffset: CGFloat = 0.0
+    @Published public var clockScale: CGFloat = 1.0
+    @Published public var clockOpacity: Double = 1.0
     
     public var isGreetingActive: Bool {
         greetingPhase != .dormant
@@ -232,24 +234,26 @@ public class MascotModel: ObservableObject {
         }
     }
     
-    // MARK: - Waving Hand Greeting Sequence (Option B - Linear Structured Task)
+    // MARK: - Waving Hand Greeting Sequence (Alur A - Center Morph)
     public func triggerGreetingSequence() {
         greetingTask?.cancel()
         greetingTask = Task { @MainActor [weak self] in
             guard let self = self else { return }
             
-            // 0. Initial state: Notchy small at center, clock hidden
+            // 0. Initial state: Notchy starts at true dead center (+23.0 offset in HStack), clock hidden
             self.greetingPhase = .popOut
-            self.mascotScale = 0.1
-            self.mascotCenterOffset = 24.0
-            self.handScale = 0.0
+            self.mascotScale = 0.05
+            self.mascotCenterOffset = 23.0
+            self.clockScale = 0.001
+            self.clockOpacity = 0.0
+            self.handScale = 0.001
             self.handAngle = 0.0
             self.smile = 0.0
             self.tilt = 0.0
             self.isSleeping = false
             self.openness = 1.0
             
-            // 1. Pop-out with bouncy fluid spring (0.35s)
+            // 1. Pop-out at dead center with bouncy fluid spring (0.35s)
             withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
                 self.mascotScale = 1.0
             }
@@ -301,23 +305,25 @@ public class MascotModel: ObservableObject {
             try? await Task.sleep(nanoseconds: 140_000_000)
             if Task.isCancelled { return }
             
-            // 4. Pop-in: hand folds cleanly inside Notchy (0.20s)
+            // 4. Pop-in: hand folds cleanly inside Notchy (0.18s)
             self.greetingPhase = .popIn
-            withAnimation(.spring(response: 0.24, dampingFraction: 0.78)) {
-                self.handScale = 0.0
+            withAnimation(.spring(response: 0.22, dampingFraction: 0.78)) {
+                self.handScale = 0.001
                 self.tilt = 0.0
                 self.glowPulse = 0.0
             }
-            try? await Task.sleep(nanoseconds: 200_000_000)
+            try? await Task.sleep(nanoseconds: 180_000_000)
             if Task.isCancelled { return }
             
-            // 5. Slide to Clock: Notchy glides to left, clock morphs in from right (0.45s)
+            // 5. Alur A: Notchy glides to left, clock pops in from small to large at default place (0.42s)
             self.greetingPhase = .slideToClock
-            withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) {
+            withAnimation(.spring(response: 0.40, dampingFraction: 0.72)) {
                 self.mascotCenterOffset = 0.0
+                self.clockScale = 1.0
+                self.clockOpacity = 1.0
                 self.smile = 0.0
             }
-            try? await Task.sleep(nanoseconds: 450_000_000)
+            try? await Task.sleep(nanoseconds: 420_000_000)
             if Task.isCancelled { return }
             
             // 6. Complete and settle into dormant idle standby
@@ -331,6 +337,8 @@ public class MascotModel: ObservableObject {
         greetingPhase = .dormant
         mascotScale = 1.0
         mascotCenterOffset = 0.0
+        clockScale = 1.0
+        clockOpacity = 1.0
         handScale = 0.0
         handAngle = 0.0
         tilt = 0.0

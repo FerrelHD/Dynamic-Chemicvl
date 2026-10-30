@@ -53,38 +53,54 @@ public struct MascotView: View {
         .rotationEffect(.degrees(model.tilt))
     }
     
-    // Waving Hand Mitten / Paw (Senior Architectural Design: anchor .bottomLeading, 12x15pt at Retina)
+    // MARK: - Waving Hand (Open Paw with 3 Defined Fingers & Thumb, Golden Yellow, No Outline)
     private var wavingHand: some View {
         ZStack(alignment: .bottomLeading) {
-            // Palm / arm body
-            Capsule()
+            // 1. Palm base (rounded soft squircle)
+            RoundedRectangle(cornerRadius: size * 0.14)
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color(red: 1.0, green: 0.90, blue: 0.38),
-                            Color(red: 0.98, green: 0.72, blue: 0.12)
+                            Color(red: 1.0, green: 0.90, blue: 0.40),
+                            Color(red: 0.98, green: 0.72, blue: 0.14)
                         ],
                         startPoint: .top,
                         endPoint: .bottom
                     )
                 )
-                .frame(width: size * 0.52, height: size * 0.72)
-                .overlay(
-                    Capsule()
-                        .stroke(Color.white.opacity(0.35), lineWidth: 0.6)
-                )
-                // Cute thumb protrusion on the inner-left of the paw
-                .overlay(
-                    Circle()
-                        .fill(Color(red: 1.0, green: 0.86, blue: 0.30))
-                        .frame(width: size * 0.26, height: size * 0.26)
-                        .offset(x: -size * 0.14, y: -size * 0.08),
-                    alignment: .center
-                )
+                .frame(width: size * 0.42, height: size * 0.42)
+            
+            // 2. Three defined fingers at top of palm
+            HStack(spacing: size * 0.04) {
+                // Index finger
+                Capsule()
+                    .fill(Color(red: 1.0, green: 0.94, blue: 0.50))
+                    .frame(width: size * 0.11, height: size * 0.28)
+                
+                // Middle finger (tallest)
+                Capsule()
+                    .fill(Color(red: 1.0, green: 0.96, blue: 0.54))
+                    .frame(width: size * 0.12, height: size * 0.34)
+                
+                // Ring/Pinky finger
+                Capsule()
+                    .fill(Color(red: 1.0, green: 0.93, blue: 0.48))
+                    .frame(width: size * 0.11, height: size * 0.26)
+            }
+            .offset(x: size * 0.03, y: -size * 0.22)
+            
+            // 3. Cute Thumb on inner-left side (pointing towards Notchy)
+            Capsule()
+                .fill(Color(red: 1.0, green: 0.91, blue: 0.44))
+                .frame(width: size * 0.11, height: size * 0.22)
+                .rotationEffect(.degrees(-42))
+                .offset(x: -size * 0.14, y: size * 0.02)
         }
+        // Soft natural shadow behind hand for 3D depth, NO stroke/outline
+        .shadow(color: Color.black.opacity(0.40), radius: 1.8, x: -0.5, y: 1.0)
         .scaleEffect(model.handScale, anchor: .bottomLeading)
         .rotationEffect(.degrees(model.handAngle), anchor: .bottomLeading)
-        .offset(x: size * 0.38, y: -size * 0.14)
+        .offset(x: size * 0.46, y: -size * 0.20)
     }
 
     private var glowMultiplier: Double {
