@@ -148,6 +148,13 @@ public class NotificationListenerService {
         self.whatsAppWalSource = src
     }
     
+    private static func isBase64Token(_ s: String) -> Bool {
+        let trimmed = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= 16 && !trimmed.contains(" ") else { return false }
+        let validBase64 = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+/=")
+        return trimmed.unicodeScalars.allSatisfy { validBase64.contains($0) }
+    }
+    
     private func checkNewWhatsAppMessages() {
         let chatDBPath = whatsAppSharedURL.appendingPathComponent("ChatStorage.sqlite").path
         guard FileManager.default.fileExists(atPath: chatDBPath) else { return }
@@ -164,9 +171,12 @@ public class NotificationListenerService {
                COALESCE(NULLIF(s.ZPARTNERNAME, ''), ''), 
                COALESCE(m.ZTEXT, ''), 
                COALESCE(s.ZCONTACTJID, ''),
-               COALESCE(NULLIF(m.ZPUSHNAME, ''), '')
+               COALESCE(NULLIF(p.ZPUSHNAME, ''), NULLIF(p2.ZPUSHNAME, ''), NULLIF(gm.ZCONTACTNAME, ''), '')
         FROM ZWAMESSAGE m
         LEFT JOIN ZWACHATSESSION s ON m.ZCHATSESSION = s.Z_PK
+        LEFT JOIN ZWAGROUPMEMBER gm ON m.ZGROUPMEMBER = gm.Z_PK
+        LEFT JOIN ZWAPROFILEPUSHNAME p ON gm.ZMEMBERJID = p.ZJID
+        LEFT JOIN ZWAPROFILEPUSHNAME p2 ON m.ZFROMJID = p2.ZJID
         WHERE m.ZISFROMME = 0 AND m.ZMESSAGETYPE NOT IN (59, 10) AND m.Z_PK > ?
         ORDER BY m.Z_PK ASC LIMIT 5;
         """
@@ -182,29 +192,34 @@ public class NotificationListenerService {
             let partnerName = sqlite3_column_text(stmt, 1).map { String(cString: $0) } ?? ""
             var text = sqlite3_column_text(stmt, 2).map { String(cString: $0) } ?? ""
             let jid = sqlite3_column_text(stmt, 3).map { String(cString: $0) } ?? ""
-            let pushName = sqlite3_column_text(stmt, 4).map { String(cString: $0) } ?? ""
+            let memberName = sqlite3_column_text(stmt, 4).map { String(cString: $0) } ?? ""
             
             self.lastSeenWhatsAppPK = max(self.lastSeenWhatsAppPK, pk)
             
             text = text.trimmingCharacters(in: .whitespacesAndNewlines)
             if text.isEmpty { text = "New Message" }
             
-            // Format dynamic sender name: display real contact / sender name, never generic "WhatsApp"
+            // Format dynamic sender name: display real contact / sender name, never generic "WhatsApp" or raw Base64 token
             let sender: String = {
+                let cleanPartner = NotificationListenerService.isBase64Token(partnerName) ? "" : partnerName
+                let cleanMember = NotificationListenerService.isBase64Token(memberName) ? "" : memberName
+                
                 let isGroup = jid.contains("@g.us")
                 if isGroup {
-                    if !pushName.isEmpty && !partnerName.isEmpty && pushName != partnerName {
-                        return "\(pushName) (\(partnerName))"
+                    if !cleanMember.isEmpty && !cleanPartner.isEmpty && cleanMember != cleanPartner {
+                        return "\(cleanMember) (\(cleanPartner))"
                     }
-                    return !partnerName.isEmpty ? partnerName : (!pushName.isEmpty ? pushName : "Group Message")
+                    if !cleanPartner.isEmpty { return cleanPartner }
+                    if !cleanMember.isEmpty { return cleanMember }
+                    return "Group Message"
                 }
-                if !partnerName.isEmpty && partnerName.lowercased() != "whatsapp" {
-                    return partnerName
+                if !cleanPartner.isEmpty && cleanPartner.lowercased() != "whatsapp" {
+                    return cleanPartner
                 }
-                if !pushName.isEmpty && pushName.lowercased() != "whatsapp" {
-                    return pushName
+                if !cleanMember.isEmpty && cleanMember.lowercased() != "whatsapp" {
+                    return cleanMember
                 }
-                return "Contact"
+                return "WhatsApp"
             }()
             
             let customAvatar = resolveWhatsAppAvatar(for: jid)
@@ -337,7 +352,7 @@ public class NotificationListenerService {
             // Resolve actual sender name dynamically:
             // Never display generic app name "WhatsApp" as the sender title when contact/subtitle is available!
             var displaySender = rawTitle
-            if chatApp == .whatsapp || rawTitle.lowercased() == "whatsapp" {
+            if displaySender.lowercased() == "whatsapp" {
                 if !subtitle.isEmpty && subtitle.lowercased() != "whatsapp" {
                     displaySender = subtitle
                 } else if let colonIdx = body.firstIndex(of: ":") {
@@ -350,10 +365,13 @@ public class NotificationListenerService {
                 } else if !subtitle.isEmpty {
                     displaySender = subtitle
                 } else {
-                    displaySender = "Contact"
+                    displaySender = "WhatsApp"
                 }
             } else if displaySender.isEmpty {
                 displaySender = !subtitle.isEmpty ? subtitle : (chatApp == .other ? appId : chatApp.rawValue)
+            }
+            if NotificationListenerService.isBase64Token(displaySender) {
+                displaySender = (!subtitle.isEmpty && !NotificationListenerService.isBase64Token(subtitle)) ? subtitle : (chatApp == .other ? appId : chatApp.rawValue)
             }
             
             if body.isEmpty && !subtitle.isEmpty && displaySender != subtitle {
