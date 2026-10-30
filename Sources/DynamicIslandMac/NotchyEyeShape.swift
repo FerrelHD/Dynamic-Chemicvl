@@ -53,54 +53,33 @@ public struct MascotView: View {
         .rotationEffect(.degrees(model.tilt))
     }
     
-    // MARK: - Waving Hand (Open Paw with 3 Defined Fingers & Thumb, Golden Yellow, No Outline)
-    private var wavingHand: some View {
-        ZStack(alignment: .bottomLeading) {
-            // 1. Palm base (rounded soft squircle)
-            RoundedRectangle(cornerRadius: size * 0.14)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 1.0, green: 0.90, blue: 0.40),
-                            Color(red: 0.98, green: 0.72, blue: 0.14)
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .frame(width: size * 0.42, height: size * 0.42)
-            
-            // 2. Three defined fingers at top of palm
-            HStack(spacing: size * 0.04) {
-                // Index finger
-                Capsule()
-                    .fill(Color(red: 1.0, green: 0.94, blue: 0.50))
-                    .frame(width: size * 0.11, height: size * 0.28)
-                
-                // Middle finger (tallest)
-                Capsule()
-                    .fill(Color(red: 1.0, green: 0.96, blue: 0.54))
-                    .frame(width: size * 0.12, height: size * 0.34)
-                
-                // Ring/Pinky finger
-                Capsule()
-                    .fill(Color(red: 1.0, green: 0.93, blue: 0.48))
-                    .frame(width: size * 0.11, height: size * 0.26)
-            }
-            .offset(x: size * 0.03, y: -size * 0.22)
-            
-            // 3. Cute Thumb on inner-left side (pointing towards Notchy)
-            Capsule()
-                .fill(Color(red: 1.0, green: 0.91, blue: 0.44))
-                .frame(width: size * 0.11, height: size * 0.22)
-                .rotationEffect(.degrees(-42))
-                .offset(x: -size * 0.14, y: size * 0.02)
+    // Cached 3D Waving Hand Asset (Mirrored Apple-style emoji hand)
+    private static let handImage: NSImage? = {
+        if let img = NSImage(named: "MascotHand") { return img }
+        if let url = Bundle.main.url(forResource: "MascotHand", withExtension: "png"),
+           let img = NSImage(contentsOf: url) {
+            return img
         }
-        // Soft natural shadow behind hand for 3D depth, NO stroke/outline
-        .shadow(color: Color.black.opacity(0.40), radius: 1.8, x: -0.5, y: 1.0)
+        for path in ["Resources/MascotHand.png", "../Resources/MascotHand.png"] {
+            if let img = NSImage(contentsOfFile: path) { return img }
+        }
+        return nil
+    }()
+
+    // MARK: - Waving Hand (3D Mirrored Emoji Asset Hand, No Outline)
+    private var wavingHand: some View {
+        Group {
+            if let hand = Self.handImage {
+                Image(nsImage: hand)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: size * 0.78, height: size * 0.78)
+                    .shadow(color: Color.black.opacity(0.35), radius: 1.5, x: -0.5, y: 1.0)
+            }
+        }
         .scaleEffect(model.handScale, anchor: .bottomLeading)
         .rotationEffect(.degrees(model.handAngle), anchor: .bottomLeading)
-        .offset(x: size * 0.46, y: -size * 0.20)
+        .offset(x: size * 0.48, y: -size * 0.22)
     }
 
     private var glowMultiplier: Double {
