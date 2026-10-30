@@ -1992,20 +1992,24 @@ extension NSImage {
             let avgB = winner.totalB / CGFloat(winner.count)
             let rawColor = NSColor(red: avgR, green: avgG, blue: avgB, alpha: 1.0)
             
-            // Calibrate for OLED Jet-Black MacBook Notch: keep authentic hue, boost vibrance & luminosity
+            // Calibrate for OLED Jet-Black MacBook Notch: keep authentic hue, clamp brightness to prevent text washout
             let h = rawColor.hueComponent
-            let s = min(1.0, max(0.55, rawColor.saturationComponent * 1.15))
-            let br = min(0.85, max(0.48, rawColor.brightnessComponent))
+            let s = min(0.80, max(0.45, rawColor.saturationComponent * 1.10))
+            let br = min(0.50, max(0.35, rawColor.brightnessComponent))
             return NSColor(hue: h, saturation: s, brightness: br, alpha: 1.0)
         }
         
         if totalSamples > 0 {
-            return NSColor(
+            let fallbackColor = NSColor(
                 red: fallbackR / totalSamples,
                 green: fallbackG / totalSamples,
                 blue: fallbackB / totalSamples,
                 alpha: 1.0
             )
+            let h = fallbackColor.hueComponent
+            let s = min(0.80, max(0.45, fallbackColor.saturationComponent))
+            let br = min(0.50, max(0.35, fallbackColor.brightnessComponent))
+            return NSColor(hue: h, saturation: s, brightness: br, alpha: 1.0)
         }
         
         return nil
