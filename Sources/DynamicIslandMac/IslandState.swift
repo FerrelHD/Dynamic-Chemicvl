@@ -239,6 +239,7 @@ public class IslandState: ObservableObject {
     public var onModeChangedToExpanded: (() -> Void)?
     @Published public var mode: IslandMode = .compact {
         didSet {
+            updateWaveformTimer()
             if mode == .expanded {
                 onModeChangedToExpanded?()
             }
@@ -246,6 +247,7 @@ public class IslandState: ObservableObject {
     }
     @Published public var activeTab: IslandTab = .control {
         didSet {
+            updateWaveformTimer()
             if activeTab == .devices {
                 refreshConnectedDevices()
             }
@@ -451,15 +453,28 @@ public class IslandState: ObservableObject {
     @Published public var artworkDominantColor: Color? = nil
     @Published public var currentPositionSeconds: Double = 0.0
     @Published public var totalDurationSeconds: Double = 0.0
+    private var lastArtworkData: Data?
+    private var artworkRetryWork: DispatchWorkItem?
+    private var artworkAttempt = 0
     
     // Apple Music Style Synchronized Lyrics
-    @Published public var isLyricsEnabled: Bool = false
+    @Published public var isLyricsEnabled: Bool = false {
+        didSet { updateWaveformTimer() }
+    }
     @Published public var lyricsLines: [LyricLine] = []
     @Published public var currentLyricIndex: Int? = nil
     @Published public var isLoadingLyrics: Bool = false
     @Published public var lyricsErrorMessage: String? = nil
     public let lyricSyncLeadSeconds: Double = 0.5
     private var lastLoadedLyricsTrack: String = ""
+    private var lyricsRequestID = UUID()
+    private var lyricsDebounce: DispatchWorkItem?
+    
+    private func setIfChanged<T: Equatable>(_ keyPath: ReferenceWritableKeyPath<IslandState, T>, _ value: T) {
+        if self[keyPath: keyPath] != value {
+            self[keyPath: keyPath] = value
+        }
+    }
     
     // Waveform simulation
     @Published public var waveHeights: [CGFloat] = [0.2, 0.5, 0.3, 0.7, 0.4, 0.6, 0.3]
@@ -502,7 +517,9 @@ public class IslandState: ObservableObject {
     private var copyFeedbackWorkItem: DispatchWorkItem?
     
     // Settings & Customization
-    @Published public var isShowingSettings: Bool = false
+    @Published public var isShowingSettings: Bool = false {
+        didSet { updateWaveformTimer() }
+    }
     @Published public var animationStyle: AnimationStyle = .bouncy
     private let animStyleStorageKey = "notchflow_anim_style"
     
@@ -587,7 +604,7 @@ public class IslandState: ObservableObject {
             // Graceful retention: if no media is playing, keep the last known track in paused state rather than wiping it immediately
             if info.title == "No Media Playing" && hasActiveMusic {
                 if self.isPlaying {
-                    self.isPlaying = false
+                    self.setIfChanged(\.isPlaying, false)
                     self.updateWaveformTimer()
                     self.updatePlaybackTicker()
                 }
@@ -596,33 +613,43 @@ public class IslandState: ObservableObject {
             
             let wasPlaying = self.isPlaying
             let trackChanged = (self.trackTitle != info.title || self.artistName != info.artist)
+            let durationChanged = abs(self.totalDurationSeconds - info.duration) > 1.0 && info.duration > 0
             
-            self.isPlaying = info.isPlaying
-            self.trackTitle = info.title
-            self.artistName = info.artist
-            self.albumName = info.album
-            self.totalDurationSeconds = info.duration
+            self.setIfChanged(\.isPlaying, info.isPlaying)
+            self.setIfChanged(\.trackTitle, info.title)
+            self.setIfChanged(\.artistName, info.artist)
+            self.setIfChanged(\.albumName, info.album)
+            self.setIfChanged(\.totalDurationSeconds, info.duration)
             
             let token = "\(info.title)_\(info.artist)"
-            self.currentTrackToken = token
+            self.setIfChanged(\.currentTrackToken, token)
             
-            if let artData = info.artworkData, !artData.isEmpty, let img = NSImage(data: artData) {
-                self.artworkImage = img
-            } else if trackChanged || self.artworkImage == nil {
-                // Instantly reset old artwork on track change to prevent stale leaks
-                if trackChanged {
-                    self.artworkImage = nil
-                }
-                if !info.title.isEmpty && info.title != "No Media Playing" {
-                    MediaService.shared.fetchOnlineArtwork(title: info.title, artist: info.artist, album: info.album) { [weak self] onlineData in
-                        guard let self = self, self.currentTrackToken == token else { return }
-                        if let onlineData = onlineData, let img = NSImage(data: onlineData) {
-                            self.artworkImage = img
-                        }
+            if trackChanged {
+                self.artworkRetryWork?.cancel()
+                self.artworkRetryWork = nil
+                self.artworkAttempt = 0
+                self.lastArtworkData = nil
+                self.artworkImage = nil
+                
+                self.lyricsRequestID = UUID()
+                self.lyricsDebounce?.cancel()
+                self.lyricsDebounce = nil
+                self.lyricsLines = []
+                self.currentLyricIndex = nil
+                self.lyricsErrorMessage = nil
+                self.isLoadingLyrics = false
+                self.lastLoadedLyricsTrack = ""
+            }
+            
+            if let artData = info.artworkData, !artData.isEmpty {
+                if artData != self.lastArtworkData {
+                    self.lastArtworkData = artData
+                    if let img = NSImage(data: artData) {
+                        self.artworkImage = img
                     }
-                } else {
-                    self.artworkImage = nil
                 }
+            } else if trackChanged || self.artworkImage == nil {
+                self.scheduleArtworkLookup(token: token, title: info.title, artist: info.artist, album: info.album, delay: 1.0)
             }
             
             // Sync anchor if track changed, stopped, or drifted more than 0.6s
@@ -661,14 +688,8 @@ public class IslandState: ObservableObject {
                 self.updatePlaybackTicker()
             }
             
-            if trackChanged {
-                self.lastLoadedLyricsTrack = ""
-                if self.isLyricsEnabled {
-                    self.loadLyrics(force: true)
-                } else {
-                    self.lyricsLines = []
-                    self.currentLyricIndex = nil
-                }
+            if (trackChanged || (durationChanged && self.lyricsLines.isEmpty)) && self.isLyricsEnabled {
+                self.scheduleLoadLyrics()
             }
         }
         
@@ -1258,6 +1279,35 @@ public class IslandState: ObservableObject {
         }
     }
     
+    private func scheduleArtworkLookup(token: String, title: String, artist: String, album: String, delay: Double) {
+        self.artworkRetryWork?.cancel()
+        guard !title.isEmpty, title != "No Media Playing", self.artworkAttempt < 2 else { return }
+        let work = DispatchWorkItem { [weak self] in
+            guard let self = self, self.currentTrackToken == token, self.artworkImage == nil else { return }
+            self.artworkAttempt += 1
+            MediaService.shared.fetchOnlineArtwork(title: title, artist: artist, album: album, duration: self.totalDurationSeconds) { [weak self] data in
+                guard let self = self, self.currentTrackToken == token else { return }
+                if let data = data, let img = NSImage(data: data) {
+                    self.artworkImage = img
+                } else if self.artworkAttempt < 2 {
+                    self.scheduleArtworkLookup(token: token, title: title, artist: artist, album: album, delay: 4.0)
+                }
+            }
+        }
+        self.artworkRetryWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+    }
+
+    private func scheduleLoadLyrics() {
+        self.lyricsDebounce?.cancel()
+        self.isLoadingLyrics = true
+        let work = DispatchWorkItem { [weak self] in
+            self?.loadLyrics(force: true)
+        }
+        self.lyricsDebounce = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8, execute: work)
+    }
+
     public func loadLyrics(force: Bool = false) {
         guard !trackTitle.isEmpty && trackTitle != "No Media Playing" else { return }
         let currentTrackKey = "\(trackTitle)_\(artistName)"
@@ -1266,18 +1316,22 @@ public class IslandState: ObservableObject {
         lastLoadedLyricsTrack = currentTrackKey
         isLoadingLyrics = true
         lyricsErrorMessage = nil
+        let requestID = UUID()
+        self.lyricsRequestID = requestID
         
-        LyricsService.shared.fetchLyrics(title: trackTitle, artist: artistName) { [weak self] result in
-            guard let self = self else { return }
-            self.isLoadingLyrics = false
-            switch result {
-            case .success(let lines):
-                self.lyricsLines = lines
-                self.lyricsErrorMessage = nil
-                self.updateActiveLyricIndex(for: self.currentPositionSeconds)
-            case .failure:
-                self.lyricsLines = []
-                self.lyricsErrorMessage = "No lyrics found for this track"
+        LyricsService.shared.fetchLyrics(title: trackTitle, artist: artistName, duration: totalDurationSeconds) { [weak self] result in
+            DispatchQueue.main.async {
+                guard let self = self, self.lyricsRequestID == requestID else { return }
+                self.isLoadingLyrics = false
+                switch result {
+                case .success(let lines):
+                    self.lyricsLines = lines
+                    self.lyricsErrorMessage = nil
+                    self.updateActiveLyricIndex(for: self.currentPositionSeconds)
+                case .failure:
+                    self.lyricsLines = []
+                    self.lyricsErrorMessage = "No lyrics found for this track"
+                }
             }
         }
     }
@@ -1328,15 +1382,24 @@ public class IslandState: ObservableObject {
         return false
     }
 
+    private var isWaveformVisible: Bool {
+        if mode == .compact { return true }
+        return activeTab == .music && !isLyricsEnabled && !isShowingSettings
+    }
+
     // MARK: - On-Demand Physical Multi-Band Equalizer (Attack-Decay Inertia, Zero CPU Idle when Paused)
     public func updateWaveformTimer() {
-        let shouldAnimate = isPlaying || isCallActive
+        let shouldAnimate = isCallActive || (isPlaying && isWaveformVisible)
         if shouldAnimate {
             if waveformCancellable == nil {
                 waveformCancellable = Timer.publish(every: 0.05, on: .main, in: .common)
                     .autoconnect()
                     .sink { [weak self] _ in
-                        guard let self = self, (self.isPlaying || self.isCallActive) else { return }
+                        guard let self = self, self.isCallActive || (self.isPlaying && self.isWaveformVisible) else {
+                            self?.waveformCancellable?.cancel()
+                            self?.waveformCancellable = nil
+                            return
+                        }
                         let t = Date().timeIntervalSinceReferenceDate
                         
                         // Tempo beat clock (~124 BPM typical tempo = ~2.07 Hz)
