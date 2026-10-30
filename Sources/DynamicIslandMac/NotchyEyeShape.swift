@@ -52,18 +52,71 @@ public struct MascotView: View {
     }
 
     private var face: some View {
-        Circle()
-            .fill(
-                LinearGradient(
-                    colors: [
-                        Color(red: 1.0, green: 0.86, blue: 0.40), // Bright emoji yellow top
-                        Color(red: 1.0, green: 0.80, blue: 0.28)  // Warm amber yellow bottom
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
+        ZStack {
+            // 1. Base Spherical 3D Radial Lighting (Light Source from top-left)
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            Color(red: 1.0, green: 0.96, blue: 0.65), // Specular light reflection point
+                            Color(red: 1.0, green: 0.82, blue: 0.26), // Vibrant emoji yellow body
+                            Color(red: 0.95, green: 0.68, blue: 0.12), // Deep golden curvature
+                            Color(red: 0.84, green: 0.50, blue: 0.05)  // Warm amber shadow at perimeter
+                        ],
+                        center: UnitPoint(x: 0.35, y: 0.28),
+                        startRadius: 0,
+                        endRadius: size * 0.72
+                    )
                 )
-            )
-            .shadow(color: Color.black.opacity(0.20), radius: 1, x: 0, y: 0.5)
+            
+            // 2. Glossy Specular Crescent Highlight (Glass / Aqua shine at top-left)
+            Ellipse()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.68),
+                            Color.white.opacity(0.12),
+                            Color.clear
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(width: size * 0.62, height: size * 0.32)
+                .offset(x: -size * 0.04, y: -size * 0.26)
+                .rotationEffect(.degrees(-6))
+            
+            // 3. Subtle Bottom Bounce Light (Ambient reflected light from beneath)
+            Ellipse()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.clear,
+                            Color(red: 1.0, green: 0.92, blue: 0.55).opacity(0.40)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(width: size * 0.54, height: size * 0.18)
+                .offset(y: size * 0.36)
+            
+            // 4. Subtle Outer Glass Rim Stroke
+            Circle()
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(0.55),
+                            Color.white.opacity(0.10),
+                            Color.black.opacity(0.20)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: max(0.5, size * 0.035)
+                )
+        }
+        .shadow(color: Color.black.opacity(0.35), radius: 1.5, x: 0, y: 1.0)
     }
 
     private var eyeView: some View {
@@ -73,12 +126,15 @@ public struct MascotView: View {
                 .frame(width: size * eyeW, height: size * eyeH)
                 .scaleEffect(y: max(0.08, model.openness), anchor: .center)
                 .opacity(Double(1.0 - model.smile))
-                .shadow(color: Color.white.opacity(0.35), radius: 1.0, x: 0, y: 0)
+                // Micro depth shadow onto the 3D spherical surface
+                .shadow(color: Color(red: 0.65, green: 0.38, blue: 0.02).opacity(0.50), radius: 0.75, x: 0, y: 0.75)
+                .shadow(color: Color.white.opacity(0.40), radius: 0.75, x: 0, y: 0)
 
             SmileArc()
                 .stroke(eyeColor, style: StrokeStyle(lineWidth: max(1.4, size * 0.07), lineCap: .round))
                 .frame(width: size * 0.18, height: size * 0.09)
                 .opacity(Double(model.smile))
+                .shadow(color: Color(red: 0.65, green: 0.38, blue: 0.02).opacity(0.50), radius: 0.75, x: 0, y: 0.75)
         }
     }
 }

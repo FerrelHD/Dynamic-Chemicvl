@@ -44,6 +44,27 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             object: nil,
             suspensionBehavior: .deliverImmediately
         )
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(toggleIslandAction),
+            name: NSNotification.Name("com.ferrel.NotchFlow.toggleIsland"),
+            object: nil,
+            suspensionBehavior: .deliverImmediately
+        )
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(nextTabAction),
+            name: NSNotification.Name("com.ferrel.NotchFlow.nextTab"),
+            object: nil,
+            suspensionBehavior: .deliverImmediately
+        )
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(prevTabAction),
+            name: NSNotification.Name("com.ferrel.NotchFlow.prevTab"),
+            object: nil,
+            suspensionBehavior: .deliverImmediately
+        )
         
         print("🏝️ Native Dynamic Island Active (iOS Design & Full English)")
     }
@@ -126,6 +147,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     
     @objc private func toggleIslandAction() {
         IslandState.shared.toggleExpand()
+    }
+    
+    @objc private func nextTabAction() {
+        IslandState.shared.nextTab()
+    }
+    
+    @objc private func prevTabAction() {
+        IslandState.shared.previousTab()
     }
     
     @objc private func openSettingsAction() {

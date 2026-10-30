@@ -14,7 +14,7 @@ public class MascotModel: ObservableObject {
     
     public init() {
         // Organic pulse timer: checks mouse movement & drives organic life (0% CPU cost)
-        Timer.publish(every: 3.0, on: .main, in: .common)
+        Timer.publish(every: 2.0, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
                 self?.stepOrganicBehavior()
@@ -32,7 +32,7 @@ public class MascotModel: ObservableObject {
     private func stepOrganicBehavior() {
         // Native macOS Hardware Event Idle Sensor (checks seconds since last mouse move)
         let idleSeconds = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .mouseMoved)
-        let isUserAFK = idleSeconds >= 120.0 // 2 minutes without user mouse movement
+        let isUserAFK = idleSeconds >= 30.0 // 30 seconds without user mouse/trackpad movement
         
         if !isUserAFK {
             // USER ACTIVE: Keep eyes centered and straight ahead, only soft natural blinks

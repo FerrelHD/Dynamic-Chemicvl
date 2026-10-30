@@ -1014,9 +1014,27 @@ public struct DynamicIslandView: View {
         .opacity
     }
     
+    // Permanent Centered Top Header in Expanded View (Mascot & Digital Clock)
+    private var expandedTopBar: some View {
+        HStack(spacing: 8) {
+            MascotView(model: state.mascotModel, size: 20)
+            
+            Text(currentShortTime)
+                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .foregroundColor(.white)
+        }
+        .frame(height: 28, alignment: .center)
+        .frame(maxWidth: .infinity, alignment: .top)
+        .padding(.top, 6)
+    }
+    
     private var expandedContent: some View {
         ZStack(alignment: .top) {
-            // Tab Contents (Spacious Content-first presentation, pinned securely to top)
+            // 1. Permanent Centered Top Header (Mascot & Digital Clock)
+            expandedTopBar
+                .zIndex(2)
+            
+            // 2. Tab Contents (Spacious Content-first presentation, padded comfortably below header)
             Group {
                 switch state.activeTab {
                 case .control:
@@ -1037,13 +1055,15 @@ public struct DynamicIslandView: View {
             .id(state.activeTab.rawValue)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .padding(.horizontal, 32) // Standardized 32pt horizontal margin for generous breathing room across all tabs
-            .padding(.top, (state.activeTab == .music && state.isLyricsEnabled) ? 22 : 14)
+            .padding(.top, (state.activeTab == .music && state.isLyricsEnabled) ? 42 : 38)
             .padding(.bottom, 36)
+            .zIndex(1)
             
-            // Minimal Apple-Style Page Dots & Settings (••• ⚙️) Pinned Permanently at Bottom
+            // 3. Minimal Apple-Style Page Dots & Settings (••• ⚙️) Pinned Permanently at Bottom
             pageDotsBar
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                .padding(.bottom, 18) // Exact anchor from Control tab across all tabs
+                .padding(.bottom, 14)
+                .zIndex(2)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .contentShape(Rectangle())
