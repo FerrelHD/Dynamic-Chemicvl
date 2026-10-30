@@ -372,21 +372,21 @@ public class IslandState: ObservableObject {
     
     public var expandedDimensions: (width: CGFloat, height: CGFloat) {
         if activeTab == .music && isLyricsEnabled {
-            return (width: 720, height: 244) // Spacious Responsive Split View for Apple Music Lyrics
+            return (width: 720, height: 230) // Spacious Responsive Split View for Apple Music Lyrics
         }
         switch activeTab {
         case .timer:
-            return (width: 448, height: 244) // Dedicated horizontal ruler timer tab
+            return (width: 480, height: 230)
         case .devices:
-            return (width: 448, height: 244) // Standardized 244pt matching Control tab
+            return (width: 480, height: 230)
         case .music:
-            return (width: 448, height: 244) // Standardized 244pt matching Control tab
+            return (width: 480, height: 230)
         case .control:
-            return (width: 448, height: 244) // Controls center: 5 tiles, CPU/RAM meters, volume slider
+            return (width: 480, height: 230)
         case .notes:
-            return (width: 448, height: 244) // Reminders / To-do list (standardized 244pt)
+            return (width: 480, height: 230)
         case .shelf:
-            return (width: 448, height: 244) // File shelf & clipboard (standardized 244pt)
+            return (width: 480, height: 230)
         }
     }
     

@@ -1009,32 +1009,14 @@ public struct DynamicIslandView: View {
         .frame(maxWidth: .infinity, alignment: .top)
     }
     
-    // MARK: - 2. Expanded View (Apple Minimal Card with Uniform Snappy Tab Crossfade & Pinned Page Dots)
+    // MARK: - 2. Expanded View (Clean Apple Card with Uniform Snappy Tab Crossfade & Pinned Page Dots)
     private var tabTransition: AnyTransition {
         .opacity
     }
     
-    // Permanent Centered Top Header in Expanded View (Mascot & Digital Clock)
-    private var expandedTopBar: some View {
-        HStack(spacing: 8) {
-            MascotView(model: state.mascotModel, size: 20)
-            
-            Text(currentShortTime)
-                .font(.system(size: 13, weight: .bold, design: .rounded))
-                .foregroundColor(.white)
-        }
-        .frame(height: 28, alignment: .center)
-        .frame(maxWidth: .infinity, alignment: .top)
-        .padding(.top, 6)
-    }
-    
     private var expandedContent: some View {
         ZStack(alignment: .top) {
-            // 1. Permanent Centered Top Header (Mascot & Digital Clock)
-            expandedTopBar
-                .zIndex(2)
-            
-            // 2. Tab Contents (Spacious Content-first presentation, padded comfortably below header)
+            // 1. Tab Contents (Spacious Content-first presentation, generous breathing room)
             Group {
                 switch state.activeTab {
                 case .control:
@@ -1055,11 +1037,11 @@ public struct DynamicIslandView: View {
             .id(state.activeTab.rawValue)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .padding(.horizontal, 32) // Standardized 32pt horizontal margin for generous breathing room across all tabs
-            .padding(.top, (state.activeTab == .music && state.isLyricsEnabled) ? 42 : 38)
+            .padding(.top, (state.activeTab == .music && state.isLyricsEnabled) ? 24 : 22)
             .padding(.bottom, 36)
             .zIndex(1)
             
-            // 3. Minimal Apple-Style Page Dots & Settings (••• ⚙️) Pinned Permanently at Bottom
+            // 2. Minimal Apple-Style Page Dots & Settings (••• ⚙️) Pinned Permanently at Bottom
             pageDotsBar
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                 .padding(.bottom, 14)
