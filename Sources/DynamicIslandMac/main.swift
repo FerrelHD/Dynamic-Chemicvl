@@ -125,12 +125,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         
         menu.addItem(NSMenuItem.separator())
         
-        let websiteItem = NSMenuItem(title: "Visit Website & Updates...", action: #selector(openWebsiteAction), keyEquivalent: "")
-        websiteItem.target = self
-        menu.addItem(websiteItem)
-        
-        menu.addItem(NSMenuItem.separator())
-        
         let quitItem = NSMenuItem(title: "Quit NotchFlow", action: #selector(quitAppAction), keyEquivalent: "q")
         quitItem.keyEquivalentModifierMask = [.command]
         quitItem.target = self
@@ -177,12 +171,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     
     @objc private func openFDAPreferencesAction() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") {
-            NSWorkspace.shared.open(url)
-        }
-    }
-    
-    @objc private func openWebsiteAction() {
-        if let url = URL(string: "https://github.com/FerrelHD/Dynamic-Chemicvl") {
             NSWorkspace.shared.open(url)
         }
     }

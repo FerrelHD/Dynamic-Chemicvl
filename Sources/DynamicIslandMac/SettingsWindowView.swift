@@ -289,6 +289,41 @@ public struct SettingsWindowView: View {
             .toggleStyle(SwitchToggleStyle(tint: Color(red: 0.20, green: 0.85, blue: 0.40)))
     }
     
+    // High-contrast modern dark segmented pill picker (eliminates dark text contrast collisions)
+    private func segmentedPicker<T: Hashable>(
+        options: [T],
+        selection: Binding<T>,
+        titleForOption: @escaping (T) -> String
+    ) -> some View {
+        HStack(spacing: 2) {
+            ForEach(options, id: \.self) { option in
+                let isSelected = selection.wrappedValue == option
+                Button(action: {
+                    selection.wrappedValue = option
+                    state.triggerHaptic(.generic)
+                }) {
+                    Text(titleForOption(option))
+                        .font(.system(size: 11.5, weight: isSelected ? .bold : .medium, design: .rounded))
+                        .foregroundColor(isSelected ? Color(red: 0.12, green: 0.13, blue: 0.16) : Color.white.opacity(0.85))
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 5)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(isSelected ? Color.white : Color.clear)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(2.5)
+        .background(Color.black.opacity(0.35))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+    }
+    
     // MARK: - Subviews
     private var generalSettingsView: some View {
         VStack(spacing: 16) {
@@ -318,16 +353,14 @@ public struct SettingsWindowView: View {
             
             settingCard {
                 settingRow(title: "Dismiss Behavior", subtitle: "Cursor Away auto-closes on mouse exit; Click Only requires tapping outside") {
-                    Picker("", selection: Binding(
-                        get: { state.dismissMode },
-                        set: { state.setDismissMode($0) }
-                    )) {
-                        ForEach(DismissMode.allCases, id: \.self) { mode in
-                            Text(mode == .cursorAway ? "Cursor Away" : "Click Only").tag(mode)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .frame(width: 220)
+                    segmentedPicker(
+                        options: DismissMode.allCases,
+                        selection: Binding(
+                            get: { state.dismissMode },
+                            set: { state.setDismissMode($0) }
+                        ),
+                        titleForOption: { $0 == .cursorAway ? "Cursor Away" : "Click Only" }
+                    )
                 }
             }
         }
@@ -570,16 +603,14 @@ public struct SettingsWindowView: View {
                 Divider().background(Color.white.opacity(0.08)).padding(.leading, 16)
                 
                 settingRow(title: "Animation Physics Profile", subtitle: "Select island expansion and bounce physics profile") {
-                    Picker("", selection: Binding(
-                        get: { state.animationStyle },
-                        set: { state.setAnimationStyle($0) }
-                    )) {
-                        ForEach(AnimationStyle.allCases) { style in
-                            Text(style.rawValue).tag(style)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .frame(width: 250)
+                    segmentedPicker(
+                        options: AnimationStyle.allCases,
+                        selection: Binding(
+                            get: { state.animationStyle },
+                            set: { state.setAnimationStyle($0) }
+                        ),
+                        titleForOption: { $0.rawValue }
+                    )
                 }
                 
                 Divider().background(Color.white.opacity(0.08)).padding(.leading, 16)
@@ -624,6 +655,32 @@ public struct SettingsWindowView: View {
                             .foregroundColor(.white)
                             .frame(width: 40, alignment: .trailing)
                     }
+                }
+                
+                Divider().background(Color.white.opacity(0.08)).padding(.leading, 16)
+                
+                settingRow(title: "Restore Default Physics", subtitle: "Reset elasticity to 0.82 and speed to 0.35s fluid spring") {
+                    Button(action: {
+                        state.resetAnimationDefaults()
+                        state.triggerHaptic(.generic)
+                    }) {
+                        HStack(spacing: 5) {
+                            Image(systemName: "arrow.counterclockwise")
+                                .font(.system(size: 11, weight: .bold))
+                            Text("Reset to Defaults")
+                                .font(.system(size: 11.5, weight: .semibold, design: .rounded))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .stroke(Color.white.opacity(0.15), lineWidth: 0.8)
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -702,28 +759,6 @@ public struct SettingsWindowView: View {
                     Text("Ferrel")
                         .font(.system(size: 12, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
-                }
-                
-                Divider().background(Color.white.opacity(0.08)).padding(.leading, 16)
-                
-                settingRow(title: "GitHub Repository", subtitle: "Source code, release notes, and community updates") {
-                    Button(action: {
-                        if let url = URL(string: "https://github.com/FerrelHD/Dynamic-Chemicvl") {
-                            NSWorkspace.shared.open(url)
-                        }
-                    }) {
-                        HStack(spacing: 4) {
-                            Text("GitHub")
-                            Image(systemName: "arrow.up.right")
-                        }
-                        .font(.system(size: 11.5, weight: .semibold, design: .rounded))
-                        .foregroundColor(Color(red: 0.30, green: 0.65, blue: 1.0))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(Color.blue.opacity(0.15))
-                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
                 }
             }
         }
