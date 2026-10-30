@@ -993,9 +993,9 @@ public struct DynamicIslandView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 .padding(.horizontal, 14)
             } else {
-                // Living Notch Idle State: Animated Notchy Cyber Mascot Eyes + Digital Clock
+                // Living Notch Idle State: Animated Yellow Circle Emoji Mascot + Digital Clock
                 HStack(spacing: 8) {
-                    NotchyMascotEyesView(state: state)
+                    MascotView(model: state.mascotModel, size: 20)
                     
                     Text(currentShortTime)
                         .font(.system(size: 13, weight: .bold, design: .rounded))
@@ -1009,22 +1009,9 @@ public struct DynamicIslandView: View {
         .frame(maxWidth: .infinity, alignment: .top)
     }
     
-    // MARK: - 2. Expanded View (Apple Minimal Card with Uniform Tab Crossfade & Pinned Page Dots)
+    // MARK: - 2. Expanded View (Apple Minimal Card with Uniform Snappy Tab Crossfade & Pinned Page Dots)
     private var tabTransition: AnyTransition {
-        switch state.tabTransitionDirection {
-        case .forward:
-            return .asymmetric(
-                insertion: .offset(x: 22).combined(with: .opacity).combined(with: .scale(scale: 0.97, anchor: .trailing)),
-                removal: .offset(x: -22).combined(with: .opacity).combined(with: .scale(scale: 0.97, anchor: .leading))
-            )
-        case .backward:
-            return .asymmetric(
-                insertion: .offset(x: -22).combined(with: .opacity).combined(with: .scale(scale: 0.97, anchor: .leading)),
-                removal: .offset(x: 22).combined(with: .opacity).combined(with: .scale(scale: 0.97, anchor: .trailing))
-            )
-        case .none:
-            return .opacity
-        }
+        .opacity
     }
     
     private var expandedContent: some View {

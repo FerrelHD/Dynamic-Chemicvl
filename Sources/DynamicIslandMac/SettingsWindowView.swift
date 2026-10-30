@@ -511,16 +511,26 @@ public struct SettingsWindowView: View {
     private var mascotSettingsView: some View {
         VStack(spacing: 16) {
             settingCard {
-                settingRow(title: "Notchy Living Mascot", subtitle: "Signature capsule cyber-eyes matching the MacBook notch geometry with organic blinking and expressions") {
-                    HStack(spacing: 4.5) {
-                        NotchySingleEyeView(isRightEye: false, eyelidClose: 0, happyArc: 0)
-                        NotchySingleEyeView(isRightEye: true, eyelidClose: 0, happyArc: 0)
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color.black.opacity(0.40))
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                settingRow(title: "Notchy Emoji Living Mascot", subtitle: "Signature yellow circle emoji mascot with symmetrical white oval eyes, idle AFK glance sensor, and organic expressions") {
+                    MascotView(model: state.mascotModel, size: 22)
                 }
+                
+                Divider().background(Color.white.opacity(0.08)).padding(.leading, 16)
+                
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Interactive Mascot Preview")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white)
+                    
+                    Text("Watch Notchy blink naturally every 3-5 seconds, glance around after 2 minutes of idle inactivity, and smile during music playback.")
+                        .font(.system(size: 11, weight: .regular))
+                        .foregroundColor(.white.opacity(0.60))
+                    
+                    MascotPreview(model: state.mascotModel)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
             }
         }
     }

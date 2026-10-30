@@ -448,7 +448,11 @@ public class IslandState: ObservableObject {
     @Published public var artistName: String = "Play music or video from any app"
     @Published public var albumName: String = ""
     @Published public var currentTrackToken: String = ""
-    @Published public var isPlaying: Bool = false
+    @Published public var isPlaying: Bool = false {
+        didSet {
+            mascotModel.setHappy(isPlaying)
+        }
+    }
     @Published public var playbackProgress: Double = 0.0
     @Published public var currentTime: String = "0:00"
     @Published public var totalDuration: String = "0:00"
@@ -541,6 +545,9 @@ public class IslandState: ObservableObject {
     @Published public var isHapticEnabled: Bool = true
     @Published public var isLaunchAtLoginEnabled: Bool = false
     private let hapticStorageKey = "notchflow_haptic_enabled"
+    
+    // Living Mascot Model
+    public let mascotModel = MascotModel()
     
     public var activeSpringAnimation: Animation {
         return .spring(response: customDuration, dampingFraction: customBounciness)
@@ -787,7 +794,7 @@ public class IslandState: ObservableObject {
         triggerHaptic(.generic)
     }
     
-    // MARK: - Swift Swipe Navigation (Next & Previous Tab)
+    // MARK: - Swift Swipe Navigation (Next & Previous Tab with Snappy Pure Crossfade)
     public func switchToTab(_ targetTab: IslandTab) {
         guard targetTab != activeTab else { return }
         let all = IslandTab.allCases
@@ -795,7 +802,7 @@ public class IslandState: ObservableObject {
            let targetIdx = all.firstIndex(of: targetTab) {
             tabTransitionDirection = (targetIdx > currentIdx) ? .forward : .backward
         }
-        withAnimation(activeSpringAnimation) {
+        withAnimation(.easeInOut(duration: 0.16)) {
             isShowingSettings = false
             activeTab = targetTab
         }
@@ -806,7 +813,7 @@ public class IslandState: ObservableObject {
         guard let idx = all.firstIndex(of: activeTab) else { return }
         let nextIdx = (idx + 1) % all.count
         tabTransitionDirection = .forward
-        withAnimation(activeSpringAnimation) {
+        withAnimation(.easeInOut(duration: 0.16)) {
             isShowingSettings = false
             activeTab = all[nextIdx]
         }
@@ -817,7 +824,7 @@ public class IslandState: ObservableObject {
         guard let idx = all.firstIndex(of: activeTab) else { return }
         let prevIdx = (idx - 1 + all.count) % all.count
         tabTransitionDirection = .backward
-        withAnimation(activeSpringAnimation) {
+        withAnimation(.easeInOut(duration: 0.16)) {
             isShowingSettings = false
             activeTab = all[prevIdx]
         }
