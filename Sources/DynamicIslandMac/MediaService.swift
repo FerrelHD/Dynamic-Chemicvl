@@ -16,6 +16,18 @@ public class MediaService {
     private var isPolling = false
     private let queryQueue = DispatchQueue(label: "com.dynamicisland.mediaquery", qos: .utility)
     private var onlineArtworkCache: [String: Data] = [:]
+    private let artCacheLock = NSLock()
+    private func artCached(_ key: String) -> Data? {
+        self.artCacheLock.lock()
+        defer { self.artCacheLock.unlock() }
+        return self.onlineArtworkCache[key]
+    }
+    private func artStore(_ key: String, _ data: Data) {
+        self.artCacheLock.lock()
+        self.onlineArtworkCache[key] = data
+        self.artCacheLock.unlock()
+    }
+    private static let appleScriptQueue = DispatchQueue(label: "com.dynamicisland.applescript", qos: .utility)
     
     // Command codes
     public let cmdPlay: Int = 0
@@ -279,43 +291,52 @@ public class MediaService {
     }
     
     // MARK: - Fallback HD Album / Video Artwork Fetcher (YouTube HD CDN & Verified iTunes)
-    public func fetchOnlineArtwork(title: String, artist: String, album: String = "", completion: @escaping (Data?) -> Void) {
+    public func fetchOnlineArtwork(
+        title: String,
+        artist: String,
+        album: String = "",
+        duration: Double = 0,
+        completion: @escaping (Data?) -> Void
+    ) {
         let (cleanArt, clean) = MediaService.splitArtistAndTitle(rawTitle: title, rawArtist: artist)
-        guard !clean.isEmpty && clean != "No Media Playing" else {
-            completion(nil)
-            return
-        }
+        guard !clean.isEmpty && clean != "No Media Playing" else { completion(nil); return }
         let cacheKey = "\(clean.lowercased())_\(cleanArt.lowercased())_\(album.lowercased())"
-        if let cached = onlineArtworkCache[cacheKey] {
-            completion(cached)
-            return
-        }
-        
-        // 1. YouTube & YouTube Music Priority: If Chrome or Safari has an active watch URL, fetch 100% exact thumbnail
-        if let ytVideoId = MediaService.extractActiveYouTubeVideoId() {
-            let ytCacheKey = "yt_\(ytVideoId)"
-            if let cachedYt = onlineArtworkCache[ytCacheKey] {
-                completion(cachedYt)
-                return
-            }
-            fetchYouTubeThumbnail(videoId: ytVideoId) { [weak self] ytData in
-                if let ytData = ytData, !ytData.isEmpty {
-                    self?.onlineArtworkCache[ytCacheKey] = ytData
-                    self?.onlineArtworkCache[cacheKey] = ytData
-                    completion(ytData)
-                    return
+        if let cached = self.artCached(cacheKey) { completion(cached); return }
+
+        MediaService.appleScriptQueue.async { [weak self] in
+            let videoId = MediaService.extractActiveYouTubeVideoId(matching: clean)
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if let id = videoId {
+                    let ytKey = "yt_\(id)"
+                    if let c = self.artCached(ytKey) { completion(c); return }
+                    self.fetchYouTubeThumbnail(videoId: id) { [weak self] data in
+                        guard let self = self else { return }
+                        if let data = data, !data.isEmpty {
+                            self.artStore(ytKey, data)
+                            self.artStore(cacheKey, data)
+                            completion(data)
+                        } else {
+                            self.beginVerifiedSearch(clean: clean, cleanArt: cleanArt, album: album,
+                                                     duration: duration, cacheKey: cacheKey, completion: completion)
+                        }
+                    }
                 } else {
-                    // Fallback to verified search if YouTube thumbnail fails
-                    self?.beginVerifiedSearch(clean: clean, cleanArt: cleanArt, album: album, cacheKey: cacheKey, completion: completion)
+                    self.beginVerifiedSearch(clean: clean, cleanArt: cleanArt, album: album,
+                                             duration: duration, cacheKey: cacheKey, completion: completion)
                 }
             }
-            return
         }
-        
-        beginVerifiedSearch(clean: clean, cleanArt: cleanArt, album: album, cacheKey: cacheKey, completion: completion)
     }
     
-    private func beginVerifiedSearch(clean: String, cleanArt: String, album: String, cacheKey: String, completion: @escaping (Data?) -> Void) {
+    private func beginVerifiedSearch(
+        clean: String,
+        cleanArt: String,
+        album: String,
+        duration: Double,
+        cacheKey: String,
+        completion: @escaping (Data?) -> Void
+    ) {
         var candidates: [String] = []
         let hasValidArtist = !cleanArt.isEmpty && cleanArt != "System Audio" && cleanArt.lowercased() != "youtube" && cleanArt.lowercased() != "google chrome"
         
@@ -342,45 +363,51 @@ public class MediaService {
         
         candidates.append(clean)
         
-        searchVerifiedArtwork(candidates: candidates, index: 0, cleanTitle: clean, cleanArt: cleanArt, cacheKey: cacheKey, completion: completion)
+        searchVerifiedArtwork(candidates: candidates, index: 0, cleanTitle: clean, cleanArt: cleanArt, album: album, duration: duration, cacheKey: cacheKey, completion: completion)
     }
     
     // MARK: - Native YouTube / YouTube Music Video ID Extractor (Zero-Permission AppleScript)
-    public static func extractActiveYouTubeVideoId() -> String? {
+    public static func extractActiveYouTubeVideoId(matching trackTitle: String) -> String? {
+        // Jangan jalankan script kalau Chrome tidak aktif: itu akan meluncurkannya.
+        guard !NSRunningApplication.runningApplications(withBundleIdentifier: "com.google.Chrome").isEmpty
+        else { return nil }
+
         let script = """
         tell application "Google Chrome"
-            if not (exists windows) then return ""
-            try
-                set u to URL of active tab of front window
-                if u contains "music.youtube.com/watch" or u contains "youtube.com/watch" then return u
-            end try
+            set out to ""
             repeat with w in windows
-                repeat with t in tabs of w
-                    set u to URL of t
-                    if u contains "music.youtube.com/watch" or u contains "youtube.com/watch" then
-                        return u
+                set urls to URL of tabs of w
+                set titles to title of tabs of w
+                repeat with i from 1 to count of urls
+                    set u to item i of urls
+                    if u contains "youtube.com/watch" then
+                        set out to out & u & tab & (item i of titles) & linefeed
                     end if
                 end repeat
             end repeat
-            return ""
+            return out
         end tell
         """
         var error: NSDictionary?
-        if let appleScript = NSAppleScript(source: script) {
-            let output = appleScript.executeAndReturnError(&error)
-            let urlString = output.stringValue ?? ""
-            if !urlString.isEmpty,
-               let url = URL(string: urlString),
-               let comp = URLComponents(url: url, resolvingAgainstBaseURL: false) {
-                if let v = comp.queryItems?.first(where: { $0.name == "v" })?.value, !v.isEmpty {
-                    return v
-                }
-            }
+        guard let appleScript = NSAppleScript(source: script) else { return nil }
+        let output = appleScript.executeAndReturnError(&error).stringValue ?? ""
+        if error != nil || output.isEmpty { return nil }   // mis. izin Automation ditolak
+
+        let want = TitleMatching.core(trackTitle)
+        guard !want.isEmpty else { return nil }
+        for line in output.components(separatedBy: "\n") {
+            let parts = line.components(separatedBy: "\t")
+            guard parts.count >= 2,
+                  let url = URL(string: parts[0]),
+                  let comps = URLComponents(url: url, resolvingAgainstBaseURL: false),
+                  let v = comps.queryItems?.first(where: { $0.name == "v" })?.value, !v.isEmpty
+            else { continue }
+            if TitleMatching.normalize(parts[1]).contains(want) { return v }
         }
         return nil
     }
     
-    private func fetchYouTubeThumbnail(videoId: String, completion: @escaping (Data?) -> Void) {
+    public func fetchYouTubeThumbnail(videoId: String, completion: @escaping (Data?) -> Void) {
         // First try HD maxresdefault, fallback to hqdefault
         let maxresUrl = URL(string: "https://img.youtube.com/vi/\(videoId)/maxresdefault.jpg")!
         let hqUrl = URL(string: "https://img.youtube.com/vi/\(videoId)/hqdefault.jpg")!
@@ -411,12 +438,14 @@ public class MediaService {
         index: Int,
         cleanTitle: String,
         cleanArt: String,
+        album: String,
+        duration: Double,
         cacheKey: String,
         completion: @escaping (Data?) -> Void
     ) {
         guard index < candidates.count else {
-            // Ponytail: iTunes search exhausted with 0 matches (non-official upload/cover/remix).
-            // Fallback to YouTube thumbnail search using cleanTitle and cleanArt.
+            // iTunes search exhausted with 0 matches (non-official upload/cover/remix).
+            // Fallback to validated YouTube thumbnail search using cleanTitle and cleanArt.
             searchYouTubeThumbnailFallback(cleanTitle: cleanTitle, cleanArt: cleanArt, cacheKey: cacheKey, completion: completion)
             return
         }
@@ -428,7 +457,7 @@ public class MediaService {
             
         guard let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
               let url = URL(string: "https://itunes.apple.com/search?term=\(encoded)&entity=song&limit=5") else {
-            searchVerifiedArtwork(candidates: candidates, index: index + 1, cleanTitle: cleanTitle, cleanArt: cleanArt, cacheKey: cacheKey, completion: completion)
+            self.searchVerifiedArtwork(candidates: candidates, index: index + 1, cleanTitle: cleanTitle, cleanArt: cleanArt, album: album, duration: duration, cacheKey: cacheKey, completion: completion)
             return
         }
         
@@ -440,57 +469,52 @@ public class MediaService {
                   let data = data,
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let results = json["results"] as? [[String: Any]] else {
-                self?.searchVerifiedArtwork(candidates: candidates, index: index + 1, cleanTitle: cleanTitle, cleanArt: cleanArt, cacheKey: cacheKey, completion: completion)
+                self?.searchVerifiedArtwork(candidates: candidates, index: index + 1, cleanTitle: cleanTitle, cleanArt: cleanArt, album: album, duration: duration, cacheKey: cacheKey, completion: completion)
                 return
             }
             
-            let qT = cleanTitle.lowercased()
-            let qA = cleanArt.lowercased()
-            let isGenericArtist = qA.isEmpty || qA == "system audio" || qA == "youtube" || qA == "google chrome" || qA == "safari"
-            
-            // Find verified match that actually corresponds to this song/artist
+            let wantTitle = TitleMatching.core(cleanTitle)
+            let wantArtist = TitleMatching.normalize(cleanArt)
+            let isGenericArtist = wantArtist.isEmpty || ["system audio", "youtube", "google chrome", "safari"].contains(wantArtist)
+
             var matchedItem: [String: Any]?
-            for item in results {
-                let trackName = (item["trackName"] as? String ?? "").lowercased()
-                let artistName = (item["artistName"] as? String ?? "").lowercased()
-                
-                let titleMatch = trackName.contains(qT) || qT.contains(trackName) || cleanTitle.count < 3
-                let artistMatch = isGenericArtist || artistName.contains(qA) || qA.contains(artistName)
-                
-                if titleMatch && artistMatch {
+            if !wantTitle.isEmpty {
+                for item in results {
+                    // Judul harus SAMA, bukan sekadar mengandung ("sky" mengandung banyak lagu lain).
+                    guard TitleMatching.core(item["trackName"] as? String ?? "") == wantTitle else { continue }
+                    if !isGenericArtist {
+                        guard TitleMatching.artistsMatch(item["artistName"] as? String ?? "", cleanArt) else { continue }
+                    }
+                    // Durasi: lebih longgar kalau artis diketahui, ketat kalau tidak.
+                    let ms = (item["trackTimeMillis"] as? Double) ?? 0
+                    let tolerance: Double = isGenericArtist ? 4 : 10
+                    if duration > 0, ms > 0, abs(ms / 1000 - duration) > tolerance { continue }
+                    // Tanpa artis dan tanpa durasi: tidak cukup bukti.
+                    if isGenericArtist && duration <= 0 { continue }
                     matchedItem = item
                     break
                 }
             }
             
-            // Fallback match: if specific artist was queried and at least artist or title matches first result
-            if matchedItem == nil && !isGenericArtist && !results.isEmpty {
-                let first = results[0]
-                let trackName = (first["trackName"] as? String ?? "").lowercased()
-                let artistName = (first["artistName"] as? String ?? "").lowercased()
-                if artistName.contains(qA) || qA.contains(artistName) || trackName.contains(qT) || qT.contains(trackName) {
-                    matchedItem = first
-                }
-            }
-            
-            // If candidates didn't match closely, try next candidate or return nil (prevent wrong random cover)
+            // TIDAK ADA fallback "artis ATAU judul cocok, ambil hasil pertama". Cover kosong lebih baik daripada cover lagu lain.
             guard let item = matchedItem, let artUrlStr = item["artworkUrl100"] as? String else {
-                self.searchVerifiedArtwork(candidates: candidates, index: index + 1, cleanTitle: cleanTitle, cleanArt: cleanArt, cacheKey: cacheKey, completion: completion)
+                self.searchVerifiedArtwork(candidates: candidates, index: index + 1, cleanTitle: cleanTitle, cleanArt: cleanArt, album: album, duration: duration, cacheKey: cacheKey, completion: completion)
                 return
             }
             
             let hdArtUrlStr = artUrlStr.replacingOccurrences(of: "100x100bb.jpg", with: "600x600bb.jpg")
             guard let hdUrl = URL(string: hdArtUrlStr) else {
-                self.searchVerifiedArtwork(candidates: candidates, index: index + 1, cleanTitle: cleanTitle, cleanArt: cleanArt, cacheKey: cacheKey, completion: completion)
+                self.searchVerifiedArtwork(candidates: candidates, index: index + 1, cleanTitle: cleanTitle, cleanArt: cleanArt, album: album, duration: duration, cacheKey: cacheKey, completion: completion)
                 return
             }
             
             URLSession.shared.dataTask(with: hdUrl) { [weak self] imgData, _, _ in
+                guard let self = self else { return }
                 if let imgData = imgData, !imgData.isEmpty {
-                    self?.onlineArtworkCache[cacheKey] = imgData
+                    self.artStore(cacheKey, imgData)
                     DispatchQueue.main.async { completion(imgData) }
                 } else {
-                    self?.searchVerifiedArtwork(candidates: candidates, index: index + 1, cleanTitle: cleanTitle, cleanArt: cleanArt, cacheKey: cacheKey, completion: completion)
+                    self.searchVerifiedArtwork(candidates: candidates, index: index + 1, cleanTitle: cleanTitle, cleanArt: cleanArt, album: album, duration: duration, cacheKey: cacheKey, completion: completion)
                 }
             }.resume()
         }.resume()
@@ -503,28 +527,44 @@ public class MediaService {
         cacheKey: String,
         completion: @escaping (Data?) -> Void
     ) {
-        // 1. Priority: If browser has an active YouTube watch tab, use it directly
-        if let ytVideoId = MediaService.extractActiveYouTubeVideoId() {
-            let ytCacheKey = "yt_\(ytVideoId)"
-            if let cachedYt = onlineArtworkCache[ytCacheKey] {
-                completion(cachedYt)
-                return
+        // Tab YouTube yang aktif sudah dicoba di awal fetchOnlineArtwork. Langsung search YouTube HTML.
+        self.queryYouTubeSearchForThumbnail(cleanTitle: cleanTitle, cleanArt: cleanArt, cacheKey: cacheKey, completion: completion)
+    }
+    
+    private func validateYouTubeVideo(
+        _ id: String,
+        expectedTitle: String,
+        completion: @escaping (Bool) -> Void
+    ) {
+        let urlStr = "https://www.youtube.com/oembed?url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3D\(id)&format=json"
+        guard let url = URL(string: urlStr) else { completion(false); return }
+        var req = URLRequest(url: url)
+        req.timeoutInterval = 3
+        URLSession.shared.dataTask(with: req) { data, resp, _ in
+            guard let data = data,
+                  let http = resp as? HTTPURLResponse, http.statusCode == 200,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let title = json["title"] as? String else { completion(false); return }
+            let want = TitleMatching.core(expectedTitle)
+            completion(!want.isEmpty && TitleMatching.normalize(title).contains(want))
+        }.resume()
+    }
+
+    private func firstValidVideoId(
+        _ ids: [String],
+        index: Int,
+        title: String,
+        completion: @escaping (String?) -> Void
+    ) {
+        guard index < ids.count else { completion(nil); return }
+        self.validateYouTubeVideo(ids[index], expectedTitle: title) { [weak self] ok in
+            guard let self = self else { return }
+            if ok {
+                completion(ids[index])
+            } else {
+                self.firstValidVideoId(ids, index: index + 1, title: title, completion: completion)
             }
-            fetchYouTubeThumbnail(videoId: ytVideoId) { [weak self] ytData in
-                if let ytData = ytData, !ytData.isEmpty {
-                    self?.onlineArtworkCache[ytCacheKey] = ytData
-                    self?.onlineArtworkCache[cacheKey] = ytData
-                    completion(ytData)
-                    return
-                } else {
-                    self?.queryYouTubeSearchForThumbnail(cleanTitle: cleanTitle, cleanArt: cleanArt, cacheKey: cacheKey, completion: completion)
-                }
-            }
-            return
         }
-        
-        // 2. Query YouTube search HTML directly for top matching videoId
-        queryYouTubeSearchForThumbnail(cleanTitle: cleanTitle, cleanArt: cleanArt, cacheKey: cacheKey, completion: completion)
     }
     
     private func queryYouTubeSearchForThumbnail(
@@ -551,21 +591,29 @@ public class MediaService {
                 return
             }
             
-            // Regex match the first videoId in YouTube search results
-            if let regex = try? NSRegularExpression(pattern: "\"videoId\"\\s*:\\s*\"([a-zA-Z0-9_-]{11})\""),
-               let match = regex.firstMatch(in: html, options: [], range: NSRange(html.startIndex..., in: html)),
-               let r = Range(match.range(at: 1), in: html) {
-                let videoId = String(html[r])
-                self.fetchYouTubeThumbnail(videoId: videoId) { ytData in
+            var seen = Set<String>()
+            var ids: [String] = []
+            if let regex = try? NSRegularExpression(pattern: #""videoId"\s*:\s*"([A-Za-z0-9_-]{11})""#) {
+                for m in regex.matches(in: html, range: NSRange(html.startIndex..., in: html)) {
+                    if let r = Range(m.range(at: 1), in: html) {
+                        let id = String(html[r])
+                        if seen.insert(id).inserted { ids.append(id) }
+                        if ids.count >= 5 { break }
+                    }
+                }
+            }
+            self.firstValidVideoId(ids, index: 0, title: cleanTitle) { [weak self] validId in
+                guard let self = self else { return }
+                guard let validId = validId else { DispatchQueue.main.async { completion(nil) }; return }
+                self.fetchYouTubeThumbnail(videoId: validId) { [weak self] ytData in
+                    guard let self = self else { return }
                     if let ytData = ytData, !ytData.isEmpty {
-                        self.onlineArtworkCache[cacheKey] = ytData
+                        self.artStore(cacheKey, ytData)
                         completion(ytData)
                     } else {
                         completion(nil)
                     }
                 }
-            } else {
-                DispatchQueue.main.async { completion(nil) }
             }
         }.resume()
     }
