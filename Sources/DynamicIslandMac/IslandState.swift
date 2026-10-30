@@ -169,18 +169,25 @@ public enum AirDropPhase: Equatable {
     case completed(fileName: String, fileURL: URL?)
 }
 
+public enum FileTransferType: String, Equatable {
+    case airdrop = "AirDrop"
+    case download = "Download"
+}
+
 public struct AirDropNotification: Identifiable, Equatable {
     public let id = UUID()
     public let senderName: String
     public var phase: AirDropPhase
+    public var transferType: FileTransferType
     
-    public init(senderName: String = "Ferrel", phase: AirDropPhase) {
+    public init(senderName: String = "Ferrel", phase: AirDropPhase, transferType: FileTransferType = .airdrop) {
         self.senderName = senderName
         self.phase = phase
+        self.transferType = transferType
     }
     
     public static func == (lhs: AirDropNotification, rhs: AirDropNotification) -> Bool {
-        lhs.id == rhs.id && lhs.phase == rhs.phase
+        lhs.id == rhs.id && lhs.phase == rhs.phase && lhs.transferType == rhs.transferType
     }
 }
 
@@ -1709,19 +1716,26 @@ public class IslandState: ObservableObject {
         return String(format: "%02d:%02d", mins, secs)
     }
     
-    // MARK: - AirDrop Notifications Controls
-    public func triggerAirDropTransfer(senderName: String = "Ferrel", progress: Double = 0.65) {
+    // MARK: - AirDrop & Download Notifications Controls
+    public func triggerAirDropTransfer(senderName: String = "Ferrel", progress: Double = 0.65, transferType: FileTransferType = .airdrop) {
         airDropDismissWorkItem?.cancel()
         withAnimation(animationStyle.springAnimation) {
-            self.activeAirDropNotification = AirDropNotification(senderName: senderName, phase: .transferring(progress: progress))
+            self.activeAirDropNotification = AirDropNotification(senderName: senderName, phase: .transferring(progress: progress), transferType: transferType)
         }
     }
     
-    public func triggerAirDropComplete(senderName: String = "Ferrel", fileName: String = "Icon-Composer.dmg", fileURL: URL? = nil) {
+    public func triggerAirDropComplete(senderName: String = "AirDrop", fileName: String = "Icon-Composer.dmg", fileURL: URL? = nil, transferType: FileTransferType = .airdrop) {
         airDropDismissWorkItem?.cancel()
         withAnimation(animationStyle.springAnimation) {
-            self.activeAirDropNotification = AirDropNotification(senderName: senderName, phase: .completed(fileName: fileName, fileURL: fileURL))
+            self.activeAirDropNotification = AirDropNotification(senderName: senderName, phase: .completed(fileName: fileName, fileURL: fileURL), transferType: transferType)
         }
+        
+        // Auto-dismiss after 6.0s so it doesn't block the notch indefinitely
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.dismissAirDrop()
+        }
+        airDropDismissWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6.0, execute: workItem)
     }
     
     public func dismissAirDrop() {
@@ -1732,7 +1746,7 @@ public class IslandState: ObservableObject {
         }
     }
     
-    // MARK: - AirDrop Real-time Folder Monitor (Zero CPU, Event-Driven GCD DispatchSource)
+    // MARK: - AirDrop & Downloads Real-time Folder Monitor (Zero CPU, Event-Driven GCD DispatchSource)
     private var downloadsFolderSource: DispatchSourceFileSystemObject?
     private var lastKnownDownloadsFiles: Set<String> = []
     
@@ -1755,12 +1769,13 @@ public class IslandState: ObservableObject {
             self.lastKnownDownloadsFiles = currentSet
             
             for fileName in newFiles {
-                if fileName.hasPrefix(".") || fileName.hasSuffix(".download") || fileName.hasSuffix(".crdownload") {
+                if fileName.hasPrefix(".") || fileName.hasSuffix(".download") || fileName.hasSuffix(".crdownload") || fileName.hasSuffix(".tmp") {
                     continue
                 }
                 let fileURL = downloadsURL.appendingPathComponent(fileName)
+                let (type, sourceName) = self.detectFileOrigin(url: fileURL)
                 DispatchQueue.main.async {
-                    self.triggerAirDropComplete(senderName: "AirDrop", fileName: fileName, fileURL: fileURL)
+                    self.triggerAirDropComplete(senderName: sourceName, fileName: fileName, fileURL: fileURL, transferType: type)
                 }
                 break
             }
@@ -1770,6 +1785,26 @@ public class IslandState: ObservableObject {
         }
         source.resume()
         downloadsFolderSource = source
+    }
+    
+    // Detects whether an incoming file was sent via AirDrop (sharingd) or downloaded by a browser / app
+    private func detectFileOrigin(url: URL) -> (type: FileTransferType, sourceName: String) {
+        var buffer = [CChar](repeating: 0, count: 512)
+        let length = getxattr(url.path, "com.apple.quarantine", &buffer, buffer.count, 0, 0)
+        if length > 0 {
+            let raw = String(cString: buffer)
+            let parts = raw.components(separatedBy: ";")
+            if parts.count >= 3 && !parts[2].isEmpty {
+                let agent = parts[2].trimmingCharacters(in: .whitespacesAndNewlines)
+                let lower = agent.lowercased()
+                if lower.contains("sharingd") || lower.contains("airdrop") {
+                    return (.airdrop, "AirDrop")
+                } else {
+                    return (.download, agent)
+                }
+            }
+        }
+        return (.download, "Download")
     }
     
     // MARK: - File Shelf Controls (Max 10 items)

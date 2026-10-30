@@ -65,6 +65,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             object: nil,
             suspensionBehavior: .deliverImmediately
         )
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleTestDownloadNotification(_:)),
+            name: NSNotification.Name("com.ferrel.NotchFlow.testDownload"),
+            object: nil,
+            suspensionBehavior: .deliverImmediately
+        )
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleTestAirDropNotification(_:)),
+            name: NSNotification.Name("com.ferrel.NotchFlow.testAirDrop"),
+            object: nil,
+            suspensionBehavior: .deliverImmediately
+        )
         
         print("🏝️ Native Dynamic Island Active (iOS Design & Full English)")
     }
@@ -206,6 +220,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             isCustomAvatar: false,
             customBundleIdentifier: "net.whatsapp.WhatsApp"
         )
+    }
+    
+    @objc private func handleTestDownloadNotification(_ notif: Notification) {
+        let fileName = notif.userInfo?["fileName"] as? String ?? "NotchFlow-Installer.dmg"
+        let source = notif.userInfo?["source"] as? String ?? "Chrome"
+        IslandState.shared.triggerAirDropComplete(senderName: source, fileName: fileName, fileURL: nil, transferType: .download)
+    }
+    
+    @objc private func handleTestAirDropNotification(_ notif: Notification) {
+        let fileName = notif.userInfo?["fileName"] as? String ?? "Project-Design.fig"
+        let source = notif.userInfo?["source"] as? String ?? "AirDrop"
+        IslandState.shared.triggerAirDropComplete(senderName: source, fileName: fileName, fileURL: nil, transferType: .airdrop)
     }
     
     @objc private func quitAppAction() {

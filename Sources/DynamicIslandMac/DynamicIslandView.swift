@@ -831,8 +831,9 @@ public struct DynamicIslandView: View {
         }
     }
     
-    // MARK: - AirDrop Complete Notification Card
+    // MARK: - AirDrop & Download Complete Notification Card
     private func airDropCompleteContent(airdrop: AirDropNotification) -> some View {
+        let isDownload = airdrop.transferType == .download
         let fileName: String = {
             if case .completed(let f, _) = airdrop.phase { return f }
             return "Item"
@@ -842,31 +843,48 @@ public struct DynamicIslandView: View {
             return nil
         }()
         
+        let headerTitle = isDownload ? "Download Complete" : "AirDrop Complete"
+        let subtitleText: String = {
+            if isDownload {
+                return airdrop.senderName == "Download" ? "Saved \(fileName) to Downloads" : "Downloaded \(fileName) via \(airdrop.senderName)"
+            } else {
+                return "Received \(fileName) from \(airdrop.senderName)"
+            }
+        }()
+        
         return VStack(spacing: 8) {
             HStack(spacing: 10) {
                 ZStack(alignment: .bottomTrailing) {
                     Circle()
-                        .fill(Color(red: 0.15, green: 0.70, blue: 0.35))
+                        .fill(isDownload ? Color(red: 0.12, green: 0.52, blue: 0.98) : Color(red: 0.15, green: 0.70, blue: 0.35))
                         .frame(width: 28, height: 28)
                         .overlay(
-                            Text(String(airdrop.senderName.prefix(1)))
-                                .font(.system(size: 12.5, weight: .bold, design: .rounded))
-                                .foregroundColor(.white)
+                            Group {
+                                if isDownload {
+                                    Image(systemName: "arrow.down")
+                                        .font(.system(size: 13, weight: .bold))
+                                        .foregroundColor(.white)
+                                } else {
+                                    Text(String(airdrop.senderName.prefix(1)))
+                                        .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                                        .foregroundColor(.white)
+                                }
+                            }
                         )
                     
-                    Image(systemName: "wave.3.forward.circle.fill")
+                    Image(systemName: isDownload ? "arrow.down.circle.fill" : "wave.3.forward.circle.fill")
                         .font(.system(size: 9, weight: .bold))
-                        .foregroundColor(Color(red: 0.0, green: 0.48, blue: 1.0))
+                        .foregroundColor(isDownload ? Color(red: 0.20, green: 0.85, blue: 0.40) : Color(red: 0.0, green: 0.48, blue: 1.0))
                         .background(Color.black.clipShape(Circle()))
                         .offset(x: 2, y: 2)
                 }
                 
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("AirDrop Complete")
+                    Text(headerTitle)
                         .font(.system(size: 12.5, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                     
-                    Text("Received \(fileName) from AirDrop")
+                    Text(subtitleText)
                         .font(.system(size: 10, weight: .medium, design: .rounded))
                         .foregroundColor(.white.opacity(0.70))
                         .lineLimit(1)
@@ -914,7 +932,7 @@ public struct DynamicIslandView: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 5)
-                        .background(Color(red: 0.0, green: 0.48, blue: 1.0))
+                        .background(isDownload ? Color(red: 0.12, green: 0.52, blue: 0.98) : Color(red: 0.0, green: 0.48, blue: 1.0))
                         .clipShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -937,12 +955,15 @@ public struct DynamicIslandView: View {
     private var compactContent: some View {
         ZStack {
             if let airdrop = state.activeAirDropNotification, case .transferring(let progress) = airdrop.phase {
+                let isDownload = airdrop.transferType == .download
+                let iconName = isDownload ? "arrow.down.circle.fill" : "wave.3.forward.circle.fill"
+                let title = isDownload ? "Downloading \(Int(progress * 100))%" : "AirDrop \(Int(progress * 100))%"
                 HStack(spacing: 8) {
-                    Image(systemName: "wave.3.forward.circle.fill")
+                    Image(systemName: iconName)
                         .font(.system(size: 13, weight: .bold))
-                        .foregroundColor(Color(red: 0.0, green: 0.48, blue: 1.0))
+                        .foregroundColor(isDownload ? Color(red: 0.12, green: 0.52, blue: 0.98) : Color(red: 0.0, green: 0.48, blue: 1.0))
                     
-                    Text("AirDrop \(Int(progress * 100))%")
+                    Text(title)
                         .font(.system(size: 11.5, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                     
@@ -951,7 +972,7 @@ public struct DynamicIslandView: View {
                             .stroke(Color.white.opacity(0.18), lineWidth: 2.2)
                         Circle()
                             .trim(from: 0, to: CGFloat(progress))
-                            .stroke(Color(red: 0.0, green: 0.48, blue: 1.0), style: StrokeStyle(lineWidth: 2.2, lineCap: .round))
+                            .stroke(isDownload ? Color(red: 0.12, green: 0.52, blue: 0.98) : Color(red: 0.0, green: 0.48, blue: 1.0), style: StrokeStyle(lineWidth: 2.2, lineCap: .round))
                             .rotationEffect(.degrees(-90))
                     }
                     .frame(width: 13, height: 13)
