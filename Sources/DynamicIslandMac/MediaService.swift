@@ -127,13 +127,21 @@ public class MediaService {
         return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    public static func isGenericArtistName(_ raw: String) -> Bool {
+        let lower = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let generic = [
+            "system audio", "youtube", "youtube music", "google chrome", "chrome",
+            "safari", "arc", "brave", "brave browser", "microsoft edge", "edge"
+        ]
+        return lower.isEmpty || generic.contains(lower)
+    }
+
     public static func splitArtistAndTitle(rawTitle: String, rawArtist: String) -> (artist: String, title: String) {
         let preCleanedTitle = cleanVideoTitle(rawTitle)
         var artist = cleanArtistName(rawArtist)
         var title = preCleanedTitle
         
-        let lowerArtist = artist.lowercased()
-        let isGenericArtist = artist.isEmpty || lowerArtist == "system audio" || lowerArtist == "youtube" || lowerArtist == "google chrome" || lowerArtist == "safari" || lowerArtist == "arc" || lowerArtist == "brave"
+        let isGenericArtist = isGenericArtistName(artist)
         
         // Format 1: "Artist - Song Title"
         var found = false
@@ -387,7 +395,7 @@ public class MediaService {
         completion: @escaping (Data?) -> Void
     ) {
         var candidates: [String] = []
-        let hasValidArtist = !cleanArt.isEmpty && cleanArt != "System Audio" && cleanArt.lowercased() != "youtube" && cleanArt.lowercased() != "google chrome"
+        let hasValidArtist = !cleanArt.isEmpty && !MediaService.isGenericArtistName(cleanArt)
         
         if hasValidArtist {
             candidates.append("\(cleanArt) \(clean)")
@@ -421,12 +429,13 @@ public class MediaService {
     
     // MARK: - Native YouTube / YouTube Music Video ID Extractor (Multi-Browser Support)
     public static func extractActiveYouTubeVideoId(matching trackTitle: String) -> String? {
-        let browserBundleIDs: [(bundleID: String, appName: String)] = [
-            ("com.google.Chrome", "Google Chrome"),
-            ("company.thebrowser.Arc", "Arc"),
-            ("com.brave.Browser", "Brave Browser"),
-            ("com.microsoft.edgemac", "Microsoft Edge"),
-            ("com.google.Chrome.canary", "Google Chrome Canary")
+        let browserBundleIDs: [(bundleID: String, appName: String, titleProp: String)] = [
+            ("com.google.Chrome", "Google Chrome", "title"),
+            ("com.apple.Safari", "Safari", "name"),
+            ("company.thebrowser.Arc", "Arc", "title"),
+            ("com.brave.Browser", "Brave Browser", "title"),
+            ("com.microsoft.edgemac", "Microsoft Edge", "title"),
+            ("com.google.Chrome.canary", "Google Chrome Canary", "title")
         ]
         
         let want = TitleMatching.core(trackTitle)
@@ -439,7 +448,7 @@ public class MediaService {
                 set out to ""
                 repeat with w in windows
                     set urls to URL of tabs of w
-                    set titles to title of tabs of w
+                    set titles to \(browser.titleProp) of tabs of w
                     repeat with i from 1 to count of urls
                         set u to item i of urls
                         if u contains "youtube.com" or u contains "youtu.be" then
@@ -551,21 +560,27 @@ public class MediaService {
             
             let wantTitle = TitleMatching.core(cleanTitle)
             let wantArtist = TitleMatching.normalize(cleanArt)
-            let isGenericArtist = wantArtist.isEmpty || ["system audio", "youtube", "google chrome", "safari"].contains(wantArtist)
+            let isGenericArtist = MediaService.isGenericArtistName(cleanArt)
 
             var matchedItem: [String: Any]?
             if !wantTitle.isEmpty {
                 for item in results {
-                    // Judul harus SAMA, bukan sekadar mengandung ("sky" mengandung banyak lagu lain).
-                    guard TitleMatching.core(item["trackName"] as? String ?? "") == wantTitle else { continue }
-                    if !isGenericArtist {
-                        guard TitleMatching.artistsMatch(item["artistName"] as? String ?? "", cleanArt) else { continue }
-                    }
-                    // Durasi: lebih longgar kalau artis diketahui, ketat kalau tidak.
+                    let trackName = item["trackName"] as? String ?? ""
+                    let itemCoreTitle = TitleMatching.core(trackName)
+                    let artistName = item["artistName"] as? String ?? ""
+                    
+                    let normalTitleMatch = (itemCoreTitle == wantTitle)
+                    let normalArtistMatch = isGenericArtist ? true : TitleMatching.artistsMatch(artistName, cleanArt)
+                    
+                    let invertedTitleMatch = !isGenericArtist && (itemCoreTitle == wantArtist)
+                    let invertedArtistMatch = !isGenericArtist && TitleMatching.artistsMatch(artistName, cleanTitle)
+                    
+                    guard (normalTitleMatch && normalArtistMatch) || (invertedTitleMatch && invertedArtistMatch) else { continue }
+                    
                     let ms = (item["trackTimeMillis"] as? Double) ?? 0
-                    let tolerance: Double = isGenericArtist ? 5 : 15
+                    // Relax tolerance to 40s when artist is verified, allowing music videos with intros/outros
+                    let tolerance: Double = isGenericArtist ? 8 : 40
                     if duration > 0, ms > 0, abs(ms / 1000 - duration) > tolerance { continue }
-                    // Tanpa artis dan tanpa durasi: tidak cukup bukti.
                     if isGenericArtist && duration <= 0 { continue }
                     matchedItem = item
                     break
@@ -606,7 +621,7 @@ public class MediaService {
         onMiss: @escaping () -> Void,
         completion: @escaping (Data?) -> Void
     ) {
-        let hasArtist = !cleanArt.isEmpty && cleanArt != "System Audio" && cleanArt.lowercased() != "youtube" && cleanArt.lowercased() != "google chrome"
+        let hasArtist = !cleanArt.isEmpty && !MediaService.isGenericArtistName(cleanArt)
         let query = hasArtist ? "\(cleanArt) \(cleanTitle)" : cleanTitle
         guard let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
               let url = URL(string: "https://api.deezer.com/search?q=\(encoded)&limit=10") else {
@@ -628,22 +643,29 @@ public class MediaService {
             
             let wantTitle = TitleMatching.core(cleanTitle)
             let wantArtist = TitleMatching.normalize(cleanArt)
-            let isGenericArtist = wantArtist.isEmpty || ["system audio", "youtube", "google chrome", "safari"].contains(wantArtist)
+            let isGenericArtist = MediaService.isGenericArtistName(cleanArt)
             
             var matchedCoverUrl: String?
             for item in items {
                 let trackName = item["title"] as? String ?? ""
-                guard TitleMatching.core(trackName) == wantTitle else { continue }
+                let itemCoreTitle = TitleMatching.core(trackName)
+                let artistDict = item["artist"] as? [String: Any]
+                let artistName = artistDict?["name"] as? String ?? ""
                 
-                if !isGenericArtist {
-                    let artistDict = item["artist"] as? [String: Any]
-                    let artistName = artistDict?["name"] as? String ?? ""
-                    guard TitleMatching.artistsMatch(artistName, cleanArt) else { continue }
-                }
+                // Normal match: trackName == cleanTitle AND artist == cleanArt
+                let normalTitleMatch = (itemCoreTitle == wantTitle)
+                let normalArtistMatch = isGenericArtist ? true : TitleMatching.artistsMatch(artistName, cleanArt)
+                
+                // Inverted match: trackName == cleanArt AND artist == cleanTitle (handles "Title - Artist" uploads)
+                let invertedTitleMatch = !isGenericArtist && (itemCoreTitle == wantArtist)
+                let invertedArtistMatch = !isGenericArtist && TitleMatching.artistsMatch(artistName, cleanTitle)
+                
+                guard (normalTitleMatch && normalArtistMatch) || (invertedTitleMatch && invertedArtistMatch) else { continue }
                 
                 let trackDur = item["duration"] as? Double ?? 0
                 if duration > 0, trackDur > 0 {
-                    let tolerance: Double = isGenericArtist ? 6 : 15
+                    // Relax tolerance to 40s when artist is verified, allowing music videos with intros/outros
+                    let tolerance: Double = isGenericArtist ? 8 : 40
                     if abs(trackDur - duration) > tolerance { continue }
                 }
                 
