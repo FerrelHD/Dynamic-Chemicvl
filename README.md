@@ -1,98 +1,88 @@
-# 🏝️ NotchFlow
+# NotchFlow
 
-A lightweight, battery-friendly native Dynamic Island & living notch application for macOS. Built entirely with pure Swift, AppKit, and SwiftUI — zero Electron, zero webviews, and zero external dependencies.
-
----
-
-## ✨ Features & Island Tabs
-
-NotchFlow integrates directly with the MacBook display notch with Apple G2 squircle curvature, responsive spring physics, and smart auto-hide.
-
-1. **📊 System Monitor**
-   - Clean, minimalist Apple monochrome hardware vitals.
-   - Real-time CPU load, memory utilization, live download/upload network bandwidth via Darwin kernel APIs, disk free capacity, and battery power status.
-   - Non-intrusive warning colors only when resources are critically loaded.
-
-2. **🎵 Music & Synchronized Lyrics**
-   - Universal media playback controls (Spotify, Apple Music, YouTube Music, browsers).
-   - Audio scrubber, track telemetry, dynamic album art ambient glow, and real-time synchronized lyrics sheet.
-
-3. **⏱️ Timer & Clock**
-   - Quick productivity countdown and Pomodoro focus timers.
-   - Fluid circular time progress indicator, haptic notifications, and quick presets.
-
-4. **✅ Reminders & Quick Tasks**
-   - Instant single-click checklist with persistent task completion.
-   - Add, check off, and delete quick tasks directly from the notch.
-
-5. **📅 Calendar & Agenda**
-   - Interactive monthly calendar with a fixed-height 42-cell grid and stable navigation.
-   - Click any date to view and add date-specific focus events and milestones.
-   - Real-time digital clock and day badge indicators.
-
-6. **🔋 Connected Devices**
-   - Live battery levels for connected Bluetooth accessories (AirPods, Magic Mouse, Magic Keyboard, Apple Watch, iPhone).
-
-7. **📦 Shelf & Clipboard**
-   - Drag-and-drop staging bucket for files and images with animated trash bin lid.
-   - Recent clipboard history manager for quick pasting and clearing.
-
-8. **🐾 Living Mascot**
-   - Optional expressive virtual notch companion with smooth eye tracking, natural blink cycles, interactive reactions, and sleep states.
-
-9. **⚙️ Dedicated Settings & Modules Window**
-   - Modern inset sidebar interface to customize active island modules, appearance, spring physics duration, and system integration.
+A native macOS status bar and notch companion built with Swift, AppKit, and SwiftUI. It runs without Electron, web views, or external dependencies.
 
 ---
 
-## 🔔 Native Notification HUDs
+## Features
 
-Replaces intrusive system HUDs with elegant floating island pills:
-- **Audio Volume HUD** with smooth slider level feedback
-- **MagSafe & Battery HUD** with power connection indicators
-- **Wi-Fi & Bluetooth Status Alerts**
-- **Caps Lock Indicator**
-- **Incoming Calls & AirDrop Transfers**
+The interface rests against the MacBook display notch and expands on click or hover.
+
+### System Monitor
+Monitors CPU load, memory usage, disk space, battery status, and live network throughput (upload and download rates) queried directly through Darwin kernel APIs. Uses a monochrome display that flags high loads in amber or red.
+
+### Music and Lyrics
+Controls playback for media players including Spotify, Apple Music, and web browsers. Displays the track title, artist, playback scrubber, album artwork with background glow, and time-synchronized lyrics.
+
+### Timer and Clock
+Provides countdown timers and Pomodoro focus intervals with circular progress tracking and haptic feedback.
+
+### Reminders
+A quick-entry checklist stored locally. Tasks can be added, marked complete, or deleted in one click.
+
+### Calendar and Agenda
+A monthly calendar with a fixed 42-cell grid to prevent layout shifting between months. Clicking any date filters the agenda to that day, displays scheduled items, and allows adding new events directly to that date.
+
+### Connected Devices
+Displays battery levels for connected Bluetooth accessories, including AirPods, keyboards, mice, trackpads, and paired iOS devices.
+
+### Shelf and Clipboard
+A temporary drag-and-drop staging area for files and images, paired with a local clipboard history manager for copying and clearing recent snippets.
+
+### Living Mascot
+An optional virtual companion that rests in the notch with interactive gaze tracking, blink cycles, and sleep states.
+
+### Settings Window
+A dedicated preferences window to toggle modules, configure keyboard shortcuts, adjust spring animation durations, and manage system permissions.
 
 ---
 
-## ⌨️ Shortcuts & Gestures
+## Heads-Up Notifications
 
-| Trigger | Action |
+Presents system status changes as compact pill banners anchored to the notch:
+- Volume adjustments
+- Power adapter connection and battery level changes
+- Wi-Fi and Bluetooth state toggles
+- Caps Lock indicator
+- Incoming calls and AirDrop transfers
+
+---
+
+## Navigation and Shortcuts
+
+| Action | Shortcut or Gesture |
 | :--- | :--- |
-| **`Option + Space`** | Global shortcut to Expand / Collapse notch |
-| **`Click Notch`** | Expand / Collapse notch directly |
-| **`2-Finger Swipe`** | Fluid swipe left/right between island tabs |
-| **`Page Dots`** | Click bottom indicator dots for instant tab switching |
-| **`Click Outside`** | Automatically collapse back into the bezel |
-| **`Menu Bar (🏝️)`** | Status bar menu with quick toggles, test alerts, and preferences |
+| Toggle expanded notch | `Option + Space` or click the notch |
+| Switch tabs | Two-finger horizontal swipe on trackpad, or click the bottom page dots |
+| Collapse notch | Click anywhere outside the panel |
+| Open settings | Click the gear icon in the page dots bar or choose Settings from the menu bar item |
 
 ---
 
-## 🚀 Getting Started
+## Building from Source
 
 ### Requirements
-- macOS 12.0 (Monterey) or later
-- Apple Silicon (M1/M2/M3/M4) or Intel Mac
+- macOS 12.0 or later
+- Xcode Command Line Tools (`xcode-select --install`)
+- Apple Silicon or Intel processor
 
-### Build from Source
-Requires Apple Command Line Tools (`xcode-select --install`):
+### Build Commands
 
 ```bash
 git clone https://github.com/FerrelHD/Dynamic-Chemicvl.git
 cd Dynamic-Chemicvl
 
-# Compile and launch immediately
+# Build and run
 ./build.sh run
 
-# Build standalone Universal .app bundle
+# Build the application bundle (.app)
 ./build.sh app
 
-# Generate DMG release installer
+# Create a DMG installer
 ./build.sh dmg
 ```
 
 ---
 
-## 📄 License
-Crafted with ❤️ by [FerrelHD](https://github.com/FerrelHD) using Native Swift, AppKit & SwiftUI.
+## Author
+Developed by [FerrelHD](https://github.com/FerrelHD) in Swift, AppKit, and SwiftUI.
