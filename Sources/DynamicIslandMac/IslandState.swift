@@ -11,12 +11,27 @@ public enum IslandMode: Equatable {
 }
 
 public enum IslandTab: String, CaseIterable {
-    case control = "Controls"
+    case stats = "System"
     case music = "Music"
     case timer = "Timer"
     case notes = "Reminders"
+    case calendar = "Calendar"
     case devices = "Devices"
     case shelf = "Shelf"
+}
+
+public struct QuickCalendarEvent: Identifiable, Codable, Equatable {
+    public let id: UUID
+    public var title: String
+    public var timeString: String
+    public var isDone: Bool
+    
+    public init(id: UUID = UUID(), title: String, timeString: String = "", isDone: Bool = false) {
+        self.id = id
+        self.title = title
+        self.timeString = timeString
+        self.isDone = isDone
+    }
 }
 
 public enum TabTransitionDirection: Equatable {
@@ -263,11 +278,15 @@ public class IslandState: ObservableObject {
             }
         }
     }
-    @Published public var activeTab: IslandTab = .control {
+    @Published public var activeTab: IslandTab = .stats {
         didSet {
             updateWaveformTimer()
             if activeTab == .devices {
                 refreshConnectedDevices()
+            } else if activeTab == .stats && mode == .expanded {
+                startSystemStatsTimer()
+            } else {
+                stopSystemStatsTimer()
             }
         }
     }
@@ -389,13 +408,15 @@ public class IslandState: ObservableObject {
             return (width: 720, height: 230) // Spacious Responsive Split View for Apple Music Lyrics
         }
         switch activeTab {
+        case .stats:
+            return (width: 480, height: 230)
         case .timer:
             return (width: 480, height: 230)
         case .devices:
             return (width: 480, height: 230)
         case .music:
             return (width: 480, height: 230)
-        case .control:
+        case .calendar:
             return (width: 480, height: 230)
         case .notes:
             return (width: 480, height: 230)
@@ -591,6 +612,7 @@ public class IslandState: ObservableObject {
     
     public init() {
         loadTodos()
+        loadQuickCalendarEvents()
         
         mascotModel.objectWillChange.sink { [weak self] _ in
             self?.objectWillChange.send()
@@ -863,15 +885,20 @@ public class IslandState: ObservableObject {
         withAnimation(activeSpringAnimation) {
             if willExpand {
                 mode = .expanded
+                if activeTab == .stats {
+                    startSystemStatsTimer()
+                }
             } else {
                 mode = .compact
                 isShowingSettings = false
+                stopSystemStatsTimer()
             }
         }
         triggerHaptic(.generic)
     }
     
     public func minimize() {
+        stopSystemStatsTimer()
         withAnimation(activeSpringAnimation) {
             self.mode = .compact
             self.isShowingSettings = false
@@ -2139,6 +2166,87 @@ public class IslandState: ObservableObject {
         let m = s / 60
         let sec = s % 60
         return String(format: "%d:%02d", m, sec)
+    }
+    
+    // MARK: - System Stats Tab State
+    @Published public var currentSystemStats: SystemStats = SystemStatsService.shared.getStats()
+    private var systemStatsTimer: Timer?
+    
+    public func startSystemStatsTimer() {
+        stopSystemStatsTimer()
+        currentSystemStats = SystemStatsService.shared.getStats()
+        systemStatsTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            guard let self = self, self.activeTab == .stats && self.mode == .expanded else { return }
+            self.currentSystemStats = SystemStatsService.shared.getStats()
+        }
+    }
+    
+    public func stopSystemStatsTimer() {
+        systemStatsTimer?.invalidate()
+        systemStatsTimer = nil
+    }
+    
+    // MARK: - Calendar & Agenda Tab State
+    @Published public var calendarSelectedDate: Date = Date()
+    @Published public var calendarDisplayedMonth: Date = Date()
+    @Published public var quickCalendarEvents: [QuickCalendarEvent] = []
+    @Published public var newCalendarEventTitle: String = ""
+    @Published public var newCalendarEventTime: String = ""
+    private let calendarEventsStorageKey = "DynamicIsland_QuickCalendarEvents"
+    
+    public func loadQuickCalendarEvents() {
+        if let data = UserDefaults.standard.data(forKey: calendarEventsStorageKey),
+           let events = try? JSONDecoder().decode([QuickCalendarEvent].self, from: data) {
+            self.quickCalendarEvents = events
+        } else {
+            self.quickCalendarEvents = [
+                QuickCalendarEvent(title: "NotchFlow v1.4 Review", timeString: "19:00", isDone: false)
+            ]
+        }
+    }
+    
+    public func saveQuickCalendarEvents() {
+        if let data = try? JSONEncoder().encode(quickCalendarEvents) {
+            UserDefaults.standard.set(data, forKey: calendarEventsStorageKey)
+        }
+    }
+    
+    public func addQuickCalendarEvent() {
+        let trimmed = newCalendarEventTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let timeTrimmed = newCalendarEventTime.trimmingCharacters(in: .whitespacesAndNewlines)
+        let event = QuickCalendarEvent(title: trimmed, timeString: timeTrimmed.isEmpty ? "All Day" : timeTrimmed, isDone: false)
+        quickCalendarEvents.insert(event, at: 0)
+        newCalendarEventTitle = ""
+        newCalendarEventTime = ""
+        saveQuickCalendarEvents()
+        triggerHaptic(.generic)
+    }
+    
+    public func toggleQuickCalendarEvent(id: UUID) {
+        if let idx = quickCalendarEvents.firstIndex(where: { $0.id == id }) {
+            quickCalendarEvents[idx].isDone.toggle()
+            saveQuickCalendarEvents()
+            triggerHaptic(.alignment)
+        }
+    }
+    
+    public func deleteQuickCalendarEvent(id: UUID) {
+        quickCalendarEvents.removeAll(where: { $0.id == id })
+        saveQuickCalendarEvents()
+        triggerHaptic(.generic)
+    }
+    
+    public func nextCalendarMonth() {
+        if let next = Calendar.current.date(byAdding: .month, value: 1, to: calendarDisplayedMonth) {
+            calendarDisplayedMonth = next
+        }
+    }
+    
+    public func previousCalendarMonth() {
+        if let prev = Calendar.current.date(byAdding: .month, value: -1, to: calendarDisplayedMonth) {
+            calendarDisplayedMonth = prev
+        }
     }
 }
 

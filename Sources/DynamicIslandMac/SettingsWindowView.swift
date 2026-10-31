@@ -4,10 +4,11 @@ import AppKit
 // MARK: - Settings Tab Identifier
 public enum SettingsTab: String, CaseIterable, Identifiable {
     case general = "General"
-    case control = "Control Center"
+    case stats = "System Monitor"
     case music = "Music & Lyrics"
     case timer = "Timer & Clock"
     case notes = "Quick Notes"
+    case calendar = "Calendar & Agenda"
     case devices = "Connected Devices"
     case shelf = "Shelf & Clipboard"
     case mascot = "Living Mascot"
@@ -20,10 +21,11 @@ public enum SettingsTab: String, CaseIterable, Identifiable {
     public var iconName: String {
         switch self {
         case .general: return "gearshape.fill"
-        case .control: return "slider.horizontal.3"
+        case .stats: return "gauge.with.needle.fill"
         case .music: return "music.note"
         case .timer: return "timer"
         case .notes: return "checklist"
+        case .calendar: return "calendar"
         case .devices: return "laptopcomputer.and.iphone"
         case .shelf: return "tray.full.fill"
         case .mascot: return "eyes"
@@ -36,10 +38,11 @@ public enum SettingsTab: String, CaseIterable, Identifiable {
     public var badgeColor: Color {
         switch self {
         case .general: return Color.gray
-        case .control: return Color.blue
+        case .stats: return Color.blue
         case .music: return Color(red: 0.98, green: 0.25, blue: 0.45)
         case .timer: return Color.orange
         case .notes: return Color.yellow
+        case .calendar: return Color.red
         case .devices: return Color.green
         case .shelf: return Color.indigo
         case .mascot: return Color.cyan
@@ -75,14 +78,16 @@ public struct SettingsWindowView: View {
                     switch selectedTab {
                     case .general:
                         generalSettingsView
-                    case .control:
-                        controlSettingsView
+                    case .stats:
+                        statsSettingsView
                     case .music:
                         musicSettingsView
                     case .timer:
                         timerSettingsView
                     case .notes:
                         notesSettingsView
+                    case .calendar:
+                        calendarSettingsView
                     case .devices:
                         devicesSettingsView
                     case .shelf:
@@ -155,10 +160,11 @@ public struct SettingsWindowView: View {
                     Group {
                         sidebarSectionTitle("ISLAND MODULES")
                         sidebarItem(.general)
-                        sidebarItem(.control)
+                        sidebarItem(.stats)
                         sidebarItem(.music)
                         sidebarItem(.timer)
                         sidebarItem(.notes)
+                        sidebarItem(.calendar)
                         sidebarItem(.devices)
                         sidebarItem(.shelf)
                     }
@@ -367,13 +373,12 @@ public struct SettingsWindowView: View {
         }
     }
     
-    private var controlSettingsView: some View {
+    private var statsSettingsView: some View {
         VStack(spacing: 16) {
             settingCard {
-                settingRow(title: "System Volume Level", subtitle: "Current active audio output volume") {
-                    Text("\(state.currentVolume)%")
+                settingRow(title: "Kernel Polling Engine", subtitle: "Real-time hardware monitoring via Darwin Mach & VM APIs") {
+                    Text("Live • 1.0s")
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .monospacedDigit()
                         .foregroundColor(.white)
                         .padding(.horizontal, 9)
                         .padding(.vertical, 3.5)
@@ -383,36 +388,30 @@ public struct SettingsWindowView: View {
                 
                 Divider().background(Color.white.opacity(0.08)).padding(.leading, 16)
                 
-                settingRow(title: "Wi-Fi Status", subtitle: "Connected wireless network") {
-                    HStack(spacing: 5) {
-                        Circle()
-                            .fill(state.isWifiOn ? Color(red: 0.20, green: 0.85, blue: 0.40) : Color.white.opacity(0.35))
-                            .frame(width: 6, height: 6)
-                        Text(state.isWifiOn ? state.wifiSSID : "Turned Off")
-                            .font(.system(size: 12, weight: .semibold, design: .rounded))
-                            .foregroundColor(.white)
-                    }
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 3.5)
-                    .background(Color.white.opacity(0.10))
-                    .clipShape(Capsule())
+                settingRow(title: "Bandwidth Tracker", subtitle: "Live download and upload rate calculations") {
+                    Text("Enabled")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundColor(Color.green)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 3.5)
+                        .background(Color.green.opacity(0.15))
+                        .clipShape(Capsule())
                 }
-                
-                Divider().background(Color.white.opacity(0.08)).padding(.leading, 16)
-                
-                settingRow(title: "Bluetooth Radio", subtitle: "Hardware radio power state") {
-                    HStack(spacing: 5) {
-                        Circle()
-                            .fill(state.isBluetoothOn ? Color(red: 0.0, green: 0.48, blue: 1.0) : Color.white.opacity(0.35))
-                            .frame(width: 6, height: 6)
-                        Text(state.isBluetoothOn ? "Enabled" : "Disabled")
-                            .font(.system(size: 12, weight: .semibold, design: .rounded))
-                            .foregroundColor(.white)
-                    }
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 3.5)
-                    .background(Color.white.opacity(0.10))
-                    .clipShape(Capsule())
+            }
+        }
+    }
+    
+    private var calendarSettingsView: some View {
+        VStack(spacing: 16) {
+            settingCard {
+                settingRow(title: "Quick Focus & Events", subtitle: "Local schedule milestone cache") {
+                    Text("\(state.quickCalendarEvents.count) Events")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 3.5)
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(Capsule())
                 }
             }
         }

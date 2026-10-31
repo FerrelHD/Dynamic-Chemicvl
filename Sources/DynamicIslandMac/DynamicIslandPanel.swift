@@ -259,6 +259,10 @@ public class DynamicIslandPanel: NSPanel {
             self.setFrame(targetFrame, display: false)
             CATransaction.commit()
         }
+        
+        // Activate window so all buttons & lists register on immediate single-click
+        NSApp.activate(ignoringOtherApps: true)
+        self.makeKeyAndOrderFront(nil)
     }
     
     public func updateWindowFrameForCurrentState() {
@@ -320,6 +324,11 @@ public class DynamicIslandPanel: NSPanel {
             super.setFrame(targetFrame, display: true)
             CATransaction.commit()
         }
+        
+        if self.isKeyWindow {
+            self.resignKey()
+            NSApp.deactivate()
+        }
     }
     
     private func applyCompactFrame() {
@@ -338,6 +347,11 @@ public class DynamicIslandPanel: NSPanel {
             CATransaction.setDisableActions(true)
             super.setFrame(targetFrame, display: true)
             CATransaction.commit()
+        }
+        
+        if self.isKeyWindow {
+            self.resignKey()
+            NSApp.deactivate()
         }
     }
     

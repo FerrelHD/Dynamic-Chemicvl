@@ -6,23 +6,41 @@ public struct SystemStats {
     public let ramUsedGB: Double
     public let ramTotalGB: Double
     public let ramPercent: Int
+    public let downloadSpeed: String
+    public let uploadSpeed: String
+    public let diskFreeGB: Double
+    public let diskTotalGB: Double
+    public let diskPercent: Int
 }
 
 public class SystemStatsService {
     public static let shared = SystemStatsService()
     
     private var previousCPULoad: host_cpu_load_info?
+    private var prevNetworkTime: Date?
+    private var prevRxBytes: UInt64 = 0
+    private var prevTxBytes: UInt64 = 0
+    private var cachedDownloadSpeed: String = "0 KB/s"
+    private var cachedUploadSpeed: String = "0 KB/s"
     
     public init() {}
     
     public func getStats() -> SystemStats {
         let cpu = getCPULoad()
         let mem = getMemoryUsage()
+        let (down, up) = getNetworkSpeed()
+        let disk = getDiskUsage()
+        
         return SystemStats(
             cpuPercent: cpu,
             ramUsedGB: mem.usedGB,
             ramTotalGB: mem.totalGB,
-            ramPercent: mem.percent
+            ramPercent: mem.percent,
+            downloadSpeed: down,
+            uploadSpeed: up,
+            diskFreeGB: disk.freeGB,
+            diskTotalGB: disk.totalGB,
+            diskPercent: disk.percent
         )
     }
     
@@ -76,5 +94,77 @@ public class SystemStatsService {
         }
         return (0, totalGB, 0)
     }
+    
+    private func getNetworkSpeed() -> (download: String, upload: String) {
+        let (rx, tx) = getRawNetworkBytes()
+        let now = Date()
+        guard let pTime = prevNetworkTime, prevRxBytes > 0 else {
+            prevNetworkTime = now
+            prevRxBytes = rx
+            prevTxBytes = tx
+            return (cachedDownloadSpeed, cachedUploadSpeed)
+        }
+        
+        let dt = now.timeIntervalSince(pTime)
+        guard dt >= 0.5 else {
+            return (cachedDownloadSpeed, cachedUploadSpeed)
+        }
+        
+        let rxDelta = rx >= prevRxBytes ? Double(rx - prevRxBytes) : 0
+        let txDelta = tx >= prevTxBytes ? Double(tx - prevTxBytes) : 0
+        prevNetworkTime = now
+        prevRxBytes = rx
+        prevTxBytes = tx
+        
+        let rxRate = rxDelta / dt
+        let txRate = txDelta / dt
+        cachedDownloadSpeed = formatNetworkRate(rxRate)
+        cachedUploadSpeed = formatNetworkRate(txRate)
+        
+        return (cachedDownloadSpeed, cachedUploadSpeed)
+    }
+    
+    private func getRawNetworkBytes() -> (rx: UInt64, tx: UInt64) {
+        var ifaddr: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ifaddr) == 0, let firstAddr = ifaddr else { return (0, 0) }
+        defer { freeifaddrs(ifaddr) }
+        
+        var rx: UInt64 = 0
+        var tx: UInt64 = 0
+        var ptr: UnsafeMutablePointer<ifaddrs>? = firstAddr
+        while let p = ptr {
+            let name = String(cString: p.pointee.ifa_name)
+            if (name.hasPrefix("en") || name.hasPrefix("pdp_ip") || name.hasPrefix("bridge")), let data = p.pointee.ifa_data {
+                let networkData = data.assumingMemoryBound(to: if_data.self)
+                rx += UInt64(networkData.pointee.ifi_ibytes)
+                tx += UInt64(networkData.pointee.ifi_obytes)
+            }
+            ptr = p.pointee.ifa_next
+        }
+        return (rx, tx)
+    }
+    
+    private func formatNetworkRate(_ bytesPerSec: Double) -> String {
+        if bytesPerSec >= 1024 * 1024 {
+            return String(format: "%.1f MB/s", bytesPerSec / (1024 * 1024))
+        } else if bytesPerSec >= 1024 {
+            return String(format: "%.0f KB/s", bytesPerSec / 1024)
+        } else {
+            return String(format: "%d B/s", Int(bytesPerSec))
+        }
+    }
+    
+    private func getDiskUsage() -> (freeGB: Double, totalGB: Double, percent: Int) {
+        guard let values = try? FileManager.default.attributesOfFileSystem(forPath: "/"),
+              let freeSize = values[.systemFreeSize] as? Int64,
+              let totalSize = values[.systemSize] as? Int64,
+              totalSize > 0 else {
+            return (0, 0, 0)
+        }
+        let freeGB = Double(freeSize) / (1024 * 1024 * 1024)
+        let totalGB = Double(totalSize) / (1024 * 1024 * 1024)
+        let usedGB = totalGB - freeGB
+        let pct = Int(min(100, max(0, (usedGB / totalGB) * 100)))
+        return (freeGB, totalGB, pct)
+    }
 }
-

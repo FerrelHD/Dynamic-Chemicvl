@@ -1046,14 +1046,16 @@ public struct DynamicIslandView: View {
             // 1. Tab Contents (Spacious Content-first presentation, generous breathing room)
             Group {
                 switch state.activeTab {
-                case .control:
-                    controlTabView
+                case .stats:
+                    systemStatsTabView
                 case .music:
                     musicTabView
                 case .timer:
                     timerTabView
                 case .notes:
                     notesTabView
+                case .calendar:
+                    calendarTabView
                 case .devices:
                     devicesTabView
                 case .shelf:
@@ -1120,228 +1122,197 @@ public struct DynamicIslandView: View {
         .frame(height: 18)
     }
     
-    // MARK: - Tab 1: Control Center (iOS Style Tiles)
-    private var controlTabView: some View {
+    // MARK: - Tab 1: System Monitor & Hardware Vitals (2x2 Grid)
+    private var systemStatsTabView: some View {
         VStack(spacing: 8) {
+            // Row 1: CPU & RAM
             HStack(spacing: 8) {
-                // Dark / Light Mode Appearance Tile
-                controlTile(
-                    icon: state.isDarkMode ? "moon.stars.fill" : "sun.max.fill",
-                    title: "Theme",
-                    subtitle: state.isDarkMode ? "Dark" : "Light",
-                    isActive: state.isDarkMode,
-                    activeColor: Color(red: 0.38, green: 0.38, blue: 0.88)
-                ) {
-                    state.toggleDarkMode()
-                }
+                // CPU Card
+                statCard(
+                    icon: "cpu",
+                    iconColor: Color.cyan,
+                    title: "CPU Load",
+                    value: "\(state.currentSystemStats.cpuPercent)%",
+                    progress: Double(state.currentSystemStats.cpuPercent) / 100.0,
+                    progressColor: state.currentSystemStats.cpuPercent > 80 ? Color.red : (state.currentSystemStats.cpuPercent > 50 ? Color.orange : Color.cyan),
+                    subtitle: state.currentSystemStats.cpuPercent > 80 ? "Heavy Load" : "Optimal",
+                    subtitleColor: state.currentSystemStats.cpuPercent > 80 ? Color.red : Color.green.opacity(0.85)
+                )
                 
-                // Instant Lock Screen Tile
-                controlTile(
-                    icon: "lock.fill",
-                    title: "Lock",
-                    subtitle: "Screen",
-                    isActive: false,
-                    activeColor: Color(red: 0.0, green: 0.48, blue: 1.0)
-                ) {
-                    state.lockScreen()
-                }
+                // RAM Card
+                statCard(
+                    icon: "memorychip",
+                    iconColor: Color.purple,
+                    title: "Memory",
+                    value: "\(state.currentSystemStats.ramPercent)%",
+                    progress: Double(state.currentSystemStats.ramPercent) / 100.0,
+                    progressColor: state.currentSystemStats.ramPercent > 85 ? Color.red : (state.currentSystemStats.ramPercent > 70 ? Color.orange : Color.purple),
+                    subtitle: String(format: "%.1f / %.1f GB", state.currentSystemStats.ramUsedGB, state.currentSystemStats.ramTotalGB),
+                    subtitleColor: Color.white.opacity(0.7)
+                )
             }
             
-            HStack(spacing: 6) {
-                // Mic Mute Tile
-                controlTileCompact(
-                    icon: state.isMicMuted ? "mic.slash.fill" : "mic.fill",
-                    title: "Mic",
-                    subtitle: state.isMicMuted ? "Muted" : "Active",
-                    isActive: state.isMicMuted,
-                    activeColor: Color(red: 1.0, green: 0.35, blue: 0.35)
-                ) {
-                    state.toggleMicMute()
-                }
-                
-                // Keep Awake (Caffeinate ☕) Tile
-                controlTileCompact(
-                    icon: "cup.and.saucer.fill",
-                    title: "Awake",
-                    subtitle: state.isCaffeinated ? "Active" : "Normal",
-                    isActive: state.isCaffeinated,
-                    activeColor: Color(red: 0.96, green: 0.55, blue: 0.15)
-                ) {
-                    state.toggleCaffeinate()
-                }
-                
-                // Focus Timer Tile
-                controlTileCompact(
-                    icon: "timer",
-                    title: "Timer",
-                    subtitle: state.isTimerRunning ? state.timerFormattedString : "25m",
-                    isActive: state.isTimerRunning,
-                    activeColor: Color(red: 1.0, green: 0.58, blue: 0.0)
-                ) {
-                    state.toggleTimer()
-                }
-            }
-            
-            // Real-time Mini System Stats (CPU & RAM)
+            // Row 2: Live Network Bandwidth & Storage/Battery
             HStack(spacing: 8) {
-                // CPU Meter
-                HStack(spacing: 6) {
-                    Image(systemName: "cpu")
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
-                        .foregroundColor(state.cpuUsage > 75 ? .red : (state.cpuUsage > 45 ? .orange : Color(red: 0.18, green: 0.85, blue: 0.38)))
+                // Network Card
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.up.arrow.down")
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundColor(Color(red: 0.20, green: 0.85, blue: 0.40))
+                        Text("Network Speed")
+                            .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                            .foregroundColor(.white.opacity(0.80))
+                        Spacer()
+                        Circle()
+                            .fill(Color(red: 0.20, green: 0.85, blue: 0.40))
+                            .frame(width: 5.5, height: 5.5)
+                    }
                     
-                    Text("CPU")
-                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
-                        .foregroundColor(.white.opacity(0.8))
-                    
-                    Spacer()
-                    
-                    Text("\(state.cpuUsage)%")
-                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
-                }
-                .padding(.horizontal, 9)
-                .padding(.vertical, 5)
-                .background(Color.white.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                
-                // RAM Meter
-                HStack(spacing: 6) {
-                    Image(systemName: "memorychip")
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
-                        .foregroundColor(state.ramPercent > 85 ? .red : (state.ramPercent > 65 ? .orange : Color(red: 0.0, green: 0.48, blue: 1.0)))
-                    
-                    Text("RAM")
-                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
-                        .foregroundColor(.white.opacity(0.8))
-                    
-                    Spacer()
-                    
-                    Text(String(format: "%.1f/%.0fGB", state.ramUsageGB, state.ramTotalGB))
-                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
-                }
-                .padding(.horizontal, 9)
-                .padding(.vertical, 5)
-                .background(Color.white.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            }
-            
-            // iOS Control Center Style Volume Slider Capsule
-            HStack(spacing: 10) {
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule()
-                            .fill(Color.white.opacity(0.14))
-                        
-                        Capsule()
-                            .fill(Color.white)
-                            .frame(width: max(24, geo.size.width * CGFloat(state.currentVolume) / 100.0))
-                        
-                        HStack {
-                            Image(systemName: volumeIcon)
+                    HStack(spacing: 8) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.down")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(Color(red: 0.20, green: 0.85, blue: 0.40))
+                            Text(state.currentSystemStats.downloadSpeed)
                                 .font(.system(size: 11, weight: .bold, design: .rounded))
-                                .foregroundColor(state.currentVolume > 12 ? Color.black.opacity(0.75) : Color.white)
-                                .padding(.leading, 10)
-                            
-                            Spacer()
+                                .monospacedDigit()
+                                .foregroundColor(.white)
+                        }
+                        Spacer()
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.up")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(Color.cyan)
+                            Text(state.currentSystemStats.uploadSpeed)
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                                .foregroundColor(.white)
                         }
                     }
-                    .contentShape(Capsule())
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { val in
-                                let fraction = max(0, min(1.0, val.location.x / geo.size.width))
-                                state.updateVolume(Int(fraction * 100))
-                            }
-                    )
+                    
+                    HStack {
+                        Text("Live Bandwidth")
+                            .font(.system(size: 9, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.45))
+                        Spacer()
+                    }
                 }
-                .frame(height: 24)
+                .padding(.horizontal, 11)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.white.opacity(0.08))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(Color.white.opacity(0.08), lineWidth: 0.75)
+                        )
+                )
                 
-                Text("\(state.currentVolume)%")
+                // Storage & Battery Card
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "internaldrive.fill")
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundColor(Color.orange)
+                        Text("Disk & Power")
+                            .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                            .foregroundColor(.white.opacity(0.80))
+                        Spacer()
+                        Text("\(state.batteryLevel)%")
+                            .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundColor(state.batteryLevel > 20 ? Color(red: 0.20, green: 0.85, blue: 0.40) : Color.red)
+                    }
+                    
+                    HStack {
+                        Text(String(format: "%.0f GB Free", state.currentSystemStats.diskFreeGB))
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                        Spacer()
+                        Text(String(format: "of %.0f GB", state.currentSystemStats.diskTotalGB))
+                            .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.50))
+                    }
+                    
+                    HStack(spacing: 4) {
+                        Image(systemName: state.isBatteryCharging ? "bolt.fill" : (state.isPowerPlugged ? "powerplug.fill" : "battery.100"))
+                            .font(.system(size: 9.5, weight: .bold))
+                            .foregroundColor(state.isBatteryCharging ? Color(red: 0.20, green: 0.85, blue: 0.40) : Color.white.opacity(0.6))
+                        Text(state.isBatteryCharging ? "Charging" : (state.isPowerPlugged ? "Power Connected" : "On Battery"))
+                            .font(.system(size: 9, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.55))
+                        Spacer()
+                    }
+                }
+                .padding(.horizontal, 11)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.white.opacity(0.08))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(Color.white.opacity(0.08), lineWidth: 0.75)
+                        )
+                )
+            }
+        }
+    }
+    
+    private func statCard(
+        icon: String,
+        iconColor: Color,
+        title: String,
+        value: String,
+        progress: Double,
+        progressColor: Color,
+        subtitle: String,
+        subtitleColor: Color
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .foregroundColor(iconColor)
+                Text(title)
                     .font(.system(size: 10.5, weight: .bold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.80))
+                Spacer()
+                Text(value)
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
                     .monospacedDigit()
                     .foregroundColor(.white)
-                    .frame(width: 34, alignment: .trailing)
             }
-            .padding(.top, 2)
-        }
-    }
-    
-    private func controlTile(icon: String, title: String, subtitle: String, isActive: Bool, activeColor: Color, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                ZStack {
-                    Circle()
-                        .fill(isActive ? activeColor : Color.white.opacity(0.18))
-                        .frame(width: 28, height: 28)
-                    
-                    Image(systemName: icon)
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
+            
+            // Progress Bar
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.white.opacity(0.12))
+                    Capsule()
+                        .fill(progressColor)
+                        .frame(width: max(4, geo.size.width * CGFloat(min(1.0, max(0.0, progress)))))
                 }
-                
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(title)
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
-                        .lineLimit(1)
-                    Text(subtitle)
-                        .font(.system(size: 9, weight: .medium, design: .rounded))
-                        .foregroundColor(.white.opacity(0.70))
-                        .lineLimit(1)
-                }
-                
+            }
+            .frame(height: 5)
+            
+            HStack {
+                Text(subtitle)
+                    .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                    .foregroundColor(subtitleColor)
                 Spacer()
             }
-            .padding(.horizontal, 9)
-            .padding(.vertical, 6)
-            .background(Color.white.opacity(0.09))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(Color.white.opacity(0.06), lineWidth: 0.75)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
-        .buttonStyle(.plain)
-    }
-    
-    private func controlTileCompact(icon: String, title: String, subtitle: String, isActive: Bool, activeColor: Color, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                ZStack {
-                    Circle()
-                        .fill(isActive ? activeColor : Color.white.opacity(0.18))
-                        .frame(width: 26, height: 26)
-                    
-                    Image(systemName: icon)
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
-                }
-                
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(title)
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
-                        .lineLimit(1)
-                    Text(subtitle)
-                        .font(.system(size: 8.5, weight: .medium, design: .rounded))
-                        .foregroundColor(.white.opacity(0.70))
-                        .lineLimit(1)
-                }
-                
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 7)
-            .padding(.vertical, 6)
-            .background(Color.white.opacity(0.09))
-            .overlay(
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .stroke(Color.white.opacity(0.06), lineWidth: 0.75)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-        }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 11)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.white.opacity(0.08))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 0.75)
+                )
+        )
     }
     
     // MARK: - Tab 2: Now Playing (Authentic iOS Dynamic Island Media Player & Apple Music Lyrics)
@@ -1950,24 +1921,26 @@ public struct DynamicIslandView: View {
                     ForEach(state.todos) { todo in
                         HStack(spacing: 8) {
                             // Full-width clickable toggle area (Checkmark icon + Text + Spacer)
-                            HStack(spacing: 8) {
-                                Image(systemName: todo.isDone ? "checkmark.circle.fill" : "circle")
-                                    .font(.system(size: 14.5, weight: .bold, design: .rounded))
-                                    .foregroundColor(todo.isDone ? Color(red: 0.0, green: 0.48, blue: 1.0) : Color.white.opacity(0.50))
-                                    .frame(width: 26, height: 26)
-                                
-                                Text(todo.text)
-                                    .font(.system(size: 11.5, weight: .medium, design: .rounded))
-                                    .foregroundColor(todo.isDone ? .white.opacity(0.45) : .white)
-                                    .strikethrough(todo.isDone, color: .white.opacity(0.45))
-                                    .lineLimit(1)
-                                
-                                Spacer(minLength: 0)
-                            }
-                            .contentShape(Rectangle())
-                            .onTapGesture {
+                            Button(action: {
                                 state.toggleTodo(id: todo.id)
+                            }) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: todo.isDone ? "checkmark.circle.fill" : "circle")
+                                        .font(.system(size: 14.5, weight: .bold, design: .rounded))
+                                        .foregroundColor(todo.isDone ? Color(red: 0.0, green: 0.48, blue: 1.0) : Color.white.opacity(0.50))
+                                        .frame(width: 26, height: 26)
+                                    
+                                    Text(todo.text)
+                                        .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                                        .foregroundColor(todo.isDone ? .white.opacity(0.45) : .white)
+                                        .strikethrough(todo.isDone, color: .white.opacity(0.45))
+                                        .lineLimit(1)
+                                    
+                                    Spacer(minLength: 0)
+                                }
+                                .contentShape(Rectangle())
                             }
+                            .buttonStyle(.plain)
                             
                             // Dedicated Trash Button with 30x30 hit target and active hover pill
                             Button(action: { state.deleteTodo(id: todo.id) }) {
@@ -2021,6 +1994,244 @@ public struct DynamicIslandView: View {
             .padding(.top, 2)
             .padding(.bottom, 4)
         }
+    }
+    
+    // MARK: - Tab: Calendar & Agenda (Interactive Month & Quick Focus)
+    private var calendarTabView: some View {
+        HStack(spacing: 12) {
+            // Left Column: Interactive Month Grid
+            VStack(spacing: 5) {
+                // Month Header (< Month YYYY >)
+                HStack {
+                    Button(action: { state.previousCalendarMonth() }) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 9.5, weight: .bold))
+                            .foregroundColor(.white.opacity(0.70))
+                            .frame(width: 20, height: 20)
+                            .background(Circle().fill(Color.white.opacity(0.10)))
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Spacer()
+                    
+                    Text(monthYearString(from: state.calendarDisplayedMonth))
+                        .font(.system(size: 11.5, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                    
+                    Spacer()
+                    
+                    Button(action: { state.nextCalendarMonth() }) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 9.5, weight: .bold))
+                            .foregroundColor(.white.opacity(0.70))
+                            .frame(width: 20, height: 20)
+                            .background(Circle().fill(Color.white.opacity(0.10)))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 2)
+                
+                // Weekday Labels
+                HStack(spacing: 0) {
+                    ForEach(["M", "T", "W", "T", "F", "S", "S"], id: \.self) { day in
+                        Text(day)
+                            .font(.system(size: 8.5, weight: .bold, design: .rounded))
+                            .foregroundColor(.white.opacity(0.40))
+                            .frame(maxWidth: .infinity)
+                    }
+                }
+                .padding(.vertical, 1)
+                
+                // Month Grid
+                let days = calendarDaysForMonth(state.calendarDisplayedMonth)
+                VStack(spacing: 2) {
+                    ForEach(0..<days.count / 7, id: \.self) { row in
+                        HStack(spacing: 0) {
+                            ForEach(0..<7, id: \.self) { col in
+                                let dateOpt = days[row * 7 + col]
+                                if let date = dateOpt {
+                                    let isToday = Calendar.current.isDateInToday(date)
+                                    let dayNum = Calendar.current.component(.day, from: date)
+                                    
+                                    Button(action: {
+                                        state.calendarSelectedDate = date
+                                    }) {
+                                        ZStack {
+                                            if isToday {
+                                                Circle()
+                                                    .fill(Color(red: 0.0, green: 0.48, blue: 1.0))
+                                                    .frame(width: 18, height: 18)
+                                            }
+                                            
+                                            Text("\(dayNum)")
+                                                .font(.system(size: 9.5, weight: isToday ? .bold : .medium, design: .rounded))
+                                                .foregroundColor(isToday ? .white : .white.opacity(0.85))
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 18)
+                                    }
+                                    .buttonStyle(.plain)
+                                } else {
+                                    Color.clear
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 18)
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                Spacer(minLength: 0)
+            }
+            .frame(width: 200)
+            .padding(9)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.white.opacity(0.06))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(Color.white.opacity(0.08), lineWidth: 0.75)
+                    )
+            )
+            
+            // Right Column: Today's Live Clock & Quick Focus Agenda
+            VStack(alignment: .leading, spacing: 6) {
+                // Date & Live Clock Header
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(todayDateHeaderString())
+                            .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                            .foregroundColor(Color(red: 0.0, green: 0.48, blue: 1.0))
+                            .textCase(.uppercase)
+                        
+                        TimelineView(.periodic(from: .now, by: 1.0)) { timeline in
+                            Text(liveClockString(from: timeline.date))
+                                .font(.system(size: 16, weight: .black, design: .rounded))
+                                .foregroundColor(.white)
+                                .monospacedDigit()
+                        }
+                    }
+                    
+                    Spacer()
+                }
+                
+                // Add Quick Event input
+                HStack(spacing: 5) {
+                    TextField("Quick focus / deadline...", text: $state.newCalendarEventTitle, onCommit: {
+                        state.addQuickCalendarEvent()
+                    })
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundColor(.white)
+                    
+                    Button(action: {
+                        state.addQuickCalendarEvent()
+                    }) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(Color(red: 0.0, green: 0.48, blue: 1.0))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(state.newCalendarEventTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color.white.opacity(0.09))
+                )
+                
+                // Event List
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 3.5) {
+                        if state.quickCalendarEvents.isEmpty {
+                            Text("No focus events for today")
+                                .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                                .foregroundColor(.white.opacity(0.40))
+                                .padding(.top, 10)
+                        } else {
+                            ForEach(state.quickCalendarEvents) { ev in
+                                HStack(spacing: 6) {
+                                    Button(action: {
+                                        state.toggleQuickCalendarEvent(id: ev.id)
+                                    }) {
+                                        Image(systemName: ev.isDone ? "checkmark.circle.fill" : "circle")
+                                            .font(.system(size: 10.5, weight: .bold))
+                                            .foregroundColor(ev.isDone ? Color(red: 0.0, green: 0.48, blue: 1.0) : Color.white.opacity(0.40))
+                                    }
+                                    .buttonStyle(.plain)
+                                    
+                                    Text(ev.title)
+                                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                                        .foregroundColor(ev.isDone ? .white.opacity(0.40) : .white)
+                                        .strikethrough(ev.isDone, color: .white.opacity(0.40))
+                                        .lineLimit(1)
+                                    
+                                    Spacer(minLength: 0)
+                                    
+                                    Button(action: {
+                                        state.deleteQuickCalendarEvent(id: ev.id)
+                                    }) {
+                                        Image(systemName: "xmark")
+                                            .font(.system(size: 8, weight: .bold))
+                                            .foregroundColor(.white.opacity(0.35))
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                                .padding(.vertical, 1.5)
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(9)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.white.opacity(0.06))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .stroke(Color.white.opacity(0.08), lineWidth: 0.75)
+                    )
+            )
+        }
+    }
+    
+    private func monthYearString(from date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "MMMM yyyy"
+        return f.string(from: date)
+    }
+    
+    private func todayDateHeaderString() -> String {
+        let f = DateFormatter()
+        f.dateFormat = "EEEE, d MMM"
+        return f.string(from: Date())
+    }
+    
+    private func liveClockString(from date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm:ss"
+        return f.string(from: date)
+    }
+    
+    private func calendarDaysForMonth(_ monthDate: Date) -> [Date?] {
+        let cal = Calendar.current
+        guard let monthInterval = cal.dateInterval(of: .month, for: monthDate) else { return [] }
+        let firstDay = monthInterval.start
+        let weekday = cal.component(.weekday, from: firstDay)
+        let mondayOffset = (weekday + 5) % 7
+        
+        var days: [Date?] = Array(repeating: nil, count: mondayOffset)
+        let daysInMonth = cal.range(of: .day, in: .month, for: monthDate)?.count ?? 30
+        for d in 0..<daysInMonth {
+            if let dayDate = cal.date(byAdding: .day, value: d, to: firstDay) {
+                days.append(dayDate)
+            }
+        }
+        while days.count % 7 != 0 {
+            days.append(nil)
+        }
+        return days
     }
     
     // MARK: - Tab 4: Connected Devices & Battery Hub (iOS Concept Style)
@@ -2424,14 +2635,16 @@ public struct DynamicIslandView: View {
     // MARK: - Helpers
     private func tabIcon(for tab: IslandTab) -> some View {
         switch tab {
-        case .control:
-            return Image(systemName: "slider.horizontal.3").font(.system(size: 9.5, weight: .bold, design: .rounded))
+        case .stats:
+            return Image(systemName: "gauge.with.needle.fill").font(.system(size: 9.5, weight: .bold, design: .rounded))
         case .music:
             return Image(systemName: "music.note").font(.system(size: 9.5, weight: .bold, design: .rounded))
         case .timer:
             return Image(systemName: "timer").font(.system(size: 9.5, weight: .bold, design: .rounded))
         case .notes:
             return Image(systemName: "checklist").font(.system(size: 9.5, weight: .bold, design: .rounded))
+        case .calendar:
+            return Image(systemName: "calendar").font(.system(size: 9.5, weight: .bold, design: .rounded))
         case .devices:
             return Image(systemName: "battery.100.bolt").font(.system(size: 9.5, weight: .bold, design: .rounded))
         case .shelf:
