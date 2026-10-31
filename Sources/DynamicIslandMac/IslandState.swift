@@ -1676,7 +1676,7 @@ public class IslandState: ObservableObject {
         customBundleIdentifier: String? = nil
     ) {
         chatDismissWorkItem?.cancel()
-        withAnimation(animationStyle.springAnimation) {
+        withAnimation(.easeInOut(duration: 0.22)) {
             self.activeChatNotification = ChatNotification(
                 sender: sender,
                 message: message,
@@ -1688,7 +1688,7 @@ public class IslandState: ObservableObject {
             )
         }
         let work = DispatchWorkItem { [weak self] in
-            withAnimation(self?.animationStyle.springAnimation ?? .easeInOut(duration: 0.25)) {
+            withAnimation(.easeInOut(duration: 0.20)) {
                 self?.activeChatNotification = nil
             }
         }
@@ -1699,7 +1699,7 @@ public class IslandState: ObservableObject {
     public func dismissChatNotification() {
         chatDismissWorkItem?.cancel()
         chatDismissWorkItem = nil
-        withAnimation(animationStyle.springAnimation) {
+        withAnimation(.easeInOut(duration: 0.20)) {
             self.activeChatNotification = nil
         }
     }

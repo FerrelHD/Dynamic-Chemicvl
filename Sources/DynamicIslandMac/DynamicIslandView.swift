@@ -288,10 +288,7 @@ public struct DynamicIslandView: View {
                             .transition(.opacity)
                     } else if let chat = state.activeChatNotification {
                         chatNotificationContent(chat: chat)
-                            .transition(.asymmetric(
-                                insertion: .opacity.animation(.easeInOut(duration: 0.16).delay(0.14)),
-                                removal: .opacity.animation(.easeInOut(duration: 0.12))
-                            ))
+                            .transition(.opacity)
                     } else if let call = state.activeCallNotification {
                         if state.mode == .compact, case .active(let dur) = call.state {
                             compactCallContent(call: call, duration: dur)
@@ -346,7 +343,7 @@ public struct DynamicIslandView: View {
         .animation(.easeInOut(duration: 0.20), value: state.isShowingBluetoothHUD)
         .animation(.easeInOut(duration: 0.20), value: state.isShowingCapsLockHUD)
         .animation(.easeInOut(duration: 0.18), value: state.shelfSegment)
-        .animation(state.animationStyle.springAnimation, value: state.activeChatNotification != nil)
+        .animation(.easeInOut(duration: 0.22), value: state.activeChatNotification != nil)
         .padding(.top, 0)
         .onDrop(of: ["public.file-url"], isTargeted: $isDropTargeted) { providers in
             handleDroppedFiles(providers)
