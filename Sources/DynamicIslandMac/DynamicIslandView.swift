@@ -1136,7 +1136,7 @@ public struct DynamicIslandView: View {
                     progress: Double(state.currentSystemStats.cpuPercent) / 100.0,
                     progressColor: state.currentSystemStats.cpuPercent > 85 ? Color.orange : Color.white.opacity(0.85),
                     subtitle: state.currentSystemStats.cpuPercent > 85 ? "High Activity" : "Normal Load",
-                    subtitleColor: state.currentSystemStats.cpuPercent > 85 ? Color.orange : Color.white.opacity(0.45)
+                    subtitleColor: state.currentSystemStats.cpuPercent > 85 ? Color.orange : Color.white.opacity(0.60)
                 )
                 
                 // RAM Card
@@ -1148,7 +1148,7 @@ public struct DynamicIslandView: View {
                     progress: Double(state.currentSystemStats.ramPercent) / 100.0,
                     progressColor: state.currentSystemStats.ramPercent > 85 ? Color.orange : Color.white.opacity(0.85),
                     subtitle: String(format: "%.1f / %.1f GB", state.currentSystemStats.ramUsedGB, state.currentSystemStats.ramTotalGB),
-                    subtitleColor: Color.white.opacity(0.45)
+                    subtitleColor: Color.white.opacity(0.60)
                 )
             }
             
@@ -1194,7 +1194,7 @@ public struct DynamicIslandView: View {
                     HStack {
                         Text("Live Bandwidth")
                             .font(.system(size: 9, weight: .medium, design: .rounded))
-                            .foregroundColor(.white.opacity(0.40))
+                            .foregroundColor(.white.opacity(0.60))
                         Spacer()
                     }
                 }
@@ -1232,7 +1232,7 @@ public struct DynamicIslandView: View {
                         Spacer()
                         Text(String(format: "of %.0f GB", state.currentSystemStats.diskTotalGB))
                             .font(.system(size: 9.5, weight: .medium, design: .rounded))
-                            .foregroundColor(.white.opacity(0.45))
+                            .foregroundColor(.white.opacity(0.60))
                     }
                     
                     HStack(spacing: 4) {
@@ -1241,7 +1241,7 @@ public struct DynamicIslandView: View {
                             .foregroundColor(.white.opacity(0.70))
                         Text(state.isBatteryCharging ? "Charging" : (state.isPowerPlugged ? "Power Connected" : "On Battery"))
                             .font(.system(size: 9, weight: .medium, design: .rounded))
-                            .foregroundColor(.white.opacity(0.45))
+                            .foregroundColor(.white.opacity(0.60))
                         Spacer()
                     }
                 }
@@ -2058,7 +2058,15 @@ public struct DynamicIslandView: View {
                                         state.calendarSelectedDate = date
                                     }) {
                                         ZStack(alignment: .center) {
-                                            if isToday {
+                                            if isToday && isSelected {
+                                                Circle()
+                                                    .fill(Color(red: 0.0, green: 0.48, blue: 1.0))
+                                                    .frame(width: 17, height: 17)
+                                                    .overlay(
+                                                        Circle()
+                                                            .stroke(Color.white, lineWidth: 1.3)
+                                                    )
+                                            } else if isToday {
                                                 Circle()
                                                     .fill(Color(red: 0.0, green: 0.48, blue: 1.0))
                                                     .frame(width: 17, height: 17)

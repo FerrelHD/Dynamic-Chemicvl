@@ -2217,8 +2217,14 @@ public class IslandState: ObservableObject {
     
     public var eventsForSelectedDate: [QuickCalendarEvent] {
         let target = selectedDateString
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        let todayStr = f.string(from: Date())
         return quickCalendarEvents.filter { ev in
-            ev.dateString.isEmpty || ev.dateString == target
+            if ev.dateString.isEmpty {
+                return target == todayStr
+            }
+            return ev.dateString == target
         }
     }
     
