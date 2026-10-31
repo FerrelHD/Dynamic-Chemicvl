@@ -45,7 +45,6 @@ public class AudioService {
         if let (vol, muted) = getSystemAudioState() {
             self.lastVolume = vol
             self.lastMuted = muted
-            onChange(vol, muted)
         }
     }
     
