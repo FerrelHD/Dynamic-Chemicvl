@@ -543,14 +543,57 @@ public struct SettingsWindowView: View {
     
     private var mascotSettingsView: some View {
         VStack(spacing: 16) {
+            // Card 1: Character Identity & Visual Customization (Kategori A)
             settingCard {
-                settingRow(title: "Notchy Emoji Living Mascot", subtitle: "Signature yellow circle emoji mascot with symmetrical white oval eyes, idle AFK glance sensor, and organic expressions") {
-                    MascotView(model: state.mascotModel, size: 22)
+                // Row 1: Master Enable / Disable Toggle
+                settingRow(title: "Notchy Emoji Living Mascot", subtitle: "Living character on your notch with natural blinks, cursor gaze, and expressive animations") {
+                    HStack(spacing: 12) {
+                        MascotView(model: state.mascotModel, size: 22)
+                            .opacity(state.isMascotEnabled ? 1.0 : 0.4)
+                        
+                        customToggle(isOn: Binding(
+                            get: { state.isMascotEnabled },
+                            set: { state.setMascotEnabled($0) }
+                        ))
+                    }
                 }
                 
                 Divider().background(Color.white.opacity(0.08)).padding(.leading, 16)
                 
-                settingRow(title: "Mascot Glow Intensity", subtitle: "Golden sunlight bloom: 0% (Off) to 100% (Vibrant)") {
+                // Row 2: Mascot Skin Palette (Kategori A)
+                settingRow(title: "Mascot Color Skin", subtitle: "Procedural 3D surface finish & ambient bloom aura") {
+                    segmentedPicker(
+                        options: MascotTheme.allCases,
+                        selection: Binding(
+                            get: { state.mascotTheme },
+                            set: { state.setMascotTheme($0) }
+                        ),
+                        titleForOption: { $0.shortName }
+                    )
+                }
+                .opacity(state.isMascotEnabled ? 1.0 : 0.4)
+                .disabled(!state.isMascotEnabled)
+                
+                Divider().background(Color.white.opacity(0.08)).padding(.leading, 16)
+                
+                // Row 3: Eye Expression Style (Kategori A)
+                settingRow(title: "Eye Expression Style", subtitle: "Personality style: Classic Oval, Kawaii Arcs (^_^), or Minimal Dots (••)") {
+                    segmentedPicker(
+                        options: MascotEyeStyle.allCases,
+                        selection: Binding(
+                            get: { state.mascotEyeStyle },
+                            set: { state.setMascotEyeStyle($0) }
+                        ),
+                        titleForOption: { $0.shortName }
+                    )
+                }
+                .opacity(state.isMascotEnabled ? 1.0 : 0.4)
+                .disabled(!state.isMascotEnabled)
+                
+                Divider().background(Color.white.opacity(0.08)).padding(.leading, 16)
+                
+                // Row 4: Glow Intensity
+                settingRow(title: "Mascot Glow Intensity", subtitle: "Ambient light aura bloom: 0% (Off) to 100% (Vibrant)") {
                     HStack(spacing: 8) {
                         Slider(
                             value: Binding(
@@ -569,18 +612,25 @@ public struct SettingsWindowView: View {
                             .frame(width: 40, alignment: .trailing)
                     }
                 }
-                
-                Divider().background(Color.white.opacity(0.08)).padding(.leading, 16)
-                
+                .opacity(state.isMascotEnabled ? 1.0 : 0.4)
+                .disabled(!state.isMascotEnabled)
+            }
+            
+            // Card 2: Greeting Animation & Interactive Preview
+            settingCard {
+                // Row 1: Launch Greeting Animation Toggle
                 settingRow(title: "Launch Greeting Animation", subtitle: "Play welcoming wave and wink sequence when NotchFlow opens") {
                     customToggle(isOn: Binding(
                         get: { state.isLaunchGreetingEnabled },
                         set: { state.setLaunchGreetingEnabled($0) }
                     ))
                 }
+                .opacity(state.isMascotEnabled ? 1.0 : 0.4)
+                .disabled(!state.isMascotEnabled)
                 
                 Divider().background(Color.white.opacity(0.08)).padding(.leading, 16)
                 
+                // Row 2: Replay Greeting Button
                 settingRow(title: "Replay Greeting Animation", subtitle: "Preview Notchy's waving hand intro on the compact notch") {
                     Button(action: {
                         state.replayGreeting()
@@ -603,9 +653,12 @@ public struct SettingsWindowView: View {
                     }
                     .buttonStyle(.plain)
                 }
+                .opacity(state.isMascotEnabled ? 1.0 : 0.4)
+                .disabled(!state.isMascotEnabled)
                 
                 Divider().background(Color.white.opacity(0.08)).padding(.leading, 16)
                 
+                // Row 3: Interactive Live Preview
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Interactive Mascot Preview")
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
@@ -620,6 +673,7 @@ public struct SettingsWindowView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
+                .opacity(state.isMascotEnabled ? 1.0 : 0.4)
             }
         }
     }

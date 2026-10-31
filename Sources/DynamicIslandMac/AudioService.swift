@@ -104,7 +104,12 @@ public class AudioService {
         detachDeviceListeners(for: currentOutputDevice)
         currentOutputDevice = fetchDefaultOutputDevice()
         attachDeviceListeners(for: currentOutputDevice)
-        notifyStateChange()
+        // Silently synchronize baseline audio state of the new output device (e.g. Bluetooth connect/disconnect)
+        // without triggering a false Volume/Mute HUD banner.
+        if let (vol, muted) = getSystemAudioState() {
+            self.lastVolume = vol
+            self.lastMuted = muted
+        }
     }
     
     private func fetchDefaultOutputDevice() -> AudioDeviceID {

@@ -1014,10 +1014,12 @@ public struct DynamicIslandView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 .padding(.horizontal, 14)
             } else {
-                // Living Notch Idle State: Animated Yellow Circle Emoji Mascot + Digital Clock
-                HStack(spacing: 8) {
-                    MascotView(model: state.mascotModel, size: 20)
-                        .offset(x: state.mascotModel.mascotCenterOffset)
+                // Living Notch Idle State: Animated Mascot (when enabled) + Digital Clock
+                HStack(spacing: state.isMascotEnabled ? 8 : 0) {
+                    if state.isMascotEnabled {
+                        MascotView(model: state.mascotModel, size: 20)
+                            .offset(x: state.mascotModel.mascotCenterOffset)
+                    }
                     
                     Text(currentShortTime)
                         .font(.system(size: 13, weight: .bold, design: .rounded))
@@ -1026,7 +1028,7 @@ public struct DynamicIslandView: View {
                         .opacity(state.mascotModel.clockOpacity)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                .padding(.horizontal, 12)
+                .padding(.horizontal, state.isMascotEnabled ? 12 : 8)
             }
         }
         .frame(height: 28, alignment: .center)

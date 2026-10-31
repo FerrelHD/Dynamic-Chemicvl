@@ -374,7 +374,11 @@ public class IslandState: ObservableObject {
             let titleLen = CGFloat(trackTitle.count)
             return (width: max(185, min(270, 155 + titleLen * 3.4)), height: 30)
         } else {
-            return (width: 142, height: 28) // Sleek Apple compact notch with comfortable horizontal breathing room
+            if isMascotEnabled {
+                return (width: 142, height: 28) // Sleek Apple compact notch with comfortable horizontal breathing room
+            } else {
+                return (width: 108, height: 28) // Minimalist stealth digital clock notch
+            }
         }
     }
     
@@ -553,6 +557,14 @@ public class IslandState: ObservableObject {
     @Published public var mascotGlowIntensity: Double = 0.85
     private let mascotGlowKey = "notchflow_mascot_glow"
     
+    // Living Mascot Configuration & Customization
+    @Published public var isMascotEnabled: Bool = true
+    private let mascotEnabledKey = "notchflow_mascot_enabled"
+    @Published public var mascotTheme: MascotTheme = .sunlight
+    private let mascotThemeKey = "notchflow_mascot_theme"
+    @Published public var mascotEyeStyle: MascotEyeStyle = .classic
+    private let mascotEyeStyleKey = "notchflow_mascot_eye_style"
+    
     // Settings Tab Selection
     @Published public var selectedSettingsTab: SettingsTab = .general
     private let settingsTabKey = "notchflow_settings_tab"
@@ -600,6 +612,18 @@ public class IslandState: ObservableObject {
             self.mascotGlowIntensity = max(0.0, min(1.0, val))
         }
         
+        if UserDefaults.standard.object(forKey: mascotEnabledKey) != nil {
+            self.isMascotEnabled = UserDefaults.standard.bool(forKey: mascotEnabledKey)
+        }
+        if let rawTheme = UserDefaults.standard.string(forKey: mascotThemeKey),
+           let theme = MascotTheme(rawValue: rawTheme) {
+            self.mascotTheme = theme
+        }
+        if let rawEye = UserDefaults.standard.string(forKey: mascotEyeStyleKey),
+           let eye = MascotEyeStyle(rawValue: rawEye) {
+            self.mascotEyeStyle = eye
+        }
+        
         if let rawTab = UserDefaults.standard.string(forKey: settingsTabKey),
            let tab = SettingsTab(rawValue: rawTab) {
             self.selectedSettingsTab = tab
@@ -636,7 +660,7 @@ public class IslandState: ObservableObject {
         // Launch Greeting Animation: Trigger smoothly on app start after UI stabilizes
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { [weak self] in
             guard let self = self else { return }
-            if self.isLaunchGreetingEnabled && !self.isPlaying && !self.isTimerRunning && self.mode == .compact {
+            if self.isMascotEnabled && self.isLaunchGreetingEnabled && !self.isPlaying && !self.isTimerRunning && self.mode == .compact {
                 self.mascotModel.triggerGreetingSequence()
             }
         }
@@ -914,6 +938,21 @@ public class IslandState: ObservableObject {
         UserDefaults.standard.set(mascotGlowIntensity, forKey: mascotGlowKey)
     }
     
+    public func setMascotEnabled(_ enabled: Bool) {
+        isMascotEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: mascotEnabledKey)
+    }
+    
+    public func setMascotTheme(_ theme: MascotTheme) {
+        mascotTheme = theme
+        UserDefaults.standard.set(theme.rawValue, forKey: mascotThemeKey)
+    }
+    
+    public func setMascotEyeStyle(_ style: MascotEyeStyle) {
+        mascotEyeStyle = style
+        UserDefaults.standard.set(style.rawValue, forKey: mascotEyeStyleKey)
+    }
+    
     public func setSettingsTab(_ tab: SettingsTab) {
         selectedSettingsTab = tab
         UserDefaults.standard.set(tab.rawValue, forKey: settingsTabKey)
@@ -925,6 +964,7 @@ public class IslandState: ObservableObject {
     }
     
     public func replayGreeting() {
+        guard isMascotEnabled else { return }
         guard mode == .compact else { return }
         mascotModel.triggerGreetingSequence()
         triggerHaptic(.generic)

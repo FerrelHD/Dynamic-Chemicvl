@@ -1,6 +1,112 @@
 import SwiftUI
 import AppKit
 
+// MARK: - Mascot Theme / Color Palette (Procedural 3D Gradient & Bloom)
+public enum MascotTheme: String, CaseIterable, Identifiable {
+    case sunlight = "Sunlight Gold"
+    case silver = "Silver Titanium"
+    case cyber = "Cyber Ultraviolet"
+    case mint = "Neon Mint"
+    case obsidian = "Midnight Stealth"
+    
+    public var id: String { rawValue }
+    
+    public var shortName: String {
+        switch self {
+        case .sunlight: return "Sunlight"
+        case .silver: return "Silver"
+        case .cyber: return "Cyber"
+        case .mint: return "Mint"
+        case .obsidian: return "Stealth"
+        }
+    }
+    
+    public var gradientColors: [Color] {
+        switch self {
+        case .sunlight:
+            return [
+                Color(red: 1.0, green: 0.98, blue: 0.70), // Crisp sunny highlight point
+                Color(red: 1.0, green: 0.84, blue: 0.22), // Pure vibrant emoji yellow body
+                Color(red: 0.98, green: 0.72, blue: 0.15)  // Warm bright golden edge
+            ]
+        case .silver:
+            return [
+                Color(red: 0.96, green: 0.97, blue: 1.00),
+                Color(red: 0.78, green: 0.81, blue: 0.86),
+                Color(red: 0.60, green: 0.63, blue: 0.68)
+            ]
+        case .cyber:
+            return [
+                Color(red: 0.96, green: 0.58, blue: 1.00),
+                Color(red: 0.72, green: 0.22, blue: 0.95),
+                Color(red: 0.48, green: 0.08, blue: 0.78)
+            ]
+        case .mint:
+            return [
+                Color(red: 0.68, green: 1.00, blue: 0.88),
+                Color(red: 0.18, green: 0.88, blue: 0.60),
+                Color(red: 0.06, green: 0.62, blue: 0.40)
+            ]
+        case .obsidian:
+            return [
+                Color(red: 0.35, green: 0.38, blue: 0.44),
+                Color(red: 0.18, green: 0.20, blue: 0.24),
+                Color(red: 0.10, green: 0.11, blue: 0.14)
+            ]
+        }
+    }
+    
+    public var glowColor: Color {
+        switch self {
+        case .sunlight:
+            return Color(red: 1.0, green: 0.82, blue: 0.20)
+        case .silver:
+            return Color(red: 0.85, green: 0.90, blue: 1.00)
+        case .cyber:
+            return Color(red: 0.88, green: 0.32, blue: 1.00)
+        case .mint:
+            return Color(red: 0.20, green: 0.95, blue: 0.65)
+        case .obsidian:
+            return Color.white.opacity(0.35)
+        }
+    }
+    
+    public var eyeColor: Color {
+        switch self {
+        case .sunlight, .cyber, .mint, .obsidian:
+            return Color.white
+        case .silver:
+            return Color(red: 0.10, green: 0.12, blue: 0.16)
+        }
+    }
+    
+    public var eyeShadowColor: Color {
+        switch self {
+        case .silver:
+            return Color.black.opacity(0.25)
+        default:
+            return Color.white.opacity(0.40)
+        }
+    }
+}
+
+// MARK: - Mascot Eye Expression Style
+public enum MascotEyeStyle: String, CaseIterable, Identifiable {
+    case classic = "Classic Oval"
+    case arcs = "Kawaii Arcs"
+    case dots = "Minimal Dots"
+    
+    public var id: String { rawValue }
+    
+    public var shortName: String {
+        switch self {
+        case .classic: return "Classic"
+        case .arcs: return "Kawaii"
+        case .dots: return "Minimal"
+        }
+    }
+}
+
 // MARK: - Smile Arc Shape (Expressive curved smile for music / happiness)
 public struct SmileArc: Shape {
     public init() {}
@@ -14,7 +120,7 @@ public struct SmileArc: Shape {
     }
 }
 
-// MARK: - Native Yellow Circle Emoji Mascot View (White Oval Eyes)
+// MARK: - Native Circle Emoji Mascot View (White Oval Eyes)
 public struct MascotView: View {
     @ObservedObject public var model: MascotModel
     public var size: CGFloat = 20
@@ -25,12 +131,17 @@ public struct MascotView: View {
     private let eyeGap: CGFloat = 0.42   // center-to-center distance
     private let eyeLift: CGFloat = 0.06  // eyes lifted 6% above vertical center for curious expression
 
-    // White eye ink with crisp contrast against yellow face and jet-black notch
-    private let eyeColor = Color.white
-
     public init(model: MascotModel, size: CGFloat = 20) {
         self.model = model
         self.size = size
+    }
+
+    private var theme: MascotTheme {
+        IslandState.shared.mascotTheme
+    }
+
+    private var eyeStyle: MascotEyeStyle {
+        IslandState.shared.mascotEyeStyle
     }
 
     public var body: some View {
@@ -87,18 +198,14 @@ public struct MascotView: View {
         return min(1.5, base + Double(model.glowPulse) * 0.5)
     }
 
-    // ponytail: clean radiant 3D yellow base without murky brown shadow or bottom banding
+    // ponytail: clean radiant 3D procedural base with theme palette & bloom
     private var face: some View {
         ZStack {
-            // 1. Radiant 3D Spherical Yellow Base (Warm, bright, zero murky brown shadow)
+            // 1. Radiant 3D Spherical Base
             Circle()
                 .fill(
                     RadialGradient(
-                        colors: [
-                            Color(red: 1.0, green: 0.98, blue: 0.70), // Crisp sunny highlight point
-                            Color(red: 1.0, green: 0.84, blue: 0.22), // Pure vibrant emoji yellow body
-                            Color(red: 0.98, green: 0.72, blue: 0.15)  // Warm bright golden edge (clean & cheerful)
-                        ],
+                        colors: theme.gradientColors,
                         center: UnitPoint(x: 0.35, y: 0.26),
                         startRadius: 0,
                         endRadius: size * 0.70
@@ -110,7 +217,7 @@ public struct MascotView: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(0.65),
+                            Color.white.opacity(theme == .obsidian ? 0.35 : 0.65),
                             Color.white.opacity(0.10),
                             Color.clear
                         ],
@@ -137,15 +244,15 @@ public struct MascotView: View {
                     lineWidth: max(0.5, size * 0.035)
                 )
         }
-        // Dual-layer golden bloom glow (Edge bloom + Outer ambient aura, customizable)
+        // Dual-layer bloom glow
         .shadow(
-            color: Color(red: 1.0, green: 0.82, blue: 0.20).opacity(min(1.0, 0.90 * glowMultiplier)),
+            color: theme.glowColor.opacity(min(1.0, 0.90 * glowMultiplier)),
             radius: max(0.5, 3.0 * CGFloat(glowMultiplier)),
             x: 0,
             y: 0
         )
         .shadow(
-            color: Color(red: 1.0, green: 0.82, blue: 0.20).opacity(min(0.85, 0.60 * glowMultiplier)),
+            color: theme.glowColor.opacity(min(0.85, 0.60 * glowMultiplier)),
             radius: max(1.0, 7.5 * CGFloat(glowMultiplier)),
             x: 0,
             y: 0
@@ -153,19 +260,39 @@ public struct MascotView: View {
     }
 
     private func eyeView(openness: CGFloat) -> some View {
-        ZStack {
-            Capsule()
-                .fill(eyeColor)
-                .frame(width: size * eyeW, height: size * eyeH)
-                .scaleEffect(y: max(0.08, openness), anchor: .center)
-                .opacity(Double(1.0 - model.smile))
-                .shadow(color: Color.white.opacity(0.40), radius: 0.75, x: 0, y: 0)
+        let currentEyeColor = theme.eyeColor
+        let currentEyeShadow = theme.eyeShadowColor
 
-            SmileArc()
-                .stroke(eyeColor, style: StrokeStyle(lineWidth: max(1.4, size * 0.07), lineCap: .round))
-                .frame(width: size * 0.18, height: size * 0.09)
-                .opacity(Double(model.smile))
-                .shadow(color: Color.white.opacity(0.40), radius: 0.75, x: 0, y: 0)
+        return ZStack {
+            switch eyeStyle {
+            case .classic:
+                Capsule()
+                    .fill(currentEyeColor)
+                    .frame(width: size * eyeW, height: size * eyeH)
+                    .scaleEffect(y: max(0.08, openness), anchor: .center)
+                    .opacity(Double(1.0 - model.smile))
+                    .shadow(color: currentEyeShadow, radius: 0.75, x: 0, y: 0)
+
+                SmileArc()
+                    .stroke(currentEyeColor, style: StrokeStyle(lineWidth: max(1.4, size * 0.07), lineCap: .round))
+                    .frame(width: size * 0.18, height: size * 0.09)
+                    .opacity(Double(model.smile))
+                    .shadow(color: currentEyeShadow, radius: 0.75, x: 0, y: 0)
+                
+            case .arcs:
+                SmileArc()
+                    .stroke(currentEyeColor, style: StrokeStyle(lineWidth: max(1.4, size * 0.075), lineCap: .round))
+                    .frame(width: size * 0.18, height: size * 0.09)
+                    .scaleEffect(y: max(0.20, openness), anchor: .center)
+                    .shadow(color: currentEyeShadow, radius: 0.75, x: 0, y: 0)
+                
+            case .dots:
+                Circle()
+                    .fill(currentEyeColor)
+                    .frame(width: size * eyeW, height: size * eyeW)
+                    .scaleEffect(y: max(0.12, openness), anchor: .center)
+                    .shadow(color: currentEyeShadow, radius: 0.75, x: 0, y: 0)
+            }
         }
     }
 }
