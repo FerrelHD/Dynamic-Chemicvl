@@ -326,7 +326,7 @@ public class IslandState: ObservableObject {
             return (width: 48, height: 4)
         }
         if activeChatNotification != nil {
-            return (width: 412, height: 84)
+            return (width: 412, height: 76)
         }
         if let call = activeCallNotification {
             switch call.state {

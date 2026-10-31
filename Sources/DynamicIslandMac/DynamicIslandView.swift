@@ -289,12 +289,8 @@ public struct DynamicIslandView: View {
                     } else if let chat = state.activeChatNotification {
                         chatNotificationContent(chat: chat)
                             .transition(.asymmetric(
-                                insertion: .opacity
-                                    .combined(with: .scale(scale: 0.92, anchor: .center))
-                                    .animation(.spring(response: 0.35, dampingFraction: 0.82).delay(0.06)),
-                                removal: .opacity
-                                    .combined(with: .scale(scale: 0.94, anchor: .center))
-                                    .animation(.easeInOut(duration: 0.16))
+                                insertion: .opacity.animation(.easeInOut(duration: 0.16).delay(0.14)),
+                                removal: .opacity.animation(.easeInOut(duration: 0.12))
                             ))
                     } else if let call = state.activeCallNotification {
                         if state.mode == .compact, case .active(let dur) = call.state {
@@ -692,9 +688,7 @@ public struct DynamicIslandView: View {
                 }
             }
             .padding(.horizontal, 22)
-            .padding(.top, 28)
-            .padding(.bottom, 14)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
         .buttonStyle(.plain)
     }
