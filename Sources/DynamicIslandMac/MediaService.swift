@@ -85,16 +85,20 @@ public class MediaService {
             }
         }
         
-        // 3. Remove 35+ common noise tags
+        // 3. Remove separator noise tags: |, //, •, ~ followed by video/audio descriptors
+        let sepNoise = #"(?i)\s*(?:[|•~]|\/{1,2})\s*(?:official|music|video|audio|lyric|lyrics|lirik|visualizer|mv|m\/v|klip|live|session|acoustic).*$"#
+        s = s.replacingOccurrences(of: sepNoise, with: "", options: .regularExpression)
+        
+        // 4. Remove bracketed / parenthesized noise descriptors
+        let bracketNoise = #"(?i)\s*[\(\[]\s*(?:official\s+)?(?:music\s+)?(?:video|audio|visualizer|lyric(?:s)?|lirik|mv|m\/v|hd|4k|remastered|live|session|acoustic|clip|klip).*?[\)\]]"#
+        s = s.replacingOccurrences(of: bracketNoise, with: "", options: .regularExpression)
+        
+        // 5. Remove standalone trailing noise tags
+        let trailingNoise = #"(?i)\s+(?:official\s+)?(?:music\s+)?(?:video|audio|visualizer|lyric\s+video|lyrics\s+video|video\s+klip|lirik)$"#
+        s = s.replacingOccurrences(of: trailingNoise, with: "", options: .regularExpression)
+        
+        // 6. Common tags
         let noiseTags = [
-            "(Official Video)", "(Official Music Video)", "[Official Video]",
-            "[Official Music Video]", "(Official Audio)", "[Official Audio]",
-            "(Official Visualizer)", "[Official Visualizer]",
-            "(Lyric Video)", "[Lyric Video]", "(Lyrics Video)", "[Lyrics Video]",
-            "(Audio)", "(Video)", "(Visualizer)", "[Visualizer]", "(Live)", "[Live]",
-            "(Lyrics)", "[Lyrics]", "(Lyric)", "[Lyric]",
-            ", lyric video", ", lyrics video", ", official video", ", visualizer",
-            "| lyric video", "| lyrics video", "| official video",
             "(Tiktok Version)", "[Tiktok Version]", "(Speed Up)", "[Speed Up]",
             "(Slowed + Reverb)", "[Slowed + Reverb]", "(Slowed and Reverb)", "[Slowed and Reverb]",
             "(Remix)", "[Remix]", "(HD)", "[HD]", "(4K)", "[4K]", "(4K 60FPS)", "[4K 60FPS]",
@@ -109,13 +113,18 @@ public class MediaService {
     }
 
     public static func cleanArtistName(_ raw: String) -> String {
-        var cleaned = raw
-        let garbageSuffixes = [" - Topic", "- Topic", "-Topic", " – Topic", " — Topic"]
+        var cleaned = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let garbageSuffixes = [" - Topic", "- Topic", "-Topic", " – Topic", " — Topic", " Topic"]
         for suffix in garbageSuffixes {
             if cleaned.hasSuffix(suffix) {
                 cleaned = String(cleaned.dropLast(suffix.count))
             }
         }
+        
+        // Strip trailing channel tags like "Official", "Records", "VEVO"
+        cleaned = cleaned.replacingOccurrences(of: #"(?i)\s*(?:official|records|recordings|entertainment|media|channel|studios?|music)$"#, with: "", options: .regularExpression)
+        cleaned = cleaned.replacingOccurrences(of: #"(?i)vevo$"#, with: "", options: .regularExpression)
+        
         let patterns = [
             " (Official Audio)", " (Official Video)", " (Official Music Video)", " (Lyric Video)", " (Audio)",
             " [Official Audio]", " [Official Video]", " [Official Music Video]", " [Lyric Video]", " [Audio]"
@@ -123,7 +132,6 @@ public class MediaService {
         for p in patterns {
             cleaned = cleaned.replacingOccurrences(of: p, with: "", options: .caseInsensitive)
         }
-        cleaned = cleaned.replacingOccurrences(of: " - Topic", with: "", options: .caseInsensitive)
         return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
@@ -153,9 +161,7 @@ public class MediaService {
                     let tPart = cleanVideoTitle(parts[1...].joined(separator: sep))
                     if !aPart.isEmpty && !tPart.isEmpty {
                         title = tPart
-                        if isGenericArtist {
-                            artist = aPart
-                        }
+                        artist = aPart
                         found = true
                         break
                     }
@@ -171,14 +177,12 @@ public class MediaService {
                 let aPart = cleanArtistName(cleanVideoTitle(parts[1...].joined(separator: " by ")))
                 if !tPart.isEmpty && !aPart.isEmpty {
                     title = tPart
-                    if isGenericArtist {
-                        artist = aPart
-                    }
+                    artist = aPart
                 }
             }
         }
         
-        let finalArtist = artist.isEmpty ? "System Audio" : artist
+        let finalArtist = artist.isEmpty ? (isGenericArtist ? "System Audio" : cleanArtistName(rawArtist)) : artist
         let finalTitle = title.isEmpty ? rawTitle : title
         return (artist: finalArtist, title: finalTitle)
     }
@@ -578,8 +582,8 @@ public class MediaService {
                     guard (normalTitleMatch && normalArtistMatch) || (invertedTitleMatch && invertedArtistMatch) else { continue }
                     
                     let ms = (item["trackTimeMillis"] as? Double) ?? 0
-                    // Relax tolerance to 40s when artist is verified, allowing music videos with intros/outros
-                    let tolerance: Double = isGenericArtist ? 8 : 40
+                    // Relax tolerance to 75s when artist is verified, allowing music videos with cinematic intros/outros
+                    let tolerance: Double = isGenericArtist ? 10 : 75
                     if duration > 0, ms > 0, abs(ms / 1000 - duration) > tolerance { continue }
                     if isGenericArtist && duration <= 0 { continue }
                     matchedItem = item
@@ -664,8 +668,8 @@ public class MediaService {
                 
                 let trackDur = item["duration"] as? Double ?? 0
                 if duration > 0, trackDur > 0 {
-                    // Relax tolerance to 40s when artist is verified, allowing music videos with intros/outros
-                    let tolerance: Double = isGenericArtist ? 8 : 40
+                    // Relax tolerance to 75s when artist is verified, allowing music videos with cinematic intros/outros
+                    let tolerance: Double = isGenericArtist ? 10 : 75
                     if abs(trackDur - duration) > tolerance { continue }
                 }
                 
