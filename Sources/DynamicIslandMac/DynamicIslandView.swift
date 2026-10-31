@@ -1122,7 +1122,7 @@ public struct DynamicIslandView: View {
         .frame(height: 18)
     }
     
-    // MARK: - Tab 1: System Monitor & Hardware Vitals (2x2 Grid)
+    // MARK: - Tab 1: System Monitor & Hardware Vitals (2x2 Grid) - Apple Monochrome Minimalist
     private var systemStatsTabView: some View {
         VStack(spacing: 8) {
             // Row 1: CPU & RAM
@@ -1130,25 +1130,25 @@ public struct DynamicIslandView: View {
                 // CPU Card
                 statCard(
                     icon: "cpu",
-                    iconColor: Color.cyan,
+                    iconColor: .white.opacity(0.85),
                     title: "CPU Load",
                     value: "\(state.currentSystemStats.cpuPercent)%",
                     progress: Double(state.currentSystemStats.cpuPercent) / 100.0,
-                    progressColor: state.currentSystemStats.cpuPercent > 80 ? Color.red : (state.currentSystemStats.cpuPercent > 50 ? Color.orange : Color.cyan),
-                    subtitle: state.currentSystemStats.cpuPercent > 80 ? "Heavy Load" : "Optimal",
-                    subtitleColor: state.currentSystemStats.cpuPercent > 80 ? Color.red : Color.green.opacity(0.85)
+                    progressColor: state.currentSystemStats.cpuPercent > 85 ? Color.orange : Color.white.opacity(0.85),
+                    subtitle: state.currentSystemStats.cpuPercent > 85 ? "High Activity" : "Normal Load",
+                    subtitleColor: state.currentSystemStats.cpuPercent > 85 ? Color.orange : Color.white.opacity(0.45)
                 )
                 
                 // RAM Card
                 statCard(
                     icon: "memorychip",
-                    iconColor: Color.purple,
+                    iconColor: .white.opacity(0.85),
                     title: "Memory",
                     value: "\(state.currentSystemStats.ramPercent)%",
                     progress: Double(state.currentSystemStats.ramPercent) / 100.0,
-                    progressColor: state.currentSystemStats.ramPercent > 85 ? Color.red : (state.currentSystemStats.ramPercent > 70 ? Color.orange : Color.purple),
+                    progressColor: state.currentSystemStats.ramPercent > 85 ? Color.orange : Color.white.opacity(0.85),
                     subtitle: String(format: "%.1f / %.1f GB", state.currentSystemStats.ramUsedGB, state.currentSystemStats.ramTotalGB),
-                    subtitleColor: Color.white.opacity(0.7)
+                    subtitleColor: Color.white.opacity(0.45)
                 )
             }
             
@@ -1159,21 +1159,21 @@ public struct DynamicIslandView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.up.arrow.down")
                             .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundColor(Color(red: 0.20, green: 0.85, blue: 0.40))
+                            .foregroundColor(.white.opacity(0.85))
                         Text("Network Speed")
                             .font(.system(size: 10.5, weight: .bold, design: .rounded))
-                            .foregroundColor(.white.opacity(0.80))
+                            .foregroundColor(.white.opacity(0.70))
                         Spacer()
                         Circle()
-                            .fill(Color(red: 0.20, green: 0.85, blue: 0.40))
-                            .frame(width: 5.5, height: 5.5)
+                            .fill(Color.white.opacity(0.50))
+                            .frame(width: 5, height: 5)
                     }
                     
                     HStack(spacing: 8) {
                         HStack(spacing: 4) {
                             Image(systemName: "arrow.down")
                                 .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(Color(red: 0.20, green: 0.85, blue: 0.40))
+                                .foregroundColor(.white.opacity(0.65))
                             Text(state.currentSystemStats.downloadSpeed)
                                 .font(.system(size: 11, weight: .bold, design: .rounded))
                                 .monospacedDigit()
@@ -1183,7 +1183,7 @@ public struct DynamicIslandView: View {
                         HStack(spacing: 4) {
                             Image(systemName: "arrow.up")
                                 .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(Color.cyan)
+                                .foregroundColor(.white.opacity(0.65))
                             Text(state.currentSystemStats.uploadSpeed)
                                 .font(.system(size: 11, weight: .bold, design: .rounded))
                                 .monospacedDigit()
@@ -1194,7 +1194,7 @@ public struct DynamicIslandView: View {
                     HStack {
                         Text("Live Bandwidth")
                             .font(.system(size: 9, weight: .medium, design: .rounded))
-                            .foregroundColor(.white.opacity(0.45))
+                            .foregroundColor(.white.opacity(0.40))
                         Spacer()
                     }
                 }
@@ -1202,7 +1202,7 @@ public struct DynamicIslandView: View {
                 .padding(.vertical, 8)
                 .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color.white.opacity(0.08))
+                        .fill(Color.white.opacity(0.07))
                         .overlay(
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
                                 .stroke(Color.white.opacity(0.08), lineWidth: 0.75)
@@ -1212,17 +1212,17 @@ public struct DynamicIslandView: View {
                 // Storage & Battery Card
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 6) {
-                        Image(systemName: "internaldrive.fill")
+                        Image(systemName: "internaldrive")
                             .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundColor(Color.orange)
+                            .foregroundColor(.white.opacity(0.85))
                         Text("Disk & Power")
                             .font(.system(size: 10.5, weight: .bold, design: .rounded))
-                            .foregroundColor(.white.opacity(0.80))
+                            .foregroundColor(.white.opacity(0.70))
                         Spacer()
                         Text("\(state.batteryLevel)%")
                             .font(.system(size: 10.5, weight: .bold, design: .rounded))
                             .monospacedDigit()
-                            .foregroundColor(state.batteryLevel > 20 ? Color(red: 0.20, green: 0.85, blue: 0.40) : Color.red)
+                            .foregroundColor(state.batteryLevel <= 20 ? Color.red : .white)
                     }
                     
                     HStack {
@@ -1232,16 +1232,16 @@ public struct DynamicIslandView: View {
                         Spacer()
                         Text(String(format: "of %.0f GB", state.currentSystemStats.diskTotalGB))
                             .font(.system(size: 9.5, weight: .medium, design: .rounded))
-                            .foregroundColor(.white.opacity(0.50))
+                            .foregroundColor(.white.opacity(0.45))
                     }
                     
                     HStack(spacing: 4) {
                         Image(systemName: state.isBatteryCharging ? "bolt.fill" : (state.isPowerPlugged ? "powerplug.fill" : "battery.100"))
                             .font(.system(size: 9.5, weight: .bold))
-                            .foregroundColor(state.isBatteryCharging ? Color(red: 0.20, green: 0.85, blue: 0.40) : Color.white.opacity(0.6))
+                            .foregroundColor(.white.opacity(0.70))
                         Text(state.isBatteryCharging ? "Charging" : (state.isPowerPlugged ? "Power Connected" : "On Battery"))
                             .font(.system(size: 9, weight: .medium, design: .rounded))
-                            .foregroundColor(.white.opacity(0.55))
+                            .foregroundColor(.white.opacity(0.45))
                         Spacer()
                     }
                 }
@@ -1249,7 +1249,7 @@ public struct DynamicIslandView: View {
                 .padding(.vertical, 8)
                 .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color.white.opacity(0.08))
+                        .fill(Color.white.opacity(0.07))
                         .overlay(
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
                                 .stroke(Color.white.opacity(0.08), lineWidth: 0.75)
