@@ -1138,6 +1138,7 @@ public class IslandState: ObservableObject {
     
     public func toggleCaffeinate() {
         self.isCaffeinated = SystemControlService.shared.toggleCaffeinate()
+        triggerHaptic(.alignment)
     }
     
     public func updateVolume(_ newVol: Int) {
