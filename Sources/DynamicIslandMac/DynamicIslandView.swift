@@ -289,8 +289,12 @@ public struct DynamicIslandView: View {
                     } else if let chat = state.activeChatNotification {
                         chatNotificationContent(chat: chat)
                             .transition(.asymmetric(
-                                insertion: .opacity.animation(.easeInOut(duration: 0.20).delay(0.08)),
-                                removal: .opacity.animation(.easeInOut(duration: 0.15))
+                                insertion: .opacity
+                                    .combined(with: .scale(scale: 0.92, anchor: .center))
+                                    .animation(.spring(response: 0.35, dampingFraction: 0.82).delay(0.06)),
+                                removal: .opacity
+                                    .combined(with: .scale(scale: 0.94, anchor: .center))
+                                    .animation(.easeInOut(duration: 0.16))
                             ))
                     } else if let call = state.activeCallNotification {
                         if state.mode == .compact, case .active(let dur) = call.state {
@@ -346,6 +350,7 @@ public struct DynamicIslandView: View {
         .animation(.easeInOut(duration: 0.20), value: state.isShowingBluetoothHUD)
         .animation(.easeInOut(duration: 0.20), value: state.isShowingCapsLockHUD)
         .animation(.easeInOut(duration: 0.18), value: state.shelfSegment)
+        .animation(state.animationStyle.springAnimation, value: state.activeChatNotification != nil)
         .padding(.top, 0)
         .onDrop(of: ["public.file-url"], isTargeted: $isDropTargeted) { providers in
             handleDroppedFiles(providers)
@@ -687,9 +692,9 @@ public struct DynamicIslandView: View {
                 }
             }
             .padding(.horizontal, 22)
-            .padding(.top, 24)
-            .padding(.bottom, 12)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            .padding(.top, 28)
+            .padding(.bottom, 14)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
         .buttonStyle(.plain)
     }
