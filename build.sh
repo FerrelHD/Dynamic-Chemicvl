@@ -42,7 +42,7 @@ case "$1" in
     cp .build/universal/$APP_NAME "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
     cp Resources/Info.plist "$APP_BUNDLE/Contents/Info.plist"
     cp Resources/AppIcon.icns "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
-    cp Resources/MascotHand.png "$APP_BUNDLE/Contents/Resources/MascotHand.png"
+    cp Resources/MascotHand*.png "$APP_BUNDLE/Contents/Resources/"
     chmod +x "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
     
     echo "🔏 Ad-hoc code signing $APP_BUNDLE..."

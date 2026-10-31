@@ -19,6 +19,37 @@ public class NotificationListenerService {
     private var lastSeenWhatsAppPK: Int64 = 0
     private var lastDeliveredText: String = ""
     private var lastDeliveredTime: Date = Date.distantPast
+    private var recentDeliveredSignatures: [String: Date] = [:]
+    
+    private func normalizedKey(_ s: String) -> String {
+        return s.lowercased().filter { $0.isLetter || $0.isNumber }
+    }
+    
+    private func isDuplicate(text: String) -> Bool {
+        let now = Date()
+        recentDeliveredSignatures = recentDeliveredSignatures.filter { now.timeIntervalSince($0.value) < 8.0 }
+        let key = normalizedKey(text)
+        guard !key.isEmpty else { return false }
+        
+        if let time = recentDeliveredSignatures[key], now.timeIntervalSince(time) < 6.0 {
+            return true
+        }
+        for (existingKey, time) in recentDeliveredSignatures {
+            guard now.timeIntervalSince(time) < 6.0 else { continue }
+            if key.count >= 6 && existingKey.count >= 6 {
+                if key.contains(existingKey) || existingKey.contains(key) {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+    
+    private func recordDelivery(text: String) {
+        let key = normalizedKey(text)
+        guard !key.isEmpty else { return }
+        recentDeliveredSignatures[key] = Date()
+    }
     
     private init() {}
     
@@ -234,6 +265,11 @@ public class NotificationListenerService {
                 return "WhatsApp"
             }()
             
+            if isDuplicate(text: text) {
+                continue
+            }
+            recordDelivery(text: text)
+            
             let customAvatar = resolveWhatsAppAvatar(for: jid)
             let finalAvatar = customAvatar ?? ChatApp.whatsapp.appIcon
             let hasCustom = (customAvatar != nil)
@@ -356,15 +392,39 @@ public class NotificationListenerService {
                 return .other
             }()
             
-            // Deduplicate if already triggered via WhatsApp direct WAL listener
-            if lowerApp.contains("whatsapp") && body == self.lastDeliveredText && Date().timeIntervalSince(self.lastDeliveredTime) < 3.0 {
+            let isCall = (chatApp == .whatsapp || lowerApp.contains("whatsapp")) && (
+                body.lowercased().contains("call") ||
+                body.lowercased().contains("panggilan") ||
+                subtitle.lowercased().contains("call") ||
+                subtitle.lowercased().contains("panggilan") ||
+                rawTitle.lowercased().contains("call") ||
+                rawTitle.lowercased().contains("panggilan")
+            )
+            
+            // If WhatsApp direct SQLite WAL listener is running with full fidelity,
+            // skip standard Notification Center polling for WhatsApp messages to avoid duplicates.
+            if (chatApp == .whatsapp || lowerApp.contains("whatsapp")) && self.whatsAppWalSource != nil && !isCall {
                 continue
             }
             
             // Resolve actual sender name dynamically:
             // Never display generic app name "WhatsApp" as the sender title when contact/subtitle is available!
             var displaySender = rawTitle
-            if displaySender.lowercased() == "whatsapp" {
+            if (chatApp == .whatsapp || lowerApp.contains("whatsapp")) && !isCall {
+                // If Notification Center has Group in rawTitle and Sender in subtitle
+                if !subtitle.isEmpty && !rawTitle.isEmpty && rawTitle.lowercased() != "whatsapp" {
+                    displaySender = "\(subtitle) (\(rawTitle))"
+                } else if displaySender.lowercased() == "whatsapp" && !subtitle.isEmpty {
+                    displaySender = subtitle
+                }
+                // If body has "Sender: message" prefix, strip redundant sender
+                if !subtitle.isEmpty && body.lowercased().hasPrefix(subtitle.lowercased() + ":") {
+                    let afterColon = body.dropFirst(subtitle.count + 1).trimmingCharacters(in: .whitespaces)
+                    if !afterColon.isEmpty {
+                        body = afterColon
+                    }
+                }
+            } else if displaySender.lowercased() == "whatsapp" {
                 if !subtitle.isEmpty && subtitle.lowercased() != "whatsapp" {
                     displaySender = subtitle
                 } else if let colonIdx = body.firstIndex(of: ":") {
@@ -390,6 +450,14 @@ public class NotificationListenerService {
                 body = subtitle
             }
             
+            // Deduplicate if already triggered via WhatsApp direct WAL listener or recent burst
+            if !isCall {
+                if isDuplicate(text: body) {
+                    continue
+                }
+                recordDelivery(text: body)
+            }
+            
             var appIcon: NSImage?
             if let appUrl = NSWorkspace.shared.urlForApplication(withBundleIdentifier: appId) {
                 appIcon = NSWorkspace.shared.icon(forFile: appUrl.path)
@@ -399,15 +467,6 @@ public class NotificationListenerService {
             appIcon?.size = NSSize(width: 76, height: 76)
             
             NSLog("[NotchFlow] 🔔 NOTIFICATION DETECTED: rec_id=%lld, app=%@, title=%@, body=%@", recId, appId, displaySender, body)
-            
-            let isCall = (chatApp == .whatsapp || lowerApp.contains("whatsapp")) && (
-                body.lowercased().contains("call") ||
-                body.lowercased().contains("panggilan") ||
-                subtitle.lowercased().contains("call") ||
-                subtitle.lowercased().contains("panggilan") ||
-                rawTitle.lowercased().contains("call") ||
-                rawTitle.lowercased().contains("panggilan")
-            )
             
             DispatchQueue.main.async {
                 if isCall {

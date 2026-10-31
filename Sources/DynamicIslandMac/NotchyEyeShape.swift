@@ -73,7 +73,10 @@ public enum MascotTheme: String, CaseIterable, Identifiable {
     
     public var eyeColor: Color {
         switch self {
-        case .sunlight, .cyber, .mint, .obsidian:
+        case .sunlight:
+            // Warm soft hazel chestnut brown for authentic 3D emoji contrast
+            return Color(red: 0.46, green: 0.30, blue: 0.16)
+        case .cyber, .mint, .obsidian:
             return Color.white
         case .silver:
             return Color(red: 0.10, green: 0.12, blue: 0.16)
@@ -82,6 +85,8 @@ public enum MascotTheme: String, CaseIterable, Identifiable {
     
     public var eyeShadowColor: Color {
         switch self {
+        case .sunlight:
+            return Color(red: 0.28, green: 0.16, blue: 0.08).opacity(0.20)
         case .silver:
             return Color.black.opacity(0.25)
         default:
@@ -164,8 +169,10 @@ public struct MascotView: View {
         .rotationEffect(.degrees(model.tilt))
     }
     
-    // Cached 3D Waving Hand Asset (Mirrored Apple-style emoji hand)
-    private static let handImage: NSImage? = {
+    // Cached 3D Waving Hand Assets per Theme (Pre-rendered for 120Hz zero-overhead fluidity)
+    private static var handImageCache: [MascotTheme: NSImage] = [:]
+    
+    private static let defaultHandImage: NSImage? = {
         if let img = NSImage(named: "MascotHand") { return img }
         if let url = Bundle.main.url(forResource: "MascotHand", withExtension: "png"),
            let img = NSImage(contentsOf: url) {
@@ -177,10 +184,40 @@ public struct MascotView: View {
         return nil
     }()
 
-    // MARK: - Waving Hand (3D Mirrored Emoji Asset Hand, No Outline)
+    private func handImage(for theme: MascotTheme) -> NSImage? {
+        if let cached = Self.handImageCache[theme] { return cached }
+        let assetName: String = {
+            switch theme {
+            case .sunlight: return "MascotHand"
+            case .silver: return "MascotHand_silver"
+            case .cyber: return "MascotHand_cyber"
+            case .mint: return "MascotHand_mint"
+            case .obsidian: return "MascotHand_stealth"
+            }
+        }()
+        
+        let loaded: NSImage? = {
+            if let img = NSImage(named: assetName) { return img }
+            if let url = Bundle.main.url(forResource: assetName, withExtension: "png"),
+               let img = NSImage(contentsOf: url) {
+                return img
+            }
+            for path in ["Resources/\(assetName).png", "../Resources/\(assetName).png"] {
+                if let img = NSImage(contentsOfFile: path) { return img }
+            }
+            return Self.defaultHandImage
+        }()
+        
+        if let img = loaded {
+            Self.handImageCache[theme] = img
+        }
+        return loaded ?? Self.defaultHandImage
+    }
+
+    // MARK: - Waving Hand (3D Mirrored Emoji Asset Hand, Matching Skin Theme)
     private var wavingHand: some View {
         Group {
-            if let hand = Self.handImage {
+            if let hand = handImage(for: theme) {
                 Image(nsImage: hand)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
