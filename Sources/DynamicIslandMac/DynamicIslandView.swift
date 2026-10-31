@@ -1042,7 +1042,7 @@ public struct DynamicIslandView: View {
     }
     
     private var expandedContent: some View {
-        ZStack(alignment: .top) {
+        ZStack(alignment: .bottom) {
             // 1. Tab Contents (Spacious Content-first presentation, generous breathing room)
             Group {
                 switch state.activeTab {
@@ -1067,16 +1067,16 @@ public struct DynamicIslandView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .padding(.horizontal, 32) // Standardized 32pt horizontal margin for generous breathing room across all tabs
             .padding(.top, (state.activeTab == .music && state.isLyricsEnabled) ? 24 : 22)
-            .padding(.bottom, 36)
+            .padding(.bottom, 38)
             .zIndex(1)
             
-            // 2. Minimal Apple-Style Page Dots & Settings (••• ⚙️) Pinned Permanently at Bottom
+            // 2. Minimal Apple-Style Page Dots & Settings (••• ⚙️) Pinned Permanently at Bottom (Rigidly Locked)
             pageDotsBar
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                .frame(maxWidth: .infinity)
                 .padding(.bottom, 14)
                 .zIndex(2)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle())
     }
     
@@ -1999,15 +1999,15 @@ public struct DynamicIslandView: View {
     // MARK: - Tab: Calendar & Agenda (Interactive Month & Quick Focus)
     private var calendarTabView: some View {
         HStack(spacing: 12) {
-            // Left Column: Interactive Month Grid
-            VStack(spacing: 5) {
+            // Left Column: Interactive Month Grid (Standardized 6 Weeks x 7 Days)
+            VStack(spacing: 4) {
                 // Month Header (< Month YYYY >)
                 HStack {
                     Button(action: { state.previousCalendarMonth() }) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 9.5, weight: .bold))
                             .foregroundColor(.white.opacity(0.70))
-                            .frame(width: 20, height: 20)
+                            .frame(width: 18, height: 18)
                             .background(Circle().fill(Color.white.opacity(0.10)))
                     }
                     .buttonStyle(.plain)
@@ -2015,7 +2015,7 @@ public struct DynamicIslandView: View {
                     Spacer()
                     
                     Text(monthYearString(from: state.calendarDisplayedMonth))
-                        .font(.system(size: 11.5, weight: .bold, design: .rounded))
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                     
                     Spacer()
@@ -2024,7 +2024,7 @@ public struct DynamicIslandView: View {
                         Image(systemName: "chevron.right")
                             .font(.system(size: 9.5, weight: .bold))
                             .foregroundColor(.white.opacity(0.70))
-                            .frame(width: 20, height: 20)
+                            .frame(width: 18, height: 18)
                             .background(Circle().fill(Color.white.opacity(0.10)))
                     }
                     .buttonStyle(.plain)
@@ -2035,22 +2035,22 @@ public struct DynamicIslandView: View {
                 HStack(spacing: 0) {
                     ForEach(["M", "T", "W", "T", "F", "S", "S"], id: \.self) { day in
                         Text(day)
-                            .font(.system(size: 8.5, weight: .bold, design: .rounded))
+                            .font(.system(size: 8, weight: .bold, design: .rounded))
                             .foregroundColor(.white.opacity(0.40))
                             .frame(maxWidth: .infinity)
                     }
                 }
-                .padding(.vertical, 1)
                 
-                // Month Grid
+                // Month Grid (Strictly 6 rows of 7 days = 42 cells)
                 let days = calendarDaysForMonth(state.calendarDisplayedMonth)
-                VStack(spacing: 2) {
-                    ForEach(0..<days.count / 7, id: \.self) { row in
+                VStack(spacing: 1.5) {
+                    ForEach(0..<6, id: \.self) { row in
                         HStack(spacing: 0) {
                             ForEach(0..<7, id: \.self) { col in
                                 let dateOpt = days[row * 7 + col]
                                 if let date = dateOpt {
                                     let isToday = Calendar.current.isDateInToday(date)
+                                    let isSelected = Calendar.current.isDate(state.calendarSelectedDate, inSameDayAs: date)
                                     let dayNum = Calendar.current.component(.day, from: date)
                                     
                                     Button(action: {
@@ -2060,21 +2060,25 @@ public struct DynamicIslandView: View {
                                             if isToday {
                                                 Circle()
                                                     .fill(Color(red: 0.0, green: 0.48, blue: 1.0))
-                                                    .frame(width: 18, height: 18)
+                                                    .frame(width: 16, height: 16)
+                                            } else if isSelected {
+                                                Circle()
+                                                    .stroke(Color.white.opacity(0.85), lineWidth: 1.2)
+                                                    .frame(width: 16, height: 16)
                                             }
                                             
                                             Text("\(dayNum)")
-                                                .font(.system(size: 9.5, weight: isToday ? .bold : .medium, design: .rounded))
-                                                .foregroundColor(isToday ? .white : .white.opacity(0.85))
+                                                .font(.system(size: 9, weight: isToday ? .bold : .medium, design: .rounded))
+                                                .foregroundColor(isToday ? .white : (isSelected ? .white : .white.opacity(0.85)))
                                         }
                                         .frame(maxWidth: .infinity)
-                                        .frame(height: 18)
+                                        .frame(height: 16)
                                     }
                                     .buttonStyle(.plain)
                                 } else {
                                     Color.clear
                                         .frame(maxWidth: .infinity)
-                                        .frame(height: 18)
+                                        .frame(height: 16)
                                 }
                             }
                         }
@@ -2083,8 +2087,8 @@ public struct DynamicIslandView: View {
                 
                 Spacer(minLength: 0)
             }
-            .frame(width: 200)
-            .padding(9)
+            .frame(width: 200, height: 154)
+            .padding(8)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color.white.opacity(0.06))
@@ -2095,18 +2099,18 @@ public struct DynamicIslandView: View {
             )
             
             // Right Column: Today's Live Clock & Quick Focus Agenda
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 5) {
                 // Date & Live Clock Header
                 HStack(alignment: .firstTextBaseline) {
                     VStack(alignment: .leading, spacing: 1) {
                         Text(todayDateHeaderString())
-                            .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                            .font(.system(size: 9, weight: .bold, design: .rounded))
                             .foregroundColor(Color(red: 0.0, green: 0.48, blue: 1.0))
                             .textCase(.uppercase)
                         
                         TimelineView(.periodic(from: .now, by: 1.0)) { timeline in
                             Text(liveClockString(from: timeline.date))
-                                .font(.system(size: 16, weight: .black, design: .rounded))
+                                .font(.system(size: 15.5, weight: .black, design: .rounded))
                                 .foregroundColor(.white)
                                 .monospacedDigit()
                         }
@@ -2143,10 +2147,10 @@ public struct DynamicIslandView: View {
                 
                 // Event List
                 ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 3.5) {
+                    VStack(spacing: 3) {
                         if state.quickCalendarEvents.isEmpty {
                             Text("No focus events for today")
-                                .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                                .font(.system(size: 9, weight: .medium, design: .rounded))
                                 .foregroundColor(.white.opacity(0.40))
                                 .padding(.top, 10)
                         } else {
@@ -2156,13 +2160,13 @@ public struct DynamicIslandView: View {
                                         state.toggleQuickCalendarEvent(id: ev.id)
                                     }) {
                                         Image(systemName: ev.isDone ? "checkmark.circle.fill" : "circle")
-                                            .font(.system(size: 10.5, weight: .bold))
+                                            .font(.system(size: 10, weight: .bold))
                                             .foregroundColor(ev.isDone ? Color(red: 0.0, green: 0.48, blue: 1.0) : Color.white.opacity(0.40))
                                     }
                                     .buttonStyle(.plain)
                                     
                                     Text(ev.title)
-                                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                                        .font(.system(size: 9.5, weight: .medium, design: .rounded))
                                         .foregroundColor(ev.isDone ? .white.opacity(0.40) : .white)
                                         .strikethrough(ev.isDone, color: .white.opacity(0.40))
                                         .lineLimit(1)
@@ -2178,13 +2182,14 @@ public struct DynamicIslandView: View {
                                     }
                                     .buttonStyle(.plain)
                                 }
-                                .padding(.vertical, 1.5)
+                                .padding(.vertical, 1)
                             }
                         }
                     }
                 }
             }
-            .padding(9)
+            .frame(height: 154)
+            .padding(8)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color.white.opacity(0.06))
@@ -2228,10 +2233,10 @@ public struct DynamicIslandView: View {
                 days.append(dayDate)
             }
         }
-        while days.count % 7 != 0 {
+        while days.count < 42 {
             days.append(nil)
         }
-        return days
+        return Array(days.prefix(42))
     }
     
     // MARK: - Tab 4: Connected Devices & Battery Hub (iOS Concept Style)
