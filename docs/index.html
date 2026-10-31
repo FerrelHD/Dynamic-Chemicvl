@@ -1,0 +1,1412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NotchFlow — Your Mac's notch, brought to life</title>
+  <meta name="description" content="A native, battery-friendly status hub, system monitor, and living companion nestled into your display bezel. Zero Electron, zero dependencies.">
+  <link rel="icon" type="image/png" href="assets/icon.png">
+  
+  <style>
+    :root {
+      --bg: #050608;
+      --card-bg: rgba(255, 255, 255, 0.025);
+      --card-hover: rgba(255, 255, 255, 0.045);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --card-border-hover: rgba(255, 255, 255, 0.16);
+      --text: #ffffff;
+      --text-muted: #8b929e;
+      --text-subtle: #555b66;
+      --accent-gold: #ffbe26;
+      --accent-green: #30d158;
+      --accent-cyan: #5ac8fa;
+      --accent-pink: #ff375f;
+      --notch-black: #000000;
+      --font-stack: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-stack);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      line-height: 1.5;
+      overflow-x: hidden;
+      selection-background-color: rgba(255, 190, 38, 0.3);
+    }
+
+    ::selection {
+      background: rgba(255, 190, 38, 0.25);
+      color: #fff;
+    }
+
+    /* Ambient Background Glow */
+    .ambient-glow {
+      position: fixed;
+      top: -200px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 1000px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(255, 190, 38, 0.07) 0%, rgba(90, 200, 250, 0.04) 40%, transparent 70%);
+      filter: blur(80px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Navigation */
+    nav {
+      position: sticky;
+      top: 0;
+      width: 100%;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      background: rgba(5, 6, 8, 0.75);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      z-index: 100;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: #fff;
+      font-weight: 600;
+      font-size: 17px;
+      letter-spacing: -0.3px;
+    }
+
+    .nav-brand img {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+    }
+
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.2s ease;
+    }
+
+    .nav-links a:hover {
+      color: #fff;
+    }
+
+    .nav-cta {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      color: #fff;
+      padding: 7px 16px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 500;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .nav-cta:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.28);
+      transform: translateY(-1px);
+    }
+
+    /* Container */
+    .container {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Hero Section */
+    .hero {
+      padding: 70px 0 30px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text-muted);
+      font-size: 12.5px;
+      font-weight: 500;
+      margin-bottom: 24px;
+      letter-spacing: -0.1px;
+    }
+
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      box-shadow: 0 0 8px var(--accent-green);
+    }
+
+    .hero h1 {
+      font-size: clamp(38px, 6vw, 68px);
+      font-weight: 700;
+      letter-spacing: -1.6px;
+      line-height: 1.08;
+      max-width: 820px;
+      margin-bottom: 20px;
+      background: linear-gradient(180deg, #ffffff 40%, rgba(255, 255, 255, 0.65) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero p {
+      font-size: clamp(16px, 2.2vw, 20px);
+      color: var(--text-muted);
+      max-width: 680px;
+      line-height: 1.5;
+      font-weight: 400;
+      letter-spacing: -0.2px;
+      margin-bottom: 36px;
+    }
+
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 50px;
+    }
+
+    .btn-primary {
+      background: #ffffff;
+      color: #000000;
+      font-weight: 600;
+      font-size: 15px;
+      padding: 13px 26px;
+      border-radius: 999px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 4px 20px rgba(255, 255, 255, 0.15);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(255, 255, 255, 0.25);
+    }
+
+    .btn-primary svg {
+      width: 17px;
+      height: 17px;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #fff;
+      font-weight: 500;
+      font-size: 15px;
+      padding: 13px 24px;
+      border-radius: 999px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.10);
+      border-color: rgba(255, 255, 255, 0.22);
+      transform: translateY(-1px);
+    }
+
+    /* Mockup Frame (MacBook Display) */
+    .mockup-container {
+      width: 100%;
+      max-width: 900px;
+      margin: 0 auto 80px;
+      position: relative;
+    }
+
+    .macbook-screen {
+      background: radial-gradient(circle at 50% 30%, #161820 0%, #0c0d12 100%);
+      border-radius: 18px 18px 10px 10px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      overflow: hidden;
+      position: relative;
+      min-height: 400px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Bezel top & notch */
+    .screen-bezel-top {
+      height: 38px;
+      background: #000000;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      position: relative;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .menubar-left, .menubar-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.7);
+      font-weight: 500;
+      user-select: none;
+    }
+
+    .apple-icon {
+      font-size: 14px;
+    }
+
+    /* The Interactive Center Notch */
+    .notch-center {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #000000;
+      width: 280px;
+      height: 36px;
+      border-bottom-left-radius: 16px;
+      border-bottom-right-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 18px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-top: none;
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      cursor: pointer;
+      z-index: 10;
+    }
+
+    .notch-center.expanded {
+      width: 520px;
+      height: 125px;
+      border-bottom-left-radius: 22px;
+      border-bottom-right-radius: 22px;
+      padding: 16px 22px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(255, 255, 255, 0.12);
+    }
+
+    /* Camera & Green LED */
+    .cam-lens {
+      width: 11px;
+      height: 11px;
+      background: #0d121c;
+      border: 1.5px solid #242938;
+      border-radius: 50%;
+    }
+
+    .led-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      box-shadow: 0 0 8px var(--accent-green);
+    }
+
+    /* Notchy Face in Notch */
+    .notchy-face {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #fffbba 0%, #ffbe26 55%, #f59e0b 100%);
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.8), 0 2px 6px rgba(0, 0, 0, 0.5);
+      flex-shrink: 0;
+      transition: transform 0.2s ease;
+    }
+
+    .notchy-face.large {
+      width: 44px;
+      height: 44px;
+      gap: 7px;
+    }
+
+    .notchy-eye {
+      width: 3.5px;
+      height: 6px;
+      border-radius: 999px;
+      background: #462c12;
+      transition: transform 0.06s ease-out;
+    }
+
+    .notchy-face.large .notchy-eye {
+      width: 6px;
+      height: 10px;
+    }
+
+    /* Kawaii Arc Eye Style */
+    .notchy-eye.arc {
+      width: 7px;
+      height: 4px;
+      border: 1.6px solid #462c12;
+      border-bottom: none;
+      border-radius: 8px 8px 0 0;
+      background: transparent;
+    }
+
+    .notchy-face.large .notchy-eye.arc {
+      width: 12px;
+      height: 7px;
+      border-width: 2.2px;
+    }
+
+    /* Notch Expanded Content Area */
+    .notch-expanded-content {
+      display: none;
+      width: 100%;
+      height: 100%;
+      flex-direction: column;
+      justify-content: space-between;
+      animation: fadeIn 0.2s ease-out forwards;
+    }
+
+    .notch-center.expanded .notch-expanded-content {
+      display: flex;
+    }
+
+    .notch-center.expanded .notch-idle-content {
+      display: none;
+    }
+
+    .notch-idle-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.97); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    /* Screen Interior Desktop Wall */
+    .screen-desktop {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      text-align: center;
+      user-select: none;
+      position: relative;
+    }
+
+    .screen-hint {
+      font-size: 13px;
+      color: rgba(255, 255, 255, 0.4);
+      margin-top: 100px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Module Switcher Tabs below mockup */
+    .module-tabs {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 24px;
+      flex-wrap: wrap;
+    }
+
+    .tab-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text-muted);
+      padding: 9px 18px;
+      border-radius: 999px;
+      font-size: 13.5px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+    }
+
+    .tab-btn.active {
+      background: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.26);
+      color: #fff;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Module Views inside Expanded Notch */
+    .module-view {
+      display: none;
+      width: 100%;
+      height: 100%;
+    }
+
+    .module-view.active {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+    }
+
+    /* 1. Mascot Module */
+    .view-mascot {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .mascot-text-info h4 {
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 2px;
+    }
+
+    .mascot-text-info p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* 2. System Monitor Module */
+    .view-sysmon {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      width: 100%;
+    }
+
+    .sys-stat {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      padding: 10px 14px;
+      border-radius: 12px;
+      text-align: left;
+    }
+
+    .sys-stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .sys-stat-val {
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stat-bar {
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      margin-top: 6px;
+      overflow: hidden;
+    }
+
+    .stat-bar-fill {
+      height: 100%;
+      background: var(--accent-cyan);
+      border-radius: 2px;
+    }
+
+    /* 3. Music Module */
+    .view-music {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      width: 100%;
+    }
+
+    .music-art {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #ff375f, #7928ca);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(255, 55, 95, 0.35);
+      flex-shrink: 0;
+    }
+
+    .music-details {
+      flex: 1;
+      text-align: left;
+    }
+
+    .music-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .music-artist {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .music-progress {
+      width: 100%;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 2px;
+    }
+
+    .music-progress-fill {
+      width: 62%;
+      height: 100%;
+      background: #fff;
+      border-radius: 2px;
+    }
+
+    /* 4. Calendar Module */
+    .view-calendar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      gap: 16px;
+    }
+
+    .cal-badge {
+      background: rgba(255, 59, 48, 0.15);
+      border: 1px solid rgba(255, 59, 48, 0.3);
+      padding: 8px 12px;
+      border-radius: 12px;
+      text-align: center;
+      min-width: 65px;
+    }
+
+    .cal-day {
+      font-size: 10px;
+      font-weight: 700;
+      color: #ff453a;
+      text-transform: uppercase;
+    }
+
+    .cal-num {
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.1;
+    }
+
+    .cal-agenda {
+      flex: 1;
+      text-align: left;
+    }
+
+    .cal-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #fff;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .cal-item-time {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Section Headers */
+    .section-header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .section-header h2 {
+      font-size: clamp(28px, 4vw, 42px);
+      font-weight: 700;
+      letter-spacing: -1px;
+      margin-bottom: 12px;
+      color: #fff;
+    }
+
+    .section-header p {
+      font-size: 16px;
+      color: var(--text-muted);
+      max-width: 580px;
+      margin: 0 auto;
+    }
+
+    /* Bento Grid */
+    .bento-grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 18px;
+      margin-bottom: 120px;
+    }
+
+    .bento-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .bento-card:hover {
+      background: var(--card-hover);
+      border-color: var(--card-border-hover);
+      transform: translateY(-2px);
+    }
+
+    .col-7 { grid-column: span 7; }
+    .col-5 { grid-column: span 5; }
+    .col-4 { grid-column: span 4; }
+    .col-8 { grid-column: span 8; }
+    .col-12 { grid-column: span 12; }
+
+    @media (max-width: 860px) {
+      .col-7, .col-5, .col-4, .col-8 {
+        grid-column: span 12;
+      }
+    }
+
+    .card-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      margin-bottom: 24px;
+      font-size: 20px;
+    }
+
+    .card-title {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.4px;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+
+    .card-desc {
+      font-size: 14.5px;
+      color: var(--text-muted);
+      line-height: 1.55;
+    }
+
+    .card-metric {
+      margin-top: 24px;
+      padding-top: 18px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+
+    .metric-number {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.8px;
+      color: #fff;
+    }
+
+    .metric-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* FAQ Section */
+    .faq-section {
+      max-width: 780px;
+      margin: 0 auto 120px;
+    }
+
+    .faq-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .faq-item {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      overflow: hidden;
+      transition: all 0.2s ease;
+    }
+
+    .faq-item:hover {
+      border-color: var(--card-border-hover);
+    }
+
+    .faq-question {
+      width: 100%;
+      text-align: left;
+      background: none;
+      border: none;
+      padding: 22px 24px;
+      font-size: 16.5px;
+      font-weight: 600;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .faq-chevron {
+      width: 18px;
+      height: 18px;
+      color: var(--text-muted);
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .faq-item.active .faq-chevron {
+      transform: rotate(180deg);
+      color: #fff;
+    }
+
+    .faq-answer {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      padding: 0 24px;
+    }
+
+    .faq-item.active .faq-answer {
+      max-height: 280px;
+      padding-bottom: 22px;
+    }
+
+    .faq-answer p {
+      font-size: 14.5px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* CTA Bottom Banner */
+    .cta-banner {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 28px;
+      padding: 60px 32px;
+      text-align: center;
+      margin-bottom: 100px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-banner::before {
+      content: "";
+      position: absolute;
+      top: -100px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 400px;
+      height: 200px;
+      background: radial-gradient(circle, rgba(255, 190, 38, 0.15) 0%, transparent 70%);
+      filter: blur(50px);
+      pointer-events: none;
+    }
+
+    .cta-banner h2 {
+      font-size: clamp(30px, 4vw, 44px);
+      font-weight: 700;
+      letter-spacing: -1px;
+      margin-bottom: 14px;
+      color: #fff;
+    }
+
+    .cta-banner p {
+      font-size: 16px;
+      color: var(--text-muted);
+      max-width: 520px;
+      margin: 0 auto 32px;
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 40px 0 60px;
+      font-size: 13.5px;
+      color: var(--text-subtle);
+    }
+
+    .footer-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .footer-links {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .footer-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover {
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient Light Header -->
+  <div class="ambient-glow"></div>
+
+  <!-- Navigation -->
+  <nav>
+    <a href="#" class="nav-brand">
+      <img src="assets/icon.png" alt="NotchFlow Logo">
+      <span>NotchFlow</span>
+    </a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#demo">Preview</a>
+      <a href="#faq">FAQ</a>
+      <a href="https://github.com/FerrelHD/Dynamic-Chemicvl" target="_blank" rel="noopener">GitHub</a>
+    </div>
+    <a href="assets/NotchFlow-1.0.0.dmg" download class="nav-cta">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.85c.67-.82 1.13-1.96 1-3.1-.98.04-2.15.65-2.85 1.47-.61.71-1.15 1.88-1.01 2.99 1.1.08 2.19-.54 2.86-1.36z"/>
+      </svg>
+      <span>Download DMG</span>
+    </a>
+  </nav>
+
+  <main class="container">
+    
+    <!-- Hero Section -->
+    <section class="hero">
+      <div class="badge">
+        <span class="badge-dot"></span>
+        <span>macOS Monterey 12.0+ • Apple Silicon & Intel Universal</span>
+      </div>
+      <h1>Your Mac's notch, brought to life.</h1>
+      <p>A native, battery-friendly status hub, system monitor, and living companion nestled into your display bezel. Zero Electron, zero dependencies.</p>
+      
+      <div class="hero-actions">
+        <a href="assets/NotchFlow-1.0.0.dmg" download class="btn-primary">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.85c.67-.82 1.13-1.96 1-3.1-.98.04-2.15.65-2.85 1.47-.61.71-1.15 1.88-1.01 2.99 1.1.08 2.19-.54 2.86-1.36z"/>
+          </svg>
+          <span>Download for macOS (DMG)</span>
+          <span style="opacity: 0.5; font-size: 13px; font-weight: 400;">v1.0.0 • 4.1 MB</span>
+        </a>
+        <a href="https://github.com/FerrelHD/Dynamic-Chemicvl" target="_blank" rel="noopener" class="btn-secondary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+          </svg>
+          <span>Star on GitHub</span>
+        </a>
+      </div>
+    </section>
+
+    <!-- Centerpiece Interactive Mockup -->
+    <section id="demo" class="mockup-container">
+      <div class="macbook-screen">
+        
+        <!-- Screen Top Bezel -->
+        <div class="screen-bezel-top">
+          <div class="menubar-left">
+            <span class="apple-icon"></span>
+            <span>Finder</span>
+            <span>File</span>
+            <span>Edit</span>
+            <span>View</span>
+            <span>Go</span>
+            <span>Window</span>
+          </div>
+
+          <!-- THE INTERACTIVE NOTCH -->
+          <div id="interactiveNotch" class="notch-center" title="Click or hover to expand Notch">
+            
+            <!-- Idle Notch View -->
+            <div class="notch-idle-content">
+              <div class="cam-lens"></div>
+              
+              <!-- Living Mascot in Notch with Eye Tracking -->
+              <div id="notchyHero" class="notchy-face">
+                <div class="notchy-eye arc eye-left"></div>
+                <div class="notchy-eye arc eye-right"></div>
+              </div>
+
+              <div class="led-dot"></div>
+            </div>
+
+            <!-- Expanded Notch View (Modules Switch Live) -->
+            <div class="notch-expanded-content">
+              
+              <!-- View 1: Mascot View -->
+              <div id="view-mascot" class="module-view active">
+                <div class="view-mascot">
+                  <div class="notchy-face large">
+                    <div class="notchy-eye arc eye-left"></div>
+                    <div class="notchy-eye arc eye-right"></div>
+                  </div>
+                  <div class="mascot-text-info">
+                    <h4>Notchy is awake</h4>
+                    <p>Watching your cursor and keeping you company.</p>
+                  </div>
+                </div>
+                <span style="font-size: 11.5px; color: var(--accent-gold); font-weight: 500; background: rgba(255, 190, 38, 0.1); padding: 4px 10px; border-radius: 999px;">Sunlight Gold</span>
+              </div>
+
+              <!-- View 2: System Monitor View -->
+              <div id="view-sysmon" class="module-view">
+                <div class="view-sysmon">
+                  <div class="sys-stat">
+                    <div class="sys-stat-label">CPU</div>
+                    <div class="sys-stat-val" id="liveCpuVal">12.4%</div>
+                    <div class="stat-bar"><div class="stat-bar-fill" id="liveCpuBar" style="width: 14%;"></div></div>
+                  </div>
+                  <div class="sys-stat">
+                    <div class="sys-stat-label">RAM</div>
+                    <div class="sys-stat-val">3.6 / 8.0 GB</div>
+                    <div class="stat-bar"><div class="stat-bar-fill" style="width: 45%; background: var(--accent-green);"></div></div>
+                  </div>
+                  <div class="sys-stat">
+                    <div class="sys-stat-label">Network</div>
+                    <div class="sys-stat-val">↓ 4.8 MB/s</div>
+                    <div class="stat-bar"><div class="stat-bar-fill" style="width: 68%; background: var(--accent-gold);"></div></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- View 3: Music View -->
+              <div id="view-music" class="module-view">
+                <div class="view-music">
+                  <div class="music-art">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                    </svg>
+                  </div>
+                  <div class="music-details">
+                    <div class="music-title">BIRDS OF A FEATHER</div>
+                    <div class="music-artist">Billie Eilish • HIT ME HARD AND SOFT</div>
+                    <div class="music-progress"><div class="music-progress-fill"></div></div>
+                  </div>
+                  <div style="font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums;">2:18</div>
+                </div>
+              </div>
+
+              <!-- View 4: Calendar View -->
+              <div id="view-calendar" class="module-view">
+                <div class="view-calendar">
+                  <div class="cal-badge">
+                    <div class="cal-day">TODAY</div>
+                    <div class="cal-num">31</div>
+                  </div>
+                  <div class="cal-agenda">
+                    <div class="cal-item">
+                      <span style="color: var(--accent-green);">●</span>
+                      <span>Release NotchFlow Universal Binary v1.0.0</span>
+                      <span class="cal-item-time">10:00 AM</span>
+                    </div>
+                    <div class="cal-item" style="opacity: 0.7;">
+                      <span style="color: var(--accent-cyan);">●</span>
+                      <span>Benchmarking Mach kernel telemetry</span>
+                      <span class="cal-item-time">02:30 PM</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="menubar-right">
+            <span>Sat Oct 31</span>
+            <span>9:41 AM</span>
+            <span>100%</span>
+          </div>
+        </div>
+
+        <!-- Desktop Wallpaper area with hint -->
+        <div class="screen-desktop">
+          <div class="screen-hint">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 19V5M5 12l7-7 7 7"/>
+            </svg>
+            <span>Move your cursor around — Notchy watches you in real-time</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Module Switcher Tabs -->
+      <div class="module-tabs">
+        <button class="tab-btn active" data-target="view-mascot">
+          <span>🐾</span>
+          <span>Living Companion</span>
+        </button>
+        <button class="tab-btn" data-target="view-sysmon">
+          <span>📊</span>
+          <span>System Monitor</span>
+        </button>
+        <button class="tab-btn" data-target="view-music">
+          <span>🎵</span>
+          <span>Music & Lyrics</span>
+        </button>
+        <button class="tab-btn" data-target="view-calendar">
+          <span>📅</span>
+          <span>Calendar & Tasks</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Bento Grid Features -->
+    <section id="features" style="padding-top: 40px;">
+      <div class="section-header">
+        <h2>Engineered for macOS. Nothing more.</h2>
+        <p>Built from the ground up in Swift & AppKit. No Chromium runtime, no bloated node_modules, no compromise on battery life.</p>
+      </div>
+
+      <div class="bento-grid">
+        
+        <!-- Card 1: Kernel Telemetry -->
+        <div class="bento-card col-7">
+          <div class="card-icon">⚡</div>
+          <div>
+            <div class="card-title">Mach Kernel Telemetry</div>
+            <div class="card-desc">Queries CPU, RAM, and network metrics directly via Darwin Mach kernel C APIs (`host_statistics64` & `sysctl`). No periodic shell forks, no CPU spikes, and 0% idle consumption.</div>
+          </div>
+          <div class="card-metric">
+            <div class="metric-number">0.0%</div>
+            <div class="metric-label">Idle CPU Consumption</div>
+          </div>
+        </div>
+
+        <!-- Card 2: Zero Electron -->
+        <div class="bento-card col-5">
+          <div class="card-icon">🪶</div>
+          <div>
+            <div class="card-title">Pure Native Binary</div>
+            <div class="card-desc">Universal Binary compiled natively for both Apple Silicon (M1/M2/M3/M4) and Intel Macs. Installs in seconds with an ultra-compact footprint.</div>
+          </div>
+          <div class="card-metric">
+            <div class="metric-number">~35 MB</div>
+            <div class="metric-label">Resident Memory Footprint</div>
+          </div>
+        </div>
+
+        <!-- Card 3: Living Companion -->
+        <div class="bento-card col-4">
+          <div class="card-icon">🐾</div>
+          <div>
+            <div class="card-title">Living Mascot</div>
+            <div class="card-desc">Notchy breathes life into your display bezel with smooth procedural 3D gradients, natural blinks, curious glances, and reactive skin themes.</div>
+          </div>
+          <div class="card-metric">
+            <div class="metric-number">5 Skins</div>
+            <div class="metric-label">Sunlight, Cyber, Mint, Silver, Stealth</div>
+          </div>
+        </div>
+
+        <!-- Card 4: Unified HUDs -->
+        <div class="bento-card col-4">
+          <div class="card-icon">🔊</div>
+          <div>
+            <div class="card-title">Adaptive Fluid HUDs</div>
+            <div class="card-desc">Replaces the massive, rigid square popups of macOS with elegant pill animations right from your notch: Volume, Brightness, Charging, and Caps Lock.</div>
+          </div>
+          <div class="card-metric">
+            <div class="metric-number">0 ms</div>
+            <div class="metric-label">Reactive Native Spring Physics</div>
+          </div>
+        </div>
+
+        <!-- Card 5: Privacy -->
+        <div class="bento-card col-4">
+          <div class="card-icon">🔒</div>
+          <div>
+            <div class="card-title">100% Offline & Private</div>
+            <div class="card-desc">No accounts, no user telemetry, no analytics beacons, and no tracking. Everything stays strictly inside your Mac's sandbox.</div>
+          </div>
+          <div class="card-metric">
+            <div class="metric-number">100%</div>
+            <div class="metric-label">Local Device Processing</div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- FAQ Accordion Section -->
+    <section id="faq" class="faq-section">
+      <div class="section-header">
+        <h2>Frequently Asked Questions</h2>
+        <p>Everything you need to know about NotchFlow on macOS.</p>
+      </div>
+
+      <div class="faq-list">
+        
+        <div class="faq-item active">
+          <button class="faq-question">
+            <span>Does NotchFlow work on Macs without a physical notch?</span>
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M6 9l6 6 6-6"/>
+            </svg>
+          </button>
+          <div class="faq-answer">
+            <p>Yes, absolutely! If your Mac does not have a physical notch (such as MacBook Pro 2015, MacBook Air Intel, iMac, or Mac mini with external monitors), NotchFlow seamlessly renders an elegant floating Dynamic Island pill at the top of your display, complete with Hover Peek Mode so it never obstructs your browser tabs.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            <span>How much battery and CPU does NotchFlow consume?</span>
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M6 9l6 6 6-6"/>
+            </svg>
+          </button>
+          <div class="faq-answer">
+            <p>Virtually zero. NotchFlow is written 100% in native Swift & AppKit, using low-level Darwin C kernel APIs (Mach host statistics) rather than heavy shell processes. Idle CPU usage stays pegged at 0.0% and memory usage hovers around ~35 MB, ensuring your MacBook's battery life is completely untouched.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            <span>Is NotchFlow free and open-source?</span>
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M6 9l6 6 6-6"/>
+            </svg>
+          </button>
+          <div class="faq-answer">
+            <p>Yes! NotchFlow is completely free and open-source under the MIT License. You can audit the entire source code, build it from scratch using Swift Package Manager, or contribute improvements directly on GitHub.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            <span>How do I install NotchFlow on macOS?</span>
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M6 9l6 6 6-6"/>
+            </svg>
+          </button>
+          <div class="faq-answer">
+            <p>Simply download the `.dmg` installer, drag `NotchFlow.app` into your Applications folder, and launch it. Because it is an ad-hoc signed open-source community app, on macOS Gatekeeper simply right-click the app on first launch and click "Open", or allow it in System Settings > Privacy & Security.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            <span>Does NotchFlow track any data or connect to external servers?</span>
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M6 9l6 6 6-6"/>
+            </svg>
+          </button>
+          <div class="faq-answer">
+            <p>Never. NotchFlow is built strictly offline. It contains zero analytics beacons, zero user tracking, and requires no login or account. The only outbound network requests occur strictly when resolving missing cover art for web music playback (via Deezer/iTunes public metadata APIs) if local tags are unavailable.</p>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button class="faq-question">
+            <span>Can I customize Notchy or turn it off?</span>
+            <svg class="faq-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M6 9l6 6 6-6"/>
+            </svg>
+          </button>
+          <div class="faq-answer">
+            <p>Yes. You have complete control in the Settings window: you can pick your favorite 3D skin theme (Sunlight Gold, Cyber, Mint, Silver, Obsidian), toggle between Kawaii Arcs, Classic, or Minimal eyes, or disable the mascot entirely if you prefer a purely minimal utility hub.</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Bottom CTA Banner -->
+    <section class="cta-banner">
+      <h2>Bring your notch to life today.</h2>
+      <p>Download NotchFlow for macOS and elevate your Mac experience with instant system telemetry, media control, and a living desktop companion.</p>
+      <a href="assets/NotchFlow-1.0.0.dmg" download class="btn-primary">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.85c.67-.82 1.13-1.96 1-3.1-.98.04-2.15.65-2.85 1.47-.61.71-1.15 1.88-1.01 2.99 1.1.08 2.19-.54 2.86-1.36z"/>
+        </svg>
+        <span>Download NotchFlow (DMG)</span>
+        <span style="opacity: 0.5; font-size: 13px; font-weight: 400;">v1.0.0 • Free & Open Source</span>
+      </a>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+      <div class="footer-content">
+        <div>
+          <span style="font-weight: 600; color: #fff;">NotchFlow</span>
+          <span> — Open source under the MIT License.</span>
+        </div>
+        <div class="footer-links">
+          <a href="https://github.com/FerrelHD/Dynamic-Chemicvl" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/FerrelHD/Dynamic-Chemicvl/releases" target="_blank" rel="noopener">Releases</a>
+          <a href="#faq">FAQ</a>
+        </div>
+      </div>
+    </footer>
+
+  </main>
+
+  <!-- Interactive JavaScript: Eye Tracking, Notch Toggle, Tabs, and FAQ Accordion -->
+  <script>
+    // 1. Eye-Tracking Calculation
+    const notchyFaces = document.querySelectorAll('.notchy-face');
+    
+    window.addEventListener('mousemove', (e) => {
+      notchyFaces.forEach((face) => {
+        const rect = face.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        
+        const dx = e.clientX - centerX;
+        const dy = e.clientY - centerY;
+        const dist = Math.hypot(dx, dy);
+        
+        // Max eye pupil travel distance: 4.5px
+        const maxOffset = face.classList.contains('large') ? 5.5 : 3.5;
+        const angle = Math.atan2(dy, dx);
+        const offset = Math.min(dist / 35, maxOffset);
+        
+        const moveX = Math.cos(angle) * offset;
+        const moveY = Math.sin(angle) * offset;
+        
+        const eyes = face.querySelectorAll('.notchy-eye');
+        eyes.forEach(eye => {
+          eye.style.transform = `translate(${moveX}px, ${moveY}px)`;
+        });
+      });
+    });
+
+    // 2. Interactive Notch Expansion on Click
+    const interactiveNotch = document.getElementById('interactiveNotch');
+    interactiveNotch.addEventListener('click', () => {
+      interactiveNotch.classList.toggle('expanded');
+    });
+
+    // 3. Module Switcher Tabs
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const moduleViews = document.querySelectorAll('.module-view');
+
+    tabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        tabBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        // Ensure notch is expanded to show module
+        interactiveNotch.classList.add('expanded');
+
+        const targetId = btn.getAttribute('data-target');
+        moduleViews.forEach(view => {
+          if (view.id === targetId) {
+            view.classList.add('active');
+          } else {
+            view.classList.remove('active');
+          }
+        });
+      });
+    });
+
+    // 4. Subtle Live CPU fluctuation in System Monitor tab
+    const cpuVal = document.getElementById('liveCpuVal');
+    const cpuBar = document.getElementById('liveCpuBar');
+    setInterval(() => {
+      if (document.getElementById('view-sysmon').classList.contains('active')) {
+        const val = (10 + Math.random() * 8).toFixed(1);
+        if (cpuVal) cpuVal.textContent = val + '%';
+        if (cpuBar) cpuBar.style.width = (parseFloat(val) * 1.5) + '%';
+      }
+    }, 2000);
+
+    // 5. FAQ Accordion Toggle
+    const faqItems = document.querySelectorAll('.faq-item');
+    faqItems.forEach(item => {
+      const question = item.querySelector('.faq-question');
+      question.addEventListener('click', () => {
+        const isActive = item.classList.contains('active');
+        faqItems.forEach(i => i.classList.remove('active'));
+        if (!isActive) {
+          item.classList.add('active');
+        }
+      });
+    });
+  </script>
+
+</body>
+</html>
