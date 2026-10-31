@@ -305,6 +305,7 @@ public struct SettingsWindowView: View {
                     Text(titleForOption(option))
                         .font(.system(size: 11.5, weight: isSelected ? .bold : .medium, design: .rounded))
                         .foregroundColor(isSelected ? Color(red: 0.12, green: 0.13, blue: 0.16) : Color.white.opacity(0.85))
+                        .lineLimit(1)
                         .padding(.horizontal, 11)
                         .padding(.vertical, 5)
                         .background(
@@ -560,17 +561,66 @@ public struct SettingsWindowView: View {
                 
                 Divider().background(Color.white.opacity(0.08)).padding(.leading, 16)
                 
-                // Row 2: Mascot Skin Palette (Kategori A)
-                settingRow(title: "Mascot Color Skin", subtitle: "Procedural 3D surface finish & ambient bloom aura") {
-                    segmentedPicker(
-                        options: MascotTheme.allCases,
-                        selection: Binding(
-                            get: { state.mascotTheme },
-                            set: { state.setMascotTheme($0) }
-                        ),
-                        titleForOption: { $0.shortName }
-                    )
+                // Row 2: Mascot Skin Palette (Kategori A - Full Width Responsive Chips with 3D Gradient Dots)
+                VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Mascot Color Skin")
+                            .font(.system(size: 13.5, weight: .medium, design: .rounded))
+                            .foregroundColor(.white)
+                        
+                        Text("Procedural 3D surface finish & ambient bloom aura")
+                            .font(.system(size: 11.5, weight: .regular, design: .rounded))
+                            .foregroundColor(.white.opacity(0.72))
+                    }
+                    
+                    HStack(spacing: 6) {
+                        ForEach(MascotTheme.allCases) { theme in
+                            let isSelected = state.mascotTheme == theme
+                            Button(action: {
+                                state.setMascotTheme(theme)
+                                state.triggerHaptic(.generic)
+                            }) {
+                                HStack(spacing: 5.5) {
+                                    Circle()
+                                        .fill(
+                                            RadialGradient(
+                                                colors: theme.gradientColors,
+                                                center: UnitPoint(x: 0.35, y: 0.26),
+                                                startRadius: 0,
+                                                endRadius: 7
+                                            )
+                                        )
+                                        .frame(width: 11, height: 11)
+                                        .overlay(
+                                            Circle()
+                                                .stroke(Color.white.opacity(0.35), lineWidth: 0.5)
+                                        )
+                                    
+                                    Text(theme.shortName)
+                                        .font(.system(size: 11.5, weight: isSelected ? .bold : .medium, design: .rounded))
+                                        .foregroundColor(isSelected ? Color(red: 0.12, green: 0.13, blue: 0.16) : Color.white.opacity(0.85))
+                                        .lineLimit(1)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 6)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                        .fill(isSelected ? Color.white : Color.white.opacity(0.08))
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                        .stroke(isSelected ? Color.clear : Color.white.opacity(0.12), lineWidth: 0.8)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(3)
+                    .background(Color.black.opacity(0.30))
+                    .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
                 }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
                 .opacity(state.isMascotEnabled ? 1.0 : 0.4)
                 .disabled(!state.isMascotEnabled)
                 

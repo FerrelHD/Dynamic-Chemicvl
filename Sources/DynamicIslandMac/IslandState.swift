@@ -657,8 +657,13 @@ public class IslandState: ObservableObject {
         }
         checkLaunchAtLoginStatus()
         
-        // Launch Greeting Animation: Trigger smoothly on app start after UI stabilizes
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { [weak self] in
+        // Zero-flash launch greeting setup: prepare centered Notchy and hide clock from initial frame
+        if self.isMascotEnabled && self.isLaunchGreetingEnabled {
+            self.mascotModel.prepareForInstantGreeting()
+        }
+        
+        // Launch Greeting Animation: Trigger smoothly on app start after window is mounted
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
             guard let self = self else { return }
             if self.isMascotEnabled && self.isLaunchGreetingEnabled && !self.isPlaying && !self.isTimerRunning && self.mode == .compact {
                 self.mascotModel.triggerGreetingSequence()

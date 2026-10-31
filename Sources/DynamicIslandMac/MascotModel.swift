@@ -234,6 +234,21 @@ public class MascotModel: ObservableObject {
         }
     }
     
+    // MARK: - Pre-Greeting Setup (Zero-Flash Instant Start on App Launch)
+    public func prepareForInstantGreeting() {
+        greetingPhase = .popOut
+        mascotScale = 0.05
+        mascotCenterOffset = 23.0
+        clockScale = 0.001
+        clockOpacity = 0.0
+        handScale = 0.001
+        handAngle = 0.0
+        smile = 0.0
+        tilt = 0.0
+        isSleeping = false
+        openness = 1.0
+    }
+    
     // MARK: - Waving Hand Greeting Sequence (Alur A - Center Morph)
     public func triggerGreetingSequence() {
         greetingTask?.cancel()
@@ -241,17 +256,7 @@ public class MascotModel: ObservableObject {
             guard let self = self else { return }
             
             // 0. Initial state: Notchy starts at true dead center (+23.0 offset in HStack), clock hidden
-            self.greetingPhase = .popOut
-            self.mascotScale = 0.05
-            self.mascotCenterOffset = 23.0
-            self.clockScale = 0.001
-            self.clockOpacity = 0.0
-            self.handScale = 0.001
-            self.handAngle = 0.0
-            self.smile = 0.0
-            self.tilt = 0.0
-            self.isSleeping = false
-            self.openness = 1.0
+            self.prepareForInstantGreeting()
             
             // 1. Pop-out at dead center with bouncy fluid spring (0.35s)
             withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
