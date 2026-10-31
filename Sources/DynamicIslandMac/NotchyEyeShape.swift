@@ -128,6 +128,7 @@ public struct SmileArc: Shape {
 // MARK: - Native Circle Emoji Mascot View (White Oval Eyes)
 public struct MascotView: View {
     @ObservedObject public var model: MascotModel
+    @ObservedObject private var state: IslandState = .shared
     public var size: CGFloat = 20
 
     // Exact proportions from user reference design
@@ -142,11 +143,11 @@ public struct MascotView: View {
     }
 
     private var theme: MascotTheme {
-        IslandState.shared.mascotTheme
+        state.mascotTheme
     }
 
     private var eyeStyle: MascotEyeStyle {
-        IslandState.shared.mascotEyeStyle
+        state.mascotEyeStyle
     }
 
     public var body: some View {

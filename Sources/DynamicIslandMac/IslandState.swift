@@ -994,12 +994,16 @@ public class IslandState: ObservableObject {
     }
     
     public func setMascotTheme(_ theme: MascotTheme) {
-        mascotTheme = theme
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
+            mascotTheme = theme
+        }
         UserDefaults.standard.set(theme.rawValue, forKey: mascotThemeKey)
     }
     
     public func setMascotEyeStyle(_ style: MascotEyeStyle) {
-        mascotEyeStyle = style
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
+            mascotEyeStyle = style
+        }
         UserDefaults.standard.set(style.rawValue, forKey: mascotEyeStyleKey)
     }
     
