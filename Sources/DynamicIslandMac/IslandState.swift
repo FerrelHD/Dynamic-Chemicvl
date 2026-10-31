@@ -310,7 +310,6 @@ public class IslandState: ObservableObject {
     }
     
     public var isTallNotificationActive: Bool {
-        if activeChatNotification != nil { return true }
         if let call = activeCallNotification {
             return mode == .expanded || call.state == .incoming
         }
@@ -326,7 +325,7 @@ public class IslandState: ObservableObject {
             return (width: 48, height: 4)
         }
         if activeChatNotification != nil {
-            return (width: 412, height: 76)
+            return (width: 360, height: 42)
         }
         if let call = activeCallNotification {
             switch call.state {
@@ -356,6 +355,9 @@ public class IslandState: ObservableObject {
     }
     
     public var compactDimensions: (width: CGFloat, height: CGFloat) {
+        if activeChatNotification != nil {
+            return (width: 360, height: 42)
+        }
         if isShowingBatteryHUD || isShowingWifiHUD || isShowingBluetoothHUD || isShowingVolumeHUD {
             return (width: 315, height: 42)
         }
@@ -1676,7 +1678,7 @@ public class IslandState: ObservableObject {
         customBundleIdentifier: String? = nil
     ) {
         chatDismissWorkItem?.cancel()
-        withAnimation(.easeInOut(duration: 0.22)) {
+        withAnimation(.easeInOut(duration: 0.20)) {
             self.activeChatNotification = ChatNotification(
                 sender: sender,
                 message: message,

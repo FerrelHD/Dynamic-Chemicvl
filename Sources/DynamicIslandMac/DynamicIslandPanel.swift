@@ -49,8 +49,8 @@ public class IslandHostingView<Content: View>: NSHostingView<Content> {
         
         // Check if inside the curved notch path (including concave ear fillets)
         let isTallNotification = state.isTallNotificationActive
-        let earRadius: CGFloat = isTallNotification ? 13 : ((state.mode == .expanded) ? 15 : ((state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD) ? 11 : 9))
-        let bottomRadius: CGFloat = isTallNotification ? 22 : ((state.mode == .expanded) ? 24 : ((state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD) ? 14 : 14))
+        let earRadius: CGFloat = isTallNotification ? 13 : ((state.mode == .expanded) ? 15 : ((state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD || state.activeChatNotification != nil) ? 11 : 9))
+        let bottomRadius: CGFloat = isTallNotification ? 22 : ((state.mode == .expanded) ? 24 : ((state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD || state.activeChatNotification != nil) ? 16 : 14))
         
         let pointInNotch = CGPoint(x: localPoint.x - notchX, y: localPoint.y - notchY)
         let localNotchRect = CGRect(origin: .zero, size: CGSize(width: dims.width, height: dims.height))

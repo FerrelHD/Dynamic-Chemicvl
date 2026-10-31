@@ -168,7 +168,7 @@ public struct DynamicIslandView: View {
     }
     
     private var bottomRadius: CGFloat {
-        if state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD {
+        if state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD || state.activeChatNotification != nil {
             return 16
         }
         if state.isShowingCapsLockHUD {
@@ -192,7 +192,7 @@ public struct DynamicIslandView: View {
         if state.mode == .expanded {
             return 15 // Silky smooth Apple G2 concave ear fillets
         }
-        if state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD {
+        if state.isShowingBatteryHUD || state.isShowingWifiHUD || state.isShowingBluetoothHUD || state.isShowingVolumeHUD || state.activeChatNotification != nil {
             return 11
         }
         return 9 // Sleek, organic concave ears in compact mode
@@ -343,7 +343,7 @@ public struct DynamicIslandView: View {
         .animation(.easeInOut(duration: 0.20), value: state.isShowingBluetoothHUD)
         .animation(.easeInOut(duration: 0.20), value: state.isShowingCapsLockHUD)
         .animation(.easeInOut(duration: 0.18), value: state.shelfSegment)
-        .animation(.easeInOut(duration: 0.22), value: state.activeChatNotification != nil)
+        .animation(.easeInOut(duration: 0.20), value: state.activeChatNotification != nil)
         .padding(.top, 0)
         .onDrop(of: ["public.file-url"], isTargeted: $isDropTargeted) { providers in
             handleDroppedFiles(providers)
@@ -615,76 +615,76 @@ public struct DynamicIslandView: View {
     }
     
     // MARK: - Chat Notification Content (Matching Dynamic Island Reference)
+    // MARK: - Chat Notification Content (iOS Pill HUD Architecture, Zero Clipping)
     private func chatNotificationContent(chat: ChatNotification) -> some View {
         Button(action: {
             openChatApp(chat)
             state.dismissChatNotification()
         }) {
             HStack(spacing: 12) {
-                // 1. Sender Avatar or Real App Icon with App Badge
+                // 1. Left: Sender Avatar or Real App Icon (matching Pill HUD 28x28)
                 ZStack(alignment: .bottomTrailing) {
                     if let avatar = chat.avatarImage {
                         Image(nsImage: avatar)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
-                            .frame(width: 40, height: 40)
-                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .frame(width: 28, height: 28)
+                            .clipShape(Circle())
                     } else if let appIcon = chat.app.appIcon {
                         Image(nsImage: appIcon)
                             .resizable()
                             .aspectRatio(contentMode: .fit)
-                            .frame(width: 40, height: 40)
-                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .frame(width: 28, height: 28)
+                            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                     } else {
                         Circle()
-                            .fill(chat.app.badgeColor.opacity(0.85))
-                            .frame(width: 40, height: 40)
+                            .fill(chat.app.badgeColor.opacity(0.90))
+                            .frame(width: 28, height: 28)
                             .overlay(
                                 Text(String(chat.sender.prefix(1)))
-                                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                                    .font(.system(size: 12, weight: .bold, design: .rounded))
                                     .foregroundColor(.white)
                             )
                     }
                     
-                    // App Badge (WhatsApp, Telegram, etc.) - Only overlay when displaying a real contact photo, omitted for WhatsApp chat
+                    // App Badge overlay if custom avatar
                     if chat.isCustomAvatar && chat.app != .whatsapp {
                         ZStack {
                             Circle()
                                 .fill(chat.app.badgeColor)
-                                .frame(width: 16, height: 16)
+                                .frame(width: 10, height: 10)
                             Image(systemName: chat.app.iconName)
-                                .font(.system(size: 8.5, weight: .bold))
+                                .font(.system(size: 5.5, weight: .bold))
                                 .foregroundColor(.white)
                         }
-                        .offset(x: 3, y: 3)
+                        .offset(x: 2, y: 2)
                     }
                 }
-                .frame(width: 42, height: 42)
+                .frame(width: 28, height: 28)
                 
-                // 2. Sender Name, Time Tag & 2-Line Text Preview
+                // 2. Middle: Sender Name + 1-Line Message Preview
                 VStack(alignment: .leading, spacing: 2) {
-                    HStack {
-                        Text(chat.sender)
-                            .font(.system(size: 13, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
-                            .lineLimit(1)
-                        
-                        Spacer()
-                        
-                        Text(chat.timestamp)
-                            .font(.system(size: 10.5, weight: .medium, design: .rounded))
-                            .foregroundColor(.white.opacity(0.50))
-                    }
+                    Text(chat.sender)
+                        .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
                     
                     Text(chat.message)
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundColor(.white.opacity(0.85))
-                        .lineLimit(2)
-                        .lineSpacing(1.5)
-                        .multilineTextAlignment(.leading)
+                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                        .foregroundColor(.white.opacity(0.72))
+                        .lineLimit(1)
                 }
+                
+                Spacer(minLength: 6)
+                
+                // 3. Right: Timestamp Tag
+                Text(chat.timestamp)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundColor(.white.opacity(0.48))
+                    .lineLimit(1)
             }
             .padding(.horizontal, 22)
+            .padding(.vertical, 4)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
         .buttonStyle(.plain)
