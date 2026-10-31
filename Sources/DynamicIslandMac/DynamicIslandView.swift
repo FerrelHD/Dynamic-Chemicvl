@@ -1124,15 +1124,15 @@ public struct DynamicIslandView: View {
     private var controlTabView: some View {
         VStack(spacing: 8) {
             HStack(spacing: 8) {
-                // Focus / Do Not Disturb Tile
+                // Dark / Light Mode Appearance Tile
                 controlTile(
-                    icon: state.isDNDOn ? "moon.fill" : "moon",
-                    title: "Focus",
-                    subtitle: state.isDNDOn ? "On" : "Off",
-                    isActive: state.isDNDOn,
-                    activeColor: Color(red: 0.35, green: 0.35, blue: 0.88)
+                    icon: state.isDarkMode ? "moon.stars.fill" : "sun.max.fill",
+                    title: "Theme",
+                    subtitle: state.isDarkMode ? "Dark" : "Light",
+                    isActive: state.isDarkMode,
+                    activeColor: Color(red: 0.38, green: 0.38, blue: 0.88)
                 ) {
-                    state.toggleDND()
+                    state.toggleDarkMode()
                 }
                 
                 // Instant Lock Screen Tile

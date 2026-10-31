@@ -80,6 +80,34 @@ public class SystemControlService {
         }
     }
     
+    // MARK: - Dark / Light Mode Appearance Toggle
+    public func toggleDarkMode(completion: @escaping (Bool) -> Void) {
+        queue.async {
+            let script = """
+            tell application "System Events"
+                tell appearance preferences
+                    set dark mode to not dark mode
+                    return dark mode
+                end tell
+            end tell
+            """
+            if let result = self.executeScript(script) {
+                let isDark = result.lowercased().contains("true")
+                DispatchQueue.main.async {
+                    completion(isDark)
+                }
+            }
+        }
+    }
+    
+    public func getDarkModeState() -> Bool {
+        let script = "tell application \"System Events\" to tell appearance preferences to get dark mode"
+        if let result = executeScript(script) {
+            return result.lowercased().contains("true")
+        }
+        return NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+    }
+    
     public func toggleDoNotDisturb(currentlyEnabled: Bool, completion: @escaping (Bool) -> Void) {
         let newState = !currentlyEnabled
         queue.async {

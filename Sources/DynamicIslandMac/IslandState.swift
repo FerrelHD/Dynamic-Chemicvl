@@ -445,6 +445,7 @@ public class IslandState: ObservableObject {
     @Published public var wifiSSID: String = "Wi-Fi"
     @Published public var isBluetoothOn: Bool = true
     @Published public var isMicMuted: Bool = false
+    @Published public var isDarkMode: Bool = false
     @Published public var isDNDOn: Bool = false
     @Published public var isCaffeinated: Bool = false
     
@@ -1082,6 +1083,7 @@ public class IslandState: ObservableObject {
     
     // MARK: - Control Center Actions
     public func refreshControlStatus() {
+        self.isDarkMode = SystemControlService.shared.getDarkModeState()
         SystemControlService.shared.getWifiStatus { [weak self] isEnabled, ssid in
             self?.isWifiOn = isEnabled
             self?.wifiSSID = ssid
@@ -1106,6 +1108,14 @@ public class IslandState: ObservableObject {
         SystemControlService.shared.toggleBluetooth(currentlyEnabled: isBluetoothOn) { [weak self] newState in
             self?.isBluetoothOn = newState
             self?.triggerBluetoothHUD(connected: newState)
+        }
+    }
+    
+    public func toggleDarkMode() {
+        triggerHaptic(.alignment)
+        isDarkMode.toggle()
+        SystemControlService.shared.toggleDarkMode { [weak self] isDark in
+            self?.isDarkMode = isDark
         }
     }
     
