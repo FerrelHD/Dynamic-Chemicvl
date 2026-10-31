@@ -181,7 +181,7 @@ public class DynamicIslandPanel: NSPanel {
         self.isReleasedWhenClosed = false
         self.hidesOnDeactivate = false
         self.ignoresMouseEvents = false
-        self.becomesKeyOnlyIfNeeded = true
+        self.becomesKeyOnlyIfNeeded = false
         self.appearance = NSAppearance(named: .darkAqua)
         
         setupFullScreenObservers()
@@ -259,6 +259,14 @@ public class DynamicIslandPanel: NSPanel {
             self.setFrame(targetFrame, display: false)
             CATransaction.commit()
         }
+        self.makeKey()
+    }
+    
+    public override func sendEvent(_ event: NSEvent) {
+        if event.type == .leftMouseDown && IslandState.shared.mode == .expanded && !self.isKeyWindow {
+            self.makeKey()
+        }
+        super.sendEvent(event)
     }
     
     public func updateWindowFrameForCurrentState() {
@@ -275,6 +283,9 @@ public class DynamicIslandPanel: NSPanel {
         if state.mode == .expanded {
             expandWindowImmediately()
         } else {
+            if self.isKeyWindow {
+                self.resignKey()
+            }
             let isTallNotification = state.isTallNotificationActive
             
             if isTallNotification {

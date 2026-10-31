@@ -1124,26 +1124,26 @@ public struct DynamicIslandView: View {
     private var controlTabView: some View {
         VStack(spacing: 8) {
             HStack(spacing: 8) {
-                // Wi-Fi Tile
+                // Focus / Do Not Disturb Tile
                 controlTile(
-                    icon: "wifi",
-                    title: "Wi-Fi",
-                    subtitle: state.wifiSSID,
-                    isActive: state.isWifiOn,
-                    activeColor: Color(red: 0.0, green: 0.48, blue: 1.0)
+                    icon: state.isDNDOn ? "moon.fill" : "moon",
+                    title: "Focus",
+                    subtitle: state.isDNDOn ? "On" : "Off",
+                    isActive: state.isDNDOn,
+                    activeColor: Color(red: 0.35, green: 0.35, blue: 0.88)
                 ) {
-                    state.toggleWifi()
+                    state.toggleDND()
                 }
                 
-                // Bluetooth Tile
+                // Instant Lock Screen Tile
                 controlTile(
-                    icon: "antenna.radiowaves.left.and.right",
-                    title: "Bluetooth",
-                    subtitle: state.isBluetoothOn ? "On" : "Off",
-                    isActive: state.isBluetoothOn,
+                    icon: "lock.fill",
+                    title: "Lock",
+                    subtitle: "Screen",
+                    isActive: false,
                     activeColor: Color(red: 0.0, green: 0.48, blue: 1.0)
                 ) {
-                    state.toggleBluetooth()
+                    state.lockScreen()
                 }
             }
             

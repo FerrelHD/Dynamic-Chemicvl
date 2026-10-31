@@ -82,17 +82,39 @@ public class SystemControlService {
     
     public func toggleDoNotDisturb(currentlyEnabled: Bool, completion: @escaping (Bool) -> Void) {
         let newState = !currentlyEnabled
-        // Focus / DND shortcut di macOS Monterey via Shortcuts CLI atau notification
         queue.async {
             let script = """
             tell application "System Events"
-                key code 122 using {control down}
+                try
+                    tell process "ControlCenter"
+                        set clockItem to first menu bar item of menu bar 1 whose name contains "Clock"
+                        key down option
+                        click clockItem
+                        key up option
+                    end tell
+                on error
+                    key code 122 using {control down}
+                end try
             end tell
             """
             _ = self.executeScript(script)
             DispatchQueue.main.async {
                 completion(newState)
             }
+        }
+    }
+    
+    // MARK: - Lock Screen Immediate (Pure Apple C API, 0ms latency)
+    public func lockScreen() {
+        typealias SACLockScreenImmediateFunc = @convention(c) () -> Void
+        if let handle = dlopen("/System/Library/PrivateFrameworks/login.framework/Versions/Current/login", RTLD_LAZY) {
+            if let sym = dlsym(handle, "SACLockScreenImmediate") {
+                let lockFunc = unsafeBitCast(sym, to: SACLockScreenImmediateFunc.self)
+                lockFunc()
+            }
+            dlclose(handle)
+        } else {
+            _ = runShell("/usr/bin/pmset displaysleepnow")
         }
     }
     

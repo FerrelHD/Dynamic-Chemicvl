@@ -1117,6 +1117,13 @@ public class IslandState: ObservableObject {
         SystemControlService.shared.toggleDoNotDisturb(currentlyEnabled: isDNDOn) { [weak self] newState in
             self?.isDNDOn = newState
         }
+        triggerHaptic(.alignment)
+    }
+    
+    public func lockScreen() {
+        triggerHaptic(.generic)
+        minimize()
+        SystemControlService.shared.lockScreen()
     }
     
     public func toggleCaffeinate() {
