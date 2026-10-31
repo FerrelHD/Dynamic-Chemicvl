@@ -2051,34 +2051,43 @@ public struct DynamicIslandView: View {
                                 if let date = dateOpt {
                                     let isToday = Calendar.current.isDateInToday(date)
                                     let isSelected = Calendar.current.isDate(state.calendarSelectedDate, inSameDayAs: date)
+                                    let hasEvent = state.hasEvents(on: date)
                                     let dayNum = Calendar.current.component(.day, from: date)
                                     
                                     Button(action: {
                                         state.calendarSelectedDate = date
                                     }) {
-                                        ZStack {
+                                        ZStack(alignment: .center) {
                                             if isToday {
                                                 Circle()
                                                     .fill(Color(red: 0.0, green: 0.48, blue: 1.0))
-                                                    .frame(width: 16, height: 16)
+                                                    .frame(width: 17, height: 17)
                                             } else if isSelected {
                                                 Circle()
                                                     .stroke(Color.white.opacity(0.85), lineWidth: 1.2)
-                                                    .frame(width: 16, height: 16)
+                                                    .frame(width: 17, height: 17)
                                             }
                                             
-                                            Text("\(dayNum)")
-                                                .font(.system(size: 9, weight: isToday ? .bold : .medium, design: .rounded))
-                                                .foregroundColor(isToday ? .white : (isSelected ? .white : .white.opacity(0.85)))
+                                            VStack(spacing: 0.5) {
+                                                Text("\(dayNum)")
+                                                    .font(.system(size: 8.5, weight: (isToday || isSelected) ? .bold : .medium, design: .rounded))
+                                                    .foregroundColor(isToday ? .white : (isSelected ? .white : .white.opacity(0.85)))
+                                                
+                                                if hasEvent && !isToday {
+                                                    Circle()
+                                                        .fill(Color(red: 0.0, green: 0.48, blue: 1.0))
+                                                        .frame(width: 2.5, height: 2.5)
+                                                }
+                                            }
                                         }
                                         .frame(maxWidth: .infinity)
-                                        .frame(height: 16)
+                                        .frame(height: 17)
                                     }
                                     .buttonStyle(.plain)
                                 } else {
                                     Color.clear
                                         .frame(maxWidth: .infinity)
-                                        .frame(height: 16)
+                                        .frame(height: 17)
                                 }
                             }
                         }
@@ -2098,19 +2107,19 @@ public struct DynamicIslandView: View {
                     )
             )
             
-            // Right Column: Today's Live Clock & Quick Focus Agenda
+            // Right Column: Selected Date's Live Clock & Focus Agenda
             VStack(alignment: .leading, spacing: 5) {
                 // Date & Live Clock Header
                 HStack(alignment: .firstTextBaseline) {
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(todayDateHeaderString())
-                            .font(.system(size: 9, weight: .bold, design: .rounded))
+                        Text(selectedDateHeaderString(state.calendarSelectedDate))
+                            .font(.system(size: 8.5, weight: .bold, design: .rounded))
                             .foregroundColor(Color(red: 0.0, green: 0.48, blue: 1.0))
                             .textCase(.uppercase)
                         
                         TimelineView(.periodic(from: .now, by: 1.0)) { timeline in
                             Text(liveClockString(from: timeline.date))
-                                .font(.system(size: 15.5, weight: .black, design: .rounded))
+                                .font(.system(size: 15, weight: .black, design: .rounded))
                                 .foregroundColor(.white)
                                 .monospacedDigit()
                         }
@@ -2119,9 +2128,9 @@ public struct DynamicIslandView: View {
                     Spacer()
                 }
                 
-                // Add Quick Event input
+                // Add Quick Event input for Selected Date
                 HStack(spacing: 5) {
-                    TextField("Quick focus / deadline...", text: $state.newCalendarEventTitle, onCommit: {
+                    TextField("Event for \(shortDateString(state.calendarSelectedDate))...", text: $state.newCalendarEventTitle, onCommit: {
                         state.addQuickCalendarEvent()
                     })
                     .textFieldStyle(.plain)
@@ -2145,16 +2154,23 @@ public struct DynamicIslandView: View {
                         .fill(Color.white.opacity(0.09))
                 )
                 
-                // Event List
+                // Event List Filtered for Selected Date
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 3) {
-                        if state.quickCalendarEvents.isEmpty {
-                            Text("No focus events for today")
-                                .font(.system(size: 9, weight: .medium, design: .rounded))
-                                .foregroundColor(.white.opacity(0.40))
-                                .padding(.top, 10)
+                        let events = state.eventsForSelectedDate
+                        if events.isEmpty {
+                            VStack(spacing: 2) {
+                                Text("No events for this date")
+                                    .font(.system(size: 9, weight: .medium, design: .rounded))
+                                    .foregroundColor(.white.opacity(0.40))
+                                Text("Type above & tap [+] to add")
+                                    .font(.system(size: 7.5, weight: .regular, design: .rounded))
+                                    .foregroundColor(.white.opacity(0.25))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 10)
                         } else {
-                            ForEach(state.quickCalendarEvents) { ev in
+                            ForEach(events) { ev in
                                 HStack(spacing: 6) {
                                     Button(action: {
                                         state.toggleQuickCalendarEvent(id: ev.id)
@@ -2205,6 +2221,20 @@ public struct DynamicIslandView: View {
         let f = DateFormatter()
         f.dateFormat = "MMMM yyyy"
         return f.string(from: date)
+    }
+    
+    private func selectedDateHeaderString(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "EEEE, d MMM"
+        let isToday = Calendar.current.isDateInToday(date)
+        return isToday ? "TODAY • \(f.string(from: date))" : f.string(from: date)
+    }
+    
+    private func shortDateString(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "d MMM"
+        let isToday = Calendar.current.isDateInToday(date)
+        return isToday ? "Today" : f.string(from: date)
     }
     
     private func todayDateHeaderString() -> String {

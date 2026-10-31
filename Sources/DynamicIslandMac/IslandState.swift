@@ -23,14 +23,29 @@ public enum IslandTab: String, CaseIterable {
 public struct QuickCalendarEvent: Identifiable, Codable, Equatable {
     public let id: UUID
     public var title: String
+    public var dateString: String
     public var timeString: String
     public var isDone: Bool
     
-    public init(id: UUID = UUID(), title: String, timeString: String = "", isDone: Bool = false) {
+    public init(id: UUID = UUID(), title: String, dateString: String = "", timeString: String = "", isDone: Bool = false) {
         self.id = id
         self.title = title
+        self.dateString = dateString
         self.timeString = timeString
         self.isDone = isDone
+    }
+    
+    enum CodingKeys: String, CodingKey {
+        case id, title, dateString, timeString, isDone
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        dateString = try container.decodeIfPresent(String.self, forKey: .dateString) ?? ""
+        timeString = try container.decodeIfPresent(String.self, forKey: .timeString) ?? ""
+        isDone = try container.decodeIfPresent(Bool.self, forKey: .isDone) ?? false
     }
 }
 
@@ -2194,13 +2209,36 @@ public class IslandState: ObservableObject {
     @Published public var newCalendarEventTime: String = ""
     private let calendarEventsStorageKey = "DynamicIsland_QuickCalendarEvents"
     
+    public var selectedDateString: String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: calendarSelectedDate)
+    }
+    
+    public var eventsForSelectedDate: [QuickCalendarEvent] {
+        let target = selectedDateString
+        return quickCalendarEvents.filter { ev in
+            ev.dateString.isEmpty || ev.dateString == target
+        }
+    }
+    
+    public func hasEvents(on date: Date) -> Bool {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        let dStr = f.string(from: date)
+        return quickCalendarEvents.contains { $0.dateString == dStr }
+    }
+    
     public func loadQuickCalendarEvents() {
         if let data = UserDefaults.standard.data(forKey: calendarEventsStorageKey),
            let events = try? JSONDecoder().decode([QuickCalendarEvent].self, from: data) {
             self.quickCalendarEvents = events
         } else {
+            let f = DateFormatter()
+            f.dateFormat = "yyyy-MM-dd"
+            let todayStr = f.string(from: Date())
             self.quickCalendarEvents = [
-                QuickCalendarEvent(title: "NotchFlow v1.4 Review", timeString: "19:00", isDone: false)
+                QuickCalendarEvent(title: "NotchFlow v1.4 Review", dateString: todayStr, timeString: "19:00", isDone: false)
             ]
         }
     }
@@ -2215,7 +2253,12 @@ public class IslandState: ObservableObject {
         let trimmed = newCalendarEventTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         let timeTrimmed = newCalendarEventTime.trimmingCharacters(in: .whitespacesAndNewlines)
-        let event = QuickCalendarEvent(title: trimmed, timeString: timeTrimmed.isEmpty ? "All Day" : timeTrimmed, isDone: false)
+        let event = QuickCalendarEvent(
+            title: trimmed,
+            dateString: selectedDateString,
+            timeString: timeTrimmed.isEmpty ? "All Day" : timeTrimmed,
+            isDone: false
+        )
         quickCalendarEvents.insert(event, at: 0)
         newCalendarEventTitle = ""
         newCalendarEventTime = ""
