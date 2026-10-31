@@ -21,7 +21,7 @@ public enum SettingsTab: String, CaseIterable, Identifiable {
     public var iconName: String {
         switch self {
         case .general: return "gearshape.fill"
-        case .stats: return "gauge.with.needle.fill"
+        case .stats: return "cpu"
         case .music: return "music.note"
         case .timer: return "timer"
         case .notes: return "checklist"

@@ -2679,7 +2679,7 @@ public struct DynamicIslandView: View {
     private func tabIcon(for tab: IslandTab) -> some View {
         switch tab {
         case .stats:
-            return Image(systemName: "gauge.with.needle.fill").font(.system(size: 9.5, weight: .bold, design: .rounded))
+            return Image(systemName: "cpu").font(.system(size: 9.5, weight: .bold, design: .rounded))
         case .music:
             return Image(systemName: "music.note").font(.system(size: 9.5, weight: .bold, design: .rounded))
         case .timer:
