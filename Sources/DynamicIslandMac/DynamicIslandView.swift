@@ -1025,7 +1025,7 @@ public struct DynamicIslandView: View {
                                 .offset(x: state.mascotModel.mascotCenterOffset)
                         }
                     case .battery:
-                        batteryRingIconView(size: 19)
+                        batteryRingIconView(size: 14.5)
                     case .none:
                         EmptyView()
                     }
@@ -1058,16 +1058,18 @@ public struct DynamicIslandView: View {
         
         return ZStack {
             Circle()
-                .stroke(Color.white.opacity(0.14), lineWidth: 2.3)
+                .stroke(Color.white.opacity(0.14), lineWidth: 1.9)
             
             Circle()
                 .trim(from: 0, to: max(0.05, progress))
-                .stroke(ringColor, style: StrokeStyle(lineWidth: 2.3, lineCap: .round))
+                .stroke(ringColor, style: StrokeStyle(lineWidth: 1.9, lineCap: .round))
                 .rotationEffect(.degrees(-90))
             
-            Image(systemName: isCharging ? "bolt.fill" : "laptopcomputer")
-                .font(.system(size: isCharging ? 8.5 : 9.5, weight: .bold))
-                .foregroundColor(isCharging ? ringColor : .white.opacity(0.95))
+            if isCharging {
+                Image(systemName: "bolt.fill")
+                    .font(.system(size: 7.0, weight: .bold))
+                    .foregroundColor(ringColor)
+            }
         }
         .frame(width: size, height: size)
     }

@@ -428,7 +428,7 @@ public class IslandState: ObservableObject {
         } else {
             let hasLeadingIcon = (idleLeadingIcon == .mascot && isMascotEnabled) || idleLeadingIcon == .battery
             if hasLeadingIcon {
-                return (width: 142, height: 28) // Sleek Apple compact notch with comfortable horizontal breathing room
+                return (width: idleLeadingIcon == .battery ? 132 : 142, height: 28) // Sleek Apple compact notch with comfortable horizontal breathing room
             } else {
                 return (width: 108, height: 28) // Minimalist stealth digital clock notch
             }
