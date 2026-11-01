@@ -545,6 +545,50 @@ public struct SettingsWindowView: View {
         VStack(spacing: 16) {
             // Card 1: Character Identity & Visual Customization (Kategori A)
             settingCard {
+                // Row 0: Idle Notch Leading Icon Selector (Mascot vs Battery Ring vs Clock Only)
+                settingRow(title: "Notch Idle Icon", subtitle: "Icon next to digital clock in idle compact notch") {
+                    HStack(spacing: 2) {
+                        ForEach(IdleLeadingIconStyle.allCases) { style in
+                            let isSelected = state.idleLeadingIcon == style
+                            Button(action: {
+                                state.setIdleLeadingIcon(style)
+                                state.triggerHaptic(.generic)
+                            }) {
+                                HStack(spacing: 4.5) {
+                                    if style == .mascot {
+                                        MascotView(model: state.mascotModel, size: 12)
+                                    } else if style == .battery {
+                                        Image(systemName: "bolt.fill")
+                                            .font(.system(size: 9.5, weight: .bold))
+                                            .foregroundColor(isSelected ? Color(red: 0.12, green: 0.13, blue: 0.16) : Color(red: 0.18, green: 0.85, blue: 0.38))
+                                    } else {
+                                        Image(systemName: "clock")
+                                            .font(.system(size: 9.5, weight: .bold))
+                                            .foregroundColor(isSelected ? Color(red: 0.12, green: 0.13, blue: 0.16) : .white.opacity(0.8))
+                                    }
+                                    Text(style.shortName)
+                                        .font(.system(size: 11.5, weight: isSelected ? .bold : .medium, design: .rounded))
+                                        .foregroundColor(isSelected ? Color(red: 0.12, green: 0.13, blue: 0.16) : Color.white.opacity(0.85))
+                                        .lineLimit(1)
+                                }
+                                .padding(.horizontal, 9)
+                                .padding(.vertical, 5)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                        .fill(isSelected ? Color.white : Color.clear)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(3)
+                    .background(Color.black.opacity(0.30))
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .fixedSize()
+                }
+                
+                Divider().background(Color.white.opacity(0.08)).padding(.leading, 16)
+
                 // Row 1: Master Enable / Disable Toggle
                 settingRow(title: "Notchy Emoji Living Mascot", subtitle: "Living character on your notch with natural blinks, cursor gaze, and expressive animations") {
                     HStack(spacing: 12) {

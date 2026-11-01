@@ -20,6 +20,7 @@ public class NotificationListenerService {
     private var lastDeliveredText: String = ""
     private var lastDeliveredTime: Date = Date.distantPast
     private var recentDeliveredSignatures: [String: Date] = [:]
+    private var lastWakeDate: Date = Date.distantPast
     
     private func normalizedKey(_ s: String) -> String {
         return s.lowercased().filter { $0.isLetter || $0.isNumber }
@@ -51,7 +52,52 @@ public class NotificationListenerService {
         recentDeliveredSignatures[key] = Date()
     }
     
-    private init() {}
+    private init() {
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] _ in
+            self?.handleSystemWake()
+        }
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.screensDidWakeNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] _ in
+            self?.handleSystemWake()
+        }
+    }
+    
+    private func handleSystemWake() {
+        queue.async { [weak self] in
+            guard let self = self else { return }
+            self.lastWakeDate = Date()
+            if let path = self.dbPath {
+                self.lastSeenRecId = self.fetchLatestRecId(at: path)
+            }
+            self.fastForwardWhatsAppBaseline()
+            NSLog("[NotchFlow] ☀️ Mac woke from sleep. Fast-forwarded notification pointers to prevent replay storm.")
+        }
+    }
+    
+    private func fastForwardWhatsAppBaseline() {
+        let chatDBPath = whatsAppSharedURL.appendingPathComponent("ChatStorage.sqlite").path
+        guard FileManager.default.fileExists(atPath: chatDBPath) else { return }
+        var db: OpaquePointer?
+        let uri = "file:\(chatDBPath)?mode=ro"
+        if sqlite3_open_v2(uri, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_URI | SQLITE_OPEN_NOMUTEX, nil) == SQLITE_OK {
+            var stmt: OpaquePointer?
+            let sql = "SELECT MAX(Z_PK) FROM ZWAMESSAGE WHERE ZISFROMME = 0 AND ZMESSAGETYPE NOT IN (59, 10);"
+            if sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK {
+                if sqlite3_step(stmt) == SQLITE_ROW {
+                    self.lastSeenWhatsAppPK = max(self.lastSeenWhatsAppPK, sqlite3_column_int64(stmt, 0))
+                }
+                sqlite3_finalize(stmt)
+            }
+            sqlite3_close(db)
+        }
+    }
     
     public func startMonitoring() {
         guard !isRunning else { return }
@@ -199,6 +245,12 @@ public class NotificationListenerService {
     }
     
     private func checkNewWhatsAppMessages() {
+        // If Mac woke up within the last 6 seconds, fast-forward baseline to skip offline backlog storm
+        if Date().timeIntervalSince(lastWakeDate) < 6.0 {
+            fastForwardWhatsAppBaseline()
+            return
+        }
+        
         let chatDBPath = whatsAppSharedURL.appendingPathComponent("ChatStorage.sqlite").path
         guard FileManager.default.fileExists(atPath: chatDBPath) else { return }
         
@@ -214,7 +266,8 @@ public class NotificationListenerService {
                COALESCE(NULLIF(s.ZPARTNERNAME, ''), ''), 
                COALESCE(m.ZTEXT, ''), 
                COALESCE(s.ZCONTACTJID, ''),
-               COALESCE(NULLIF(p.ZPUSHNAME, ''), NULLIF(p2.ZPUSHNAME, ''), NULLIF(gm.ZCONTACTNAME, ''), '')
+               COALESCE(NULLIF(p.ZPUSHNAME, ''), NULLIF(p2.ZPUSHNAME, ''), NULLIF(gm.ZCONTACTNAME, ''), ''),
+               COALESCE(m.ZMESSAGEDATE, 0)
         FROM ZWAMESSAGE m
         LEFT JOIN ZWACHATSESSION s ON m.ZCHATSESSION = s.Z_PK
         LEFT JOIN ZWAGROUPMEMBER gm ON m.ZGROUPMEMBER = gm.Z_PK
@@ -236,6 +289,18 @@ public class NotificationListenerService {
             var text = sqlite3_column_text(stmt, 2).map { String(cString: $0) } ?? ""
             let jid = sqlite3_column_text(stmt, 3).map { String(cString: $0) } ?? ""
             let memberName = sqlite3_column_text(stmt, 4).map { String(cString: $0) } ?? ""
+            let rawMsgDate = sqlite3_column_double(stmt, 5)
+            
+            self.lastSeenWhatsAppPK = max(self.lastSeenWhatsAppPK, pk)
+            
+            // ponytail: message age guard. CoreData reference date is 2001-01-01.
+            // Skip historical messages older than 25 seconds (prevents replay storm upon waking laptop).
+            if rawMsgDate > 0 {
+                let msgDate = Date(timeIntervalSinceReferenceDate: rawMsgDate)
+                if abs(Date().timeIntervalSince(msgDate)) > 25.0 {
+                    continue
+                }
+            }
             
             self.lastSeenWhatsAppPK = max(self.lastSeenWhatsAppPK, pk)
             
@@ -334,6 +399,12 @@ public class NotificationListenerService {
     private func pollNewNotifications() {
         guard isRunning, let path = dbPath else { return }
         
+        // If Mac woke up within the last 6 seconds, fast-forward baseline to skip offline backlog storm
+        if Date().timeIntervalSince(lastWakeDate) < 6.0 {
+            self.lastSeenRecId = self.fetchLatestRecId(at: path)
+            return
+        }
+        
         var db: OpaquePointer?
         guard sqlite3_open_v2(path, &db, SQLITE_OPEN_READWRITE, nil) == SQLITE_OK else {
             return
@@ -341,7 +412,7 @@ public class NotificationListenerService {
         defer { sqlite3_close(db) }
         
         var stmt: OpaquePointer?
-        let sql = "SELECT r.rec_id, a.identifier, r.data FROM record r JOIN app a ON r.app_id = a.app_id WHERE r.rec_id > ? ORDER BY r.rec_id ASC LIMIT 10;"
+        let sql = "SELECT r.rec_id, a.identifier, r.data, COALESCE(r.delivered_date, 0) FROM record r JOIN app a ON r.app_id = a.app_id WHERE r.rec_id > ? ORDER BY r.rec_id ASC LIMIT 10;"
         
         guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
             return
@@ -354,8 +425,17 @@ public class NotificationListenerService {
             let recId = sqlite3_column_int64(stmt, 0)
             let appId = String(cString: sqlite3_column_text(stmt, 1))
             let blobBytes = sqlite3_column_bytes(stmt, 2)
+            let deliveredDate = sqlite3_column_double(stmt, 3)
             
             self.lastSeenRecId = max(self.lastSeenRecId, recId)
+            
+            // Skip historical notifications (> 25s old) from while the Mac was sleeping
+            if deliveredDate > 0 {
+                let notifDate = Date(timeIntervalSinceReferenceDate: deliveredDate)
+                if abs(Date().timeIntervalSince(notifDate)) > 25.0 {
+                    continue
+                }
+            }
             
             guard blobBytes > 0, let blob = sqlite3_column_blob(stmt, 2) else { continue }
             let data = Data(bytes: blob, count: Int(blobBytes))

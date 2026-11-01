@@ -1015,11 +1015,19 @@ public struct DynamicIslandView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 .padding(.horizontal, 14)
             } else {
-                // Living Notch Idle State: Animated Mascot (when enabled) + Digital Clock
-                HStack(spacing: state.isMascotEnabled ? 8 : 0) {
-                    if state.isMascotEnabled {
-                        MascotView(model: state.mascotModel, size: 20)
-                            .offset(x: state.mascotModel.mascotCenterOffset)
+                // Living Notch Idle State: Animated Mascot / Battery Ring + Digital Clock
+                let hasLeadingIcon = (state.idleLeadingIcon == .mascot && state.isMascotEnabled) || state.idleLeadingIcon == .battery
+                HStack(spacing: hasLeadingIcon ? 8 : 0) {
+                    switch state.idleLeadingIcon {
+                    case .mascot:
+                        if state.isMascotEnabled {
+                            MascotView(model: state.mascotModel, size: 20)
+                                .offset(x: state.mascotModel.mascotCenterOffset)
+                        }
+                    case .battery:
+                        batteryRingIconView(size: 19)
+                    case .none:
+                        EmptyView()
                     }
                     
                     Text(currentShortTime)
@@ -1029,11 +1037,39 @@ public struct DynamicIslandView: View {
                         .opacity(state.mascotModel.clockOpacity)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                .padding(.horizontal, state.isMascotEnabled ? 12 : 8)
+                .padding(.horizontal, hasLeadingIcon ? 12 : 8)
             }
         }
         .frame(height: 28, alignment: .center)
         .frame(maxWidth: .infinity, alignment: .top)
+    }
+    
+    // MARK: - Minimal Circular Battery Ring (Identical to Connected Devices Aesthetic)
+    private func batteryRingIconView(size: CGFloat) -> some View {
+        let level = max(1, min(100, state.batteryLevel))
+        let progress = CGFloat(level) / 100.0
+        let isCharging = state.isBatteryCharging || state.isPowerPlugged
+        let ringColor: Color = {
+            if isCharging || level > 20 {
+                return Color(red: 0.18, green: 0.85, blue: 0.38)
+            }
+            return Color(red: 1.0, green: 0.23, blue: 0.19)
+        }()
+        
+        return ZStack {
+            Circle()
+                .stroke(Color.white.opacity(0.14), lineWidth: 2.3)
+            
+            Circle()
+                .trim(from: 0, to: max(0.05, progress))
+                .stroke(ringColor, style: StrokeStyle(lineWidth: 2.3, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            
+            Image(systemName: isCharging ? "bolt.fill" : "laptopcomputer")
+                .font(.system(size: isCharging ? 8.5 : 9.5, weight: .bold))
+                .foregroundColor(isCharging ? ringColor : .white.opacity(0.95))
+        }
+        .frame(width: size, height: size)
     }
     
     // MARK: - 2. Expanded View (Clean Apple Card with Uniform Snappy Tab Crossfade & Pinned Page Dots)

@@ -55,6 +55,22 @@ public enum TabTransitionDirection: Equatable {
     case none
 }
 
+public enum IdleLeadingIconStyle: String, CaseIterable, Identifiable {
+    case mascot = "Living Mascot"
+    case battery = "Battery Ring"
+    case none = "Clock Only"
+    
+    public var id: String { rawValue }
+    
+    public var shortName: String {
+        switch self {
+        case .mascot: return "Mascot"
+        case .battery: return "Battery"
+        case .none: return "Clock Only"
+        }
+    }
+}
+
 public enum ChatApp: String, CaseIterable, Identifiable {
     case whatsapp = "WhatsApp"
     case telegram = "Telegram"
@@ -410,7 +426,8 @@ public class IslandState: ObservableObject {
             let titleLen = CGFloat(trackTitle.count)
             return (width: max(185, min(270, 155 + titleLen * 3.4)), height: 30)
         } else {
-            if isMascotEnabled {
+            let hasLeadingIcon = (idleLeadingIcon == .mascot && isMascotEnabled) || idleLeadingIcon == .battery
+            if hasLeadingIcon {
                 return (width: 142, height: 28) // Sleek Apple compact notch with comfortable horizontal breathing room
             } else {
                 return (width: 108, height: 28) // Minimalist stealth digital clock notch
@@ -596,6 +613,10 @@ public class IslandState: ObservableObject {
     @Published public var mascotGlowIntensity: Double = 0.85
     private let mascotGlowKey = "notchflow_mascot_glow"
     
+    // Notch Idle Leading Icon Style (Living Mascot, Battery Ring, Clock Only)
+    @Published public var idleLeadingIcon: IdleLeadingIconStyle = .mascot
+    private let idleLeadingIconKey = "notchflow_idle_leading_icon"
+    
     // Living Mascot Configuration & Customization
     @Published public var isMascotEnabled: Bool = true
     private let mascotEnabledKey = "notchflow_mascot_enabled"
@@ -655,6 +676,10 @@ public class IslandState: ObservableObject {
         if UserDefaults.standard.object(forKey: mascotEnabledKey) != nil {
             self.isMascotEnabled = UserDefaults.standard.bool(forKey: mascotEnabledKey)
         }
+        if let rawIcon = UserDefaults.standard.string(forKey: idleLeadingIconKey),
+           let icon = IdleLeadingIconStyle(rawValue: rawIcon) {
+            self.idleLeadingIcon = icon
+        }
         if let rawTheme = UserDefaults.standard.string(forKey: mascotThemeKey),
            let theme = MascotTheme(rawValue: rawTheme) {
             self.mascotTheme = theme
@@ -698,14 +723,14 @@ public class IslandState: ObservableObject {
         checkLaunchAtLoginStatus()
         
         // Zero-flash launch greeting setup: prepare centered Notchy and hide clock from initial frame
-        if self.isMascotEnabled && self.isLaunchGreetingEnabled {
+        if self.isMascotEnabled && self.isLaunchGreetingEnabled && self.idleLeadingIcon == .mascot {
             self.mascotModel.prepareForInstantGreeting()
         }
         
         // Launch Greeting Animation: Trigger smoothly on app start after window is mounted
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) { [weak self] in
             guard let self = self else { return }
-            if self.isMascotEnabled && self.isLaunchGreetingEnabled && !self.isPlaying && !self.isTimerRunning && self.mode == .compact {
+            if self.isMascotEnabled && self.isLaunchGreetingEnabled && self.idleLeadingIcon == .mascot && !self.isPlaying && !self.isTimerRunning && self.mode == .compact {
                 self.mascotModel.triggerGreetingSequence()
             }
         }
@@ -991,6 +1016,16 @@ public class IslandState: ObservableObject {
     public func setMascotEnabled(_ enabled: Bool) {
         isMascotEnabled = enabled
         UserDefaults.standard.set(enabled, forKey: mascotEnabledKey)
+    }
+    
+    public func setIdleLeadingIcon(_ style: IdleLeadingIconStyle) {
+        if style != .mascot {
+            mascotModel.cancelGreeting()
+        }
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
+            idleLeadingIcon = style
+        }
+        UserDefaults.standard.set(style.rawValue, forKey: idleLeadingIconKey)
     }
     
     public func setMascotTheme(_ theme: MascotTheme) {
