@@ -30,6 +30,8 @@
     <string>NotchFlow needs access to Apple Music to display now playing track information and synchronized lyrics.</string>
     <key>NSRemindersUsageDescription</key>
     <string>NotchFlow integrates with Apple Reminders to let you quickly view and manage your tasks directly from the notch.</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>NotchFlow uses AppleScript to retrieve Now Playing track information and artwork from supported media browsers.</string>
 </dict>
 </plist>
 
