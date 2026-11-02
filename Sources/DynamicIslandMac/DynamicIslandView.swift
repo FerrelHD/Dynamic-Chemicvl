@@ -133,6 +133,57 @@ public struct NotchOutlineShape: Shape {
     }
 }
 
+// MARK: - Fluid Genie Curved Suction Effect (macOS-Style Parabolic Swoosh & Funnel Pinch)
+public struct GenieCurvedModifier: AnimatableModifier {
+    public var progress: CGFloat // 0.0 (idle) to 1.0 (fully sucked into trash)
+    public var targetX: CGFloat
+    public var targetY: CGFloat
+    public var targetRotation: Double
+    public var anchor: UnitPoint
+    
+    public var animatableData: CGFloat {
+        get { progress }
+        set { progress = newValue }
+    }
+    
+    public init(
+        progress: CGFloat,
+        targetX: CGFloat,
+        targetY: CGFloat,
+        targetRotation: Double = 14.0,
+        anchor: UnitPoint = .bottomTrailing
+    ) {
+        self.progress = progress
+        self.targetX = targetX
+        self.targetY = targetY
+        self.targetRotation = targetRotation
+        self.anchor = anchor
+    }
+    
+    public func body(content: Content) -> some View {
+        let t: CGFloat = max(0.0, min(1.0, progress))
+        let pi: CGFloat = .pi
+        let halfPi: CGFloat = .pi * 0.5
+        let sinPiT: CGFloat = sin(t * pi)
+        let sinHalfPiT: CGFloat = sin(t * halfPi)
+        
+        let curX: CGFloat = targetX * sinHalfPiT + (targetX * 0.12) * sinPiT
+        let curY: CGFloat = targetY * pow(t, 2.2)
+        
+        let squishX: CGFloat = max(0.01, (1.0 - t * 0.98) * (1.0 - 0.40 * sinPiT))
+        let squishY: CGFloat = max(0.01, (1.0 - t * 0.98) * (1.0 + 0.30 * sinPiT))
+        
+        let rot: Double = targetRotation * Double(sinHalfPiT)
+        let op: Double = t > 0.84 ? Double(max(0.0, (1.0 - t) / 0.16)) : 1.0
+        
+        return content
+            .rotationEffect(.degrees(rot), anchor: anchor)
+            .scaleEffect(x: squishX, y: squishY, anchor: anchor)
+            .offset(x: curX, y: curY)
+            .opacity(op)
+    }
+}
+
 public struct DynamicIslandView: View {
     @ObservedObject var state: IslandState
     @State private var isDropTargeted = false
@@ -2489,19 +2540,15 @@ public struct DynamicIslandView: View {
                             let cardCenterX = 27.0 + CGFloat(idx) * 64.0
                             let targetX = 320.0 - cardCenterX
                             shelfFileCard(url: url, index: idx)
-                                .scaleEffect(
-                                    x: isGenieClearing ? 0.04 : 1.0,
-                                    y: isGenieClearing ? 0.02 : 1.0,
+                                .modifier(GenieCurvedModifier(
+                                    progress: isGenieClearing ? 1.0 : 0.0,
+                                    targetX: targetX,
+                                    targetY: 55.0,
+                                    targetRotation: Double(16 - (idx % 3) * 6),
                                     anchor: .bottomTrailing
-                                )
-                                .rotationEffect(.degrees(isGenieClearing ? Double(14 - (idx % 3) * 6) : 0))
-                                .offset(
-                                    x: isGenieClearing ? targetX : 0,
-                                    y: isGenieClearing ? 55 : 0
-                                )
-                                .opacity(isGenieClearing ? 0.0 : 1.0)
+                                ))
                                 .animation(
-                                    .easeInOut(duration: 0.30).delay(Double(idx) * 0.035),
+                                    .easeInOut(duration: 0.34).delay(Double(idx) * 0.035),
                                     value: isGenieClearing
                                 )
                         }
@@ -2545,11 +2592,11 @@ public struct DynamicIslandView: View {
         }
         
         // Phase 2: Card suction into trash mouth
-        withAnimation(.easeInOut(duration: 0.32).delay(0.04)) {
+        withAnimation(.easeInOut(duration: 0.34).delay(0.04)) {
             isGenieClearing = true
         }
         
-        let totalDelay = 0.36 + Double(min(state.shelfFiles.count, 6)) * 0.035
+        let totalDelay = 0.38 + Double(min(state.shelfFiles.count, 6)) * 0.035
         DispatchQueue.main.asyncAfter(deadline: .now() + totalDelay) {
             state.clearShelf()
             isGenieClearing = false
@@ -2677,18 +2724,15 @@ public struct DynamicIslandView: View {
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
-        .scaleEffect(
-            x: isGenieClearingClipboard ? 0.02 : 1.0,
-            y: isGenieClearingClipboard ? 0.02 : 1.0,
-            anchor: UnitPoint(x: 0.88, y: 1.0)
-        )
-        .offset(
-            x: 0,
-            y: isGenieClearingClipboard ? suctionY : 0
-        )
-        .opacity(isGenieClearingClipboard ? 0.0 : 1.0)
+        .modifier(GenieCurvedModifier(
+            progress: isGenieClearingClipboard ? 1.0 : 0.0,
+            targetX: 35.0,
+            targetY: suctionY,
+            targetRotation: Double(10 - (idx % 3) * 4),
+            anchor: UnitPoint(x: 0.90, y: 1.0)
+        ))
         .animation(
-            .easeInOut(duration: 0.24).delay(staggerDelay),
+            .easeInOut(duration: 0.28).delay(staggerDelay),
             value: isGenieClearingClipboard
         )
     }
@@ -2737,11 +2781,11 @@ public struct DynamicIslandView: View {
         }
         
         // Phase 2: Suction into trash mouth
-        withAnimation(.easeInOut(duration: 0.24).delay(0.04)) {
+        withAnimation(.easeInOut(duration: 0.28).delay(0.04)) {
             isGenieClearingClipboard = true
         }
         
-        let totalDelay = 0.30 + Double(min(state.clipboardHistory.count, 6)) * 0.02
+        let totalDelay = 0.32 + Double(min(state.clipboardHistory.count, 6)) * 0.02
         DispatchQueue.main.asyncAfter(deadline: .now() + totalDelay) {
             state.clearClipboard()
             isGenieClearingClipboard = false
