@@ -15,6 +15,10 @@ public class LyricsService {
     public static let shared = LyricsService()
     
     private var lyricsCache: [String: [LyricLine]] = [:]
+    private var missUntil: [String: Date] = [:]      // lagu yang pasti tidak ada di LRCLIB (disimpan sementara)
+    private var inFlightCallbacks: [String: [(Result<[LyricLine], Error>) -> Void]] = [:] // antrean callback per request
+    private var latestKey = ""                       // permintaan terbaru; hasil permintaan lama tidak dikirim ke UI
+    private var offsets: [String: Double] = UserDefaults.standard.dictionary(forKey: "LyricsUserOffsets") as? [String: Double] ?? [:]
     private let cacheLock = NSLock()
     
     // CharacterSet unreserved RFC 3986 (menjamin '&', '+', dll ter-encode aman dan tidak memotong query)
@@ -51,6 +55,7 @@ public class LyricsService {
 
     private func storeLines(_ key: String, _ lines: [LyricLine]) {
         self.cacheLock.lock()
+        if self.lyricsCache.count >= 100 { self.lyricsCache.removeAll() }   // batas kecil agar memori tetap ringan
         self.lyricsCache[key] = lines
         self.cacheLock.unlock()
     }
@@ -95,29 +100,94 @@ public class LyricsService {
         return title.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
-    private static func bestMatch(_ items: [[String: Any]], title: String, artist: String,
-                                  duration: Double, requireArtist: Bool, tolerance: Double) -> [String: Any]? {
+    // MARK: - Offset manual per lagu
+    
+    /// Kunci yang sama dengan yang dipakai cache lirik, agar offset menempel ke lagu + versi (durasi) yang diputar.
+    public static func trackKey(title: String, artist: String, duration: Double) -> String {
+        let clean = cleanTrackTitle(title)
+        let dur = (duration.isFinite && duration > 0) ? duration : 0
+        return "\(clean.lowercased())|\(artist.lowercased())|\(Int(dur))"
+    }
+    
+    public func userOffset(forKey key: String) -> Double {
+        self.cacheLock.lock()
+        defer { self.cacheLock.unlock() }
+        return self.offsets[key] ?? 0
+    }
+    
+    public func setUserOffset(_ value: Double, forKey key: String) {
+        self.cacheLock.lock()
+        if value == 0 { self.offsets[key] = nil } else { self.offsets[key] = value }
+        UserDefaults.standard.set(self.offsets, forKey: "LyricsUserOffsets")
+        self.cacheLock.unlock()
+    }
+    
+    // MARK: - Pencocokan dengan skor
+    
+    /// Judul + artis harus cocok. Durasi hanya dipakai untuk memilih kandidat terdekat:
+    /// - ada artis terverifikasi: selisih sampai 45 detik masih diterima (video sering punya intro/outro)
+    /// - tanpa artis: tetap ketat (3 detik) karena buktinya lebih sedikit
+    private static func pickLines(_ items: [[String: Any]], title: String, artist: String, duration: Double) -> [LyricLine]? {
         let wantTitle = TitleMatching.core(title)
         guard !wantTitle.isEmpty else { return nil }
+        let needArtist = !artist.isEmpty
         // Tanpa artis DAN tanpa durasi tidak ada cukup bukti: lebih baik tidak cocok sama sekali.
-        if !requireArtist && duration <= 0 { return nil }
+        if !needArtist && duration <= 0 { return nil }
+        let maxGap: Double = needArtist ? 45 : 3
 
-        var best: (item: [String: Any], diff: Double)?
+        var best: (synced: String, diff: Double)?
         for entry in items {
             guard let synced = entry["syncedLyrics"] as? String, !synced.isEmpty else { continue }
             guard TitleMatching.core(entry["trackName"] as? String ?? "") == wantTitle else { continue }
-            if requireArtist {
+            if needArtist {
                 guard TitleMatching.artistsMatch(entry["artistName"] as? String ?? "", artist) else { continue }
             }
             let d = entry["duration"] as? Double ?? 0
             let diff = (duration > 0 && d > 0) ? abs(d - duration) : 0
-            guard diff <= tolerance else { continue }
+            guard diff <= maxGap else { continue }
             if let b = best, b.diff <= diff { continue }
-            best = (entry, diff)
+            best = (synced, diff)
         }
-        return best?.item
+        guard let chosen = best else { return nil }
+        let lines = parseLRC(chosen.synced)
+        return lines.isEmpty ? nil : lines
     }
     
+    // MARK: - Varian query (dicoba berurutan, berhenti di yang pertama berhasil)
+    
+    static func queryVariants(title: String, artist: String) -> [(title: String, artist: String)] {
+        var out: [(title: String, artist: String)] = []
+        func add(_ t: String, _ a: String) {
+            let t = t.trimmingCharacters(in: .whitespacesAndNewlines)
+            let a = a.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !t.isEmpty else { return }
+            if out.contains(where: { $0.title.lowercased() == t.lowercased() && $0.artist.lowercased() == a.lowercased() }) { return }
+            out.append((title: t, artist: a))
+        }
+        
+        add(title, artist)
+        
+        // Tanpa "feat. ..." dan tanpa akhiran versi ("- Remastered 2011", "- Radio Edit", dst.)
+        var simple = title.replacingOccurrences(
+            of: #"(?i)\s*[\(\[]?\s*(?:feat|ft|featuring)\.?\s[^\)\]]*[\)\]]?"#,
+            with: "", options: .regularExpression)
+        simple = simple.replacingOccurrences(
+            of: #"(?i)\s*[-–—]\s*(?:\d{4}\s+)?(?:remaster(?:ed)?(?:\s+\d{4})?|single version|radio edit|mono|stereo|live.*)$"#,
+            with: "", options: .regularExpression)
+        add(simple, artist)
+        
+        // Artis pertama saja untuk "A, B" atau "A & B"
+        if let first = artist.split(whereSeparator: { $0 == "," || $0 == "&" }).first {
+            add(simple, String(first))
+        }
+        
+        // Judul dan artis tertukar (upload berformat "Judul - Artis")
+        if !artist.isEmpty { add(artist, title) }
+        
+        return out
+    }
+    
+    // MARK: - Fetch
     public func fetchLyrics(title: String, artist: String, duration: Double = 0,
                             completion: @escaping (Result<[LyricLine], Error>) -> Void) {
         let clean = LyricsService.cleanTrackTitle(title)
@@ -126,73 +196,92 @@ public class LyricsService {
         guard !clean.isEmpty, clean != "No Media Playing" else { completion(.failure(notFound)); return }
 
         let dur = (duration.isFinite && duration > 0) ? duration : 0
-        let key = "\(clean.lowercased())|\(artist.lowercased())|\(Int(dur))"
-        if let hit = self.cachedLines(key) { completion(.success(hit)); return }
+        let key = LyricsService.trackKey(title: title, artist: artist, duration: dur)
 
-        self.lookup(title: clean, artist: artist, duration: dur) { [weak self] lines in
+        self.cacheLock.lock()
+        self.latestKey = key
+        if let hit = self.lyricsCache[key] {
+            self.cacheLock.unlock()
+            completion(.success(hit))
+            return
+        }
+        if let until = self.missUntil[key], until > Date() {
+            self.cacheLock.unlock()
+            completion(.failure(notFound))
+            return
+        }
+        if self.inFlightCallbacks[key] != nil {
+            self.inFlightCallbacks[key]?.append(completion)
+            self.cacheLock.unlock()
+            return
+        }
+        self.inFlightCallbacks[key] = [completion]
+        self.cacheLock.unlock()
+
+        self.lookup(title: clean, artist: artist, duration: dur) { [weak self] lines, definitive in
             DispatchQueue.main.async {
                 guard let self = self else { return }
+                self.cacheLock.lock()
+                let callbacks = self.inFlightCallbacks.removeValue(forKey: key) ?? []
                 if let lines = lines, !lines.isEmpty {
-                    self.storeLines(key, lines)
-                    completion(.success(lines))
-                } else {
-                    completion(.failure(notFound))
+                    if self.lyricsCache.count >= 100 { self.lyricsCache.removeAll() }
+                    self.lyricsCache[key] = lines
+                } else if definitive {
+                    if self.missUntil.count > 200 { self.missUntil.removeAll() }
+                    self.missUntil[key] = Date().addingTimeInterval(600)
+                }
+                let isLatest = (self.latestKey == key)
+                self.cacheLock.unlock()
+                
+                guard isLatest else { return }
+                let result: Result<[LyricLine], Error> = (lines != nil && !lines!.isEmpty) ? .success(lines!) : .failure(notFound)
+                for cb in callbacks {
+                    cb(result)
                 }
             }
         }
     }
 
+    private struct Attempt {
+        let params: [(String, String)]
+        let title: String
+        let artist: String
+    }
+
+    /// `definitive` = true kalau LRCLIB benar-benar menjawab (bukan gagal jaringan), jadi "tidak ada" boleh diingat.
     private func lookup(title: String, artist: String, duration: Double,
-                        done: @escaping ([LyricLine]?) -> Void) {
+                        done: @escaping ([LyricLine]?, Bool) -> Void) {
         let hasArtist = !artist.isEmpty && artist != "System Audio"
+        let artistForSearch = hasArtist ? artist : ""
 
-        // Deklarasi urut: search -> viaSearch -> viaGet (fungsi lokal tidak boleh saling memanggil ke depan).
-        func search(withArtist: Bool, requireArtist: Bool, tolerance: Double,
-                    onMiss: @escaping () -> Void) {
-            var params = [("track_name", title)]
-            if withArtist { params.append(("artist_name", artist)) }
-            self.getJSON(self.makeURL("https://lrclib.net/api/search", params)) { json in
-                let items = json as? [[String: Any]] ?? []
-                if let m = LyricsService.bestMatch(items, title: title, artist: artist, duration: duration,
-                                                   requireArtist: requireArtist, tolerance: tolerance),
-                   let s = m["syncedLyrics"] as? String {
-                    let lines = LyricsService.parseLRC(s)
-                    if !lines.isEmpty { done(lines); return }
-                }
-                NSLog("[Lyrics] search miss title=%@ artist=%@ dur=%.0f withArtist=%d items=%d",
-                      title, artist, duration, withArtist ? 1 : 0, items.count)
-                onMiss()
-            }
+        var attempts: [Attempt] = []
+        for v in LyricsService.queryVariants(title: title, artist: artistForSearch) {
+            var p: [(String, String)] = [("track_name", v.title)]
+            if !v.artist.isEmpty { p.append(("artist_name", v.artist)) }
+            attempts.append(Attempt(params: p, title: v.title, artist: v.artist))
+        }
+        // Pencarian bebas terakhir ("artis judul"), tetap diverifikasi judul + artis.
+        if hasArtist {
+            attempts.append(Attempt(params: [("q", "\(artist) \(title)")], title: title, artist: artist))
         }
 
-        func viaSearch() {
-            if hasArtist {
-                search(withArtist: true, requireArtist: true, tolerance: 10) {
-                    search(withArtist: false, requireArtist: false, tolerance: 3) { done(nil) }
+        var sawResponse = false
+        func next(_ i: Int) {
+            guard i < attempts.count else { done(nil, sawResponse); return }
+            let a = attempts[i]
+            self.getJSON(self.makeURL("https://lrclib.net/api/search", a.params)) { json in
+                if let items = json as? [[String: Any]] {
+                    sawResponse = true
+                    if let lines = LyricsService.pickLines(items, title: a.title, artist: a.artist, duration: duration) {
+                        done(lines, true)
+                        return
+                    }
+                    NSLog("[Lyrics] miss title=%@ artist=%@ dur=%.0f items=%d", a.title, a.artist, duration, items.count)
                 }
-            } else {
-                search(withArtist: false, requireArtist: false, tolerance: 3) { done(nil) }
+                next(i + 1)
             }
         }
-
-        func viaGet() {
-            guard hasArtist else { viaSearch(); return }
-            var params = [("track_name", title), ("artist_name", artist)]
-            if duration > 0 { params.append(("duration", String(Int(duration.rounded())))) }
-            self.getJSON(self.makeURL("https://lrclib.net/api/get", params)) { json in
-                // /api/get toleransi durasi ±2 detik dan fuzzy; tetap verifikasi hasilnya.
-                if let obj = json as? [String: Any],
-                   let m = LyricsService.bestMatch([obj], title: title, artist: artist, duration: duration,
-                                                   requireArtist: true, tolerance: 5),
-                   let s = m["syncedLyrics"] as? String {
-                    let lines = LyricsService.parseLRC(s)
-                    if !lines.isEmpty { done(lines); return }
-                }
-                viaSearch()
-            }
-        }
-
-        viaGet()
+        next(0)
     }
     
     public static func parseLRC(_ lrc: String) -> [LyricLine] {
