@@ -2035,48 +2035,57 @@ public struct DynamicIslandView: View {
     
     // MARK: - Tab: Calendar & Agenda (Interactive Month & Quick Focus)
     private var calendarTabView: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             // Left Column: Interactive Month Grid (Standardized 6 Weeks x 7 Days)
-            VStack(spacing: 4) {
+            VStack(spacing: 3) {
                 // Month Header (< Month YYYY >)
                 HStack {
-                    Button(action: { state.previousCalendarMonth() }) {
+                    Button(action: {
+                        state.previousCalendarMonth()
+                        state.triggerHaptic(.generic)
+                    }) {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 9.5, weight: .bold))
-                            .foregroundColor(.white.opacity(0.70))
-                            .frame(width: 18, height: 18)
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.white.opacity(0.80))
+                            .frame(width: 22, height: 22)
                             .background(Circle().fill(Color.white.opacity(0.10)))
+                            .contentShape(Circle())
                     }
                     .buttonStyle(.plain)
                     
                     Spacer()
                     
                     Text(monthYearString(from: state.calendarDisplayedMonth))
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .font(.system(size: 12.5, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                     
                     Spacer()
                     
-                    Button(action: { state.nextCalendarMonth() }) {
+                    Button(action: {
+                        state.nextCalendarMonth()
+                        state.triggerHaptic(.generic)
+                    }) {
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 9.5, weight: .bold))
-                            .foregroundColor(.white.opacity(0.70))
-                            .frame(width: 18, height: 18)
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.white.opacity(0.80))
+                            .frame(width: 22, height: 22)
                             .background(Circle().fill(Color.white.opacity(0.10)))
+                            .contentShape(Circle())
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(.horizontal, 2)
+                .padding(.horizontal, 4)
                 
                 // Weekday Labels
                 HStack(spacing: 0) {
                     ForEach(Array(["M", "T", "W", "T", "F", "S", "S"].enumerated()), id: \.offset) { _, day in
                         Text(day)
-                            .font(.system(size: 8, weight: .bold, design: .rounded))
-                            .foregroundColor(.white.opacity(0.40))
+                            .font(.system(size: 9, weight: .bold, design: .rounded))
+                            .foregroundColor(.white.opacity(0.65))
                             .frame(maxWidth: .infinity)
                     }
                 }
+                .padding(.vertical, 1)
                 
                 // Month Grid (Strictly 6 rows of 7 days = 42 cells)
                 let days = calendarDaysForMonth(state.calendarDisplayedMonth)
@@ -2094,30 +2103,31 @@ public struct DynamicIslandView: View {
                                     
                                     Button(action: {
                                         state.calendarSelectedDate = date
+                                        state.triggerHaptic(.generic)
                                     }) {
                                         ZStack(alignment: .center) {
                                             if isToday && isSelected {
                                                 Circle()
                                                     .fill(Color(red: 0.0, green: 0.48, blue: 1.0))
-                                                    .frame(width: 17, height: 17)
+                                                    .frame(width: 20, height: 20)
                                                     .overlay(
                                                         Circle()
-                                                            .stroke(Color.white, lineWidth: 1.3)
+                                                            .stroke(Color.white, lineWidth: 1.4)
                                                     )
                                             } else if isToday {
                                                 Circle()
                                                     .fill(Color(red: 0.0, green: 0.48, blue: 1.0))
-                                                    .frame(width: 17, height: 17)
+                                                    .frame(width: 20, height: 20)
                                             } else if isSelected {
                                                 Circle()
-                                                    .stroke(Color.white.opacity(0.85), lineWidth: 1.2)
-                                                    .frame(width: 17, height: 17)
+                                                    .stroke(Color.white.opacity(0.85), lineWidth: 1.3)
+                                                    .frame(width: 20, height: 20)
                                             }
                                             
-                                            VStack(spacing: 0.5) {
+                                            VStack(spacing: 0) {
                                                 Text("\(dayNum)")
-                                                    .font(.system(size: 8.5, weight: (isToday || isSelected) ? .bold : .medium, design: .rounded))
-                                                    .foregroundColor(isToday ? .white : (isSelected ? .white : .white.opacity(0.85)))
+                                                    .font(.system(size: 10.5, weight: (isToday || isSelected) ? .bold : .medium, design: .rounded))
+                                                    .foregroundColor(isToday ? .white : (isSelected ? .white : .white.opacity(0.90)))
                                                 
                                                 if hasEvent && !isToday {
                                                     Circle()
@@ -2126,23 +2136,21 @@ public struct DynamicIslandView: View {
                                                 }
                                             }
                                         }
-                                        .frame(maxWidth: .infinity)
-                                        .frame(height: 17)
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                        .contentShape(Rectangle())
                                     }
                                     .buttonStyle(.plain)
                                 } else {
                                     Color.clear
-                                        .frame(maxWidth: .infinity)
-                                        .frame(height: 17)
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                                 }
                             }
                         }
+                        .frame(height: 18)
                     }
                 }
-                
-                Spacer(minLength: 0)
             }
-            .frame(width: 200, height: 154)
+            .frame(width: 204, height: 160)
             .padding(8)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -2159,13 +2167,14 @@ public struct DynamicIslandView: View {
                 HStack(alignment: .firstTextBaseline) {
                     VStack(alignment: .leading, spacing: 1) {
                         Text(selectedDateHeaderString(state.calendarSelectedDate))
-                            .font(.system(size: 8.5, weight: .bold, design: .rounded))
+                            .font(.system(size: 9.5, weight: .bold, design: .rounded))
                             .foregroundColor(Color(red: 0.0, green: 0.48, blue: 1.0))
                             .textCase(.uppercase)
+                            .lineLimit(1)
                         
                         TimelineView(.periodic(from: .now, by: 1.0)) { timeline in
                             Text(liveClockString(from: timeline.date))
-                                .font(.system(size: 15, weight: .black, design: .rounded))
+                                .font(.system(size: 16, weight: .heavy, design: .rounded))
                                 .foregroundColor(.white)
                                 .monospacedDigit()
                         }
@@ -2180,21 +2189,23 @@ public struct DynamicIslandView: View {
                         state.addQuickCalendarEvent()
                     })
                     .textFieldStyle(.plain)
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundColor(.white)
                     
                     Button(action: {
                         state.addQuickCalendarEvent()
                     }) {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.system(size: 14, weight: .bold))
                             .foregroundColor(Color(red: 0.0, green: 0.48, blue: 1.0))
+                            .frame(width: 22, height: 22)
+                            .contentShape(Circle())
                     }
                     .buttonStyle(.plain)
                     .disabled(state.newCalendarEventTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
                 .padding(.horizontal, 8)
-                .padding(.vertical, 4)
+                .padding(.vertical, 4.5)
                 .background(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .fill(Color.white.opacity(0.09))
@@ -2202,15 +2213,15 @@ public struct DynamicIslandView: View {
                 
                 // Event List Filtered for Selected Date
                 ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 3) {
+                    VStack(spacing: 4) {
                         let events = state.eventsForSelectedDate
                         if events.isEmpty {
                             VStack(spacing: 2) {
                                 Text("No events for this date")
-                                    .font(.system(size: 9, weight: .medium, design: .rounded))
+                                    .font(.system(size: 9.5, weight: .medium, design: .rounded))
                                     .foregroundColor(.white.opacity(0.40))
                                 Text("Type above & tap [+] to add")
-                                    .font(.system(size: 7.5, weight: .regular, design: .rounded))
+                                    .font(.system(size: 8, weight: .regular, design: .rounded))
                                     .foregroundColor(.white.opacity(0.25))
                             }
                             .frame(maxWidth: .infinity)
@@ -2222,13 +2233,15 @@ public struct DynamicIslandView: View {
                                         state.toggleQuickCalendarEvent(id: ev.id)
                                     }) {
                                         Image(systemName: ev.isDone ? "checkmark.circle.fill" : "circle")
-                                            .font(.system(size: 10, weight: .bold))
-                                            .foregroundColor(ev.isDone ? Color(red: 0.0, green: 0.48, blue: 1.0) : Color.white.opacity(0.40))
+                                            .font(.system(size: 11.5, weight: .bold))
+                                            .foregroundColor(ev.isDone ? Color(red: 0.0, green: 0.48, blue: 1.0) : Color.white.opacity(0.45))
+                                            .frame(width: 18, height: 18)
+                                            .contentShape(Rectangle())
                                     }
                                     .buttonStyle(.plain)
                                     
                                     Text(ev.title)
-                                        .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
                                         .foregroundColor(ev.isDone ? .white.opacity(0.40) : .white)
                                         .strikethrough(ev.isDone, color: .white.opacity(0.40))
                                         .lineLimit(1)
@@ -2239,8 +2252,10 @@ public struct DynamicIslandView: View {
                                         state.deleteQuickCalendarEvent(id: ev.id)
                                     }) {
                                         Image(systemName: "xmark")
-                                            .font(.system(size: 8, weight: .bold))
+                                            .font(.system(size: 8.5, weight: .bold))
                                             .foregroundColor(.white.opacity(0.35))
+                                            .frame(width: 18, height: 18)
+                                            .contentShape(Rectangle())
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -2250,7 +2265,7 @@ public struct DynamicIslandView: View {
                     }
                 }
             }
-            .frame(height: 154)
+            .frame(width: 204, height: 160)
             .padding(8)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
