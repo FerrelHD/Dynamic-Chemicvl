@@ -1,6 +1,22 @@
 import Foundation
 import AppKit
 
+// MARK: - YouTube tab models (hasil baca tab browser)
+
+/// Metadata yang diisi YouTube / YouTube Music sendiri lewat navigator.mediaSession.
+struct YouTubeSession {
+    let title: String
+    let artworkURL: String?
+    let isPlaying: Bool
+}
+
+struct YouTubeTab {
+    let videoId: String?
+    let isMusic: Bool
+    let tabTitle: String
+    let session: YouTubeSession?   // nil kalau "Allow JavaScript from Apple Events" belum aktif
+}
+
 public class MediaService {
     public static let shared = MediaService()
     
@@ -15,18 +31,26 @@ public class MediaService {
     
     private var pollingTimer: DispatchSourceTimer?
     private let queryQueue = DispatchQueue(label: "com.dynamicisland.mediaquery", qos: .utility)
-    private var onlineArtworkCache: [String: Data] = [:]
-    private let artCacheLock = NSLock()
+    
+    // Cache gambar: NSCache otomatis membuang yang lama (maks 40 gambar) dan ikut dikosongkan saat memori sempit.
+    private let artCache: NSCache<NSString, NSData> = {
+        let c = NSCache<NSString, NSData>()
+        c.countLimit = 40
+        return c
+    }()
     private func artCached(_ key: String) -> Data? {
-        self.artCacheLock.lock()
-        defer { self.artCacheLock.unlock() }
-        return self.onlineArtworkCache[key]
+        artCache.object(forKey: key as NSString).map { $0 as Data }
     }
     private func artStore(_ key: String, _ data: Data) {
-        self.artCacheLock.lock()
-        self.onlineArtworkCache[key] = data
-        self.artCacheLock.unlock()
+        artCache.setObject(data as NSData, forKey: key as NSString, cost: data.count)
     }
+    
+    // Status pencarian cover: cegah pencarian ganda untuk lagu yang sama dan jangan ulang terus kalau baru saja gagal.
+    private let artStateLock = NSLock()
+    private var artInFlight = Set<String>()
+    private var artMissUntil: [String: Date] = [:]
+    private var latestArtKey = ""
+    
     private static let appleScriptQueue = DispatchQueue(label: "com.dynamicisland.applescript", qos: .utility)
     
     // Command codes
@@ -303,7 +327,7 @@ public class MediaService {
         }
     }
     
-    // MARK: - Fallback HD Album / Video Artwork Fetcher (Spotify CDN, YouTube HD, Verified iTunes)
+    // MARK: - Cover art: Spotify -> YouTube media session -> YouTube thumbnail -> Deezer -> iTunes
     public func fetchOnlineArtwork(
         title: String,
         artist: String,
@@ -316,26 +340,67 @@ public class MediaService {
         let cacheKey = "\(clean.lowercased())_\(cleanArt.lowercased())_\(album.lowercased())"
         if let cached = self.artCached(cacheKey) { completion(cached); return }
 
+        self.artStateLock.lock()
+        self.latestArtKey = cacheKey
+        if let until = self.artMissUntil[cacheKey], until > Date() {
+            self.artStateLock.unlock()
+            completion(nil)
+            return
+        }
+        if self.artInFlight.contains(cacheKey) {
+            self.artStateLock.unlock()
+            return
+        }
+        self.artInFlight.insert(cacheKey)
+        self.artStateLock.unlock()
+
+        let finish: (Data?) -> Void = { [weak self] data in
+            guard let self = self else { return }
+            self.artStateLock.lock()
+            self.artInFlight.remove(cacheKey)
+            if data == nil {
+                if self.artMissUntil.count > 200 { self.artMissUntil.removeAll() }
+                self.artMissUntil[cacheKey] = Date().addingTimeInterval(20)
+            }
+            let isLatest = (self.latestArtKey == cacheKey)
+            self.artStateLock.unlock()
+            guard isLatest else { return }
+            DispatchQueue.main.async { completion(data) }
+        }
+
         MediaService.appleScriptQueue.async { [weak self] in
             guard let self = self else { return }
             
-            // 1. Try Spotify Direct Official CDN if Spotify desktop is running
-            if MediaService.isSpotifyRunning() {
-                if let spotifyArtUrl = MediaService.getSpotifyArtworkURL(), let url = URL(string: spotifyArtUrl) {
-                    URLSession.shared.dataTask(with: url) { [weak self] data, resp, _ in
-                        if let http = resp as? HTTPURLResponse, http.statusCode == 200, let data = data, !data.isEmpty {
-                            self?.artStore(cacheKey, data)
-                            DispatchQueue.main.async { completion(data) }
-                            return
-                        }
-                        self?.proceedWithBrowserAndiTunes(clean: clean, cleanArt: cleanArt, album: album, duration: duration, cacheKey: cacheKey, completion: completion)
-                    }.resume()
-                    return
+            // 1. Spotify desktop (kalau sedang jalan): URL resmi dari Spotify
+            if MediaService.isSpotifyRunning(),
+               let spotifyArtUrl = MediaService.getSpotifyArtworkURL(),
+               let url = URL(string: spotifyArtUrl) {
+                self.downloadImage(url) { [weak self] data in
+                    guard let self = self else { return }
+                    if let data = data {
+                        self.artStore(cacheKey, data)
+                        finish(data)
+                    } else {
+                        self.proceedWithBrowserAndiTunes(clean: clean, cleanArt: cleanArt, album: album, duration: duration, cacheKey: cacheKey, completion: finish)
+                    }
                 }
+                return
             }
             
-            self.proceedWithBrowserAndiTunes(clean: clean, cleanArt: cleanArt, album: album, duration: duration, cacheKey: cacheKey, completion: completion)
+            self.proceedWithBrowserAndiTunes(clean: clean, cleanArt: cleanArt, album: album, duration: duration, cacheKey: cacheKey, completion: finish)
         }
+    }
+
+    private func downloadImage(_ url: URL, timeout: TimeInterval = 4, completion: @escaping (Data?) -> Void) {
+        var req = URLRequest(url: url)
+        req.timeoutInterval = timeout
+        URLSession.shared.dataTask(with: req) { data, resp, _ in
+            if let http = resp as? HTTPURLResponse, http.statusCode == 200, let data = data, !data.isEmpty {
+                completion(data)
+            } else {
+                completion(nil)
+            }
+        }.resume()
     }
 
     private func proceedWithBrowserAndiTunes(
@@ -346,28 +411,92 @@ public class MediaService {
         cacheKey: String,
         completion: @escaping (Data?) -> Void
     ) {
-        let videoId = MediaService.extractActiveYouTubeVideoId(matching: clean)
-        DispatchQueue.main.async { [weak self] in
+        MediaService.appleScriptQueue.async { [weak self] in
             guard let self = self else { return }
-            if let id = videoId {
-                let ytKey = "yt_\(id)"
-                if let c = self.artCached(ytKey) { completion(c); return }
-                self.fetchYouTubeThumbnail(videoId: id) { [weak self] data in
-                    guard let self = self else { return }
-                    if let data = data, !data.isEmpty {
-                        self.artStore(ytKey, data)
-                        self.artStore(cacheKey, data)
-                        completion(data)
-                    } else {
-                        self.beginVerifiedSearch(clean: clean, cleanArt: cleanArt, album: album,
-                                                 duration: duration, cacheKey: cacheKey, completion: completion)
-                    }
-                }
-            } else {
-                self.beginVerifiedSearch(clean: clean, cleanArt: cleanArt, album: album,
-                                         duration: duration, cacheKey: cacheKey, completion: completion)
+            let tab = MediaService.findYouTubeTab(matching: clean)
+
+            let fallback: () -> Void = { [weak self] in
+                self?.thumbnailOrSearch(tab: tab, clean: clean, cleanArt: cleanArt, album: album,
+                                        duration: duration, cacheKey: cacheKey, completion: completion)
+            }
+
+            // 2. Gambar yang diberikan YouTube Music sendiri (sudah terverifikasi cocok dengan judul lagu)
+            guard let artString = tab?.session?.artworkURL,
+                  let url = URL(string: MediaService.upgradedArtworkURL(artString)) else {
+                fallback()
+                return
+            }
+
+            self.downloadImage(url) { [weak self] data in
+                guard let self = self else { return }
+                guard let data = data else { fallback(); return }
+                let square = MediaService.squareCropped(data)
+                self.artStore(cacheKey, square)
+                completion(square)
             }
         }
+    }
+
+    // 3. Thumbnail video dari tab yang cocok (dipotong jadi kotak), kalau tidak ada -> 4. Deezer lalu iTunes
+    private func thumbnailOrSearch(
+        tab: YouTubeTab?,
+        clean: String,
+        cleanArt: String,
+        album: String,
+        duration: Double,
+        cacheKey: String,
+        completion: @escaping (Data?) -> Void
+    ) {
+        guard let id = tab?.videoId else {
+            self.beginVerifiedSearch(clean: clean, cleanArt: cleanArt, album: album,
+                                     duration: duration, cacheKey: cacheKey, completion: completion)
+            return
+        }
+        let ytKey = "yt_\(id)"
+        if let c = self.artCached(ytKey) {
+            self.artStore(cacheKey, c)
+            completion(c)
+            return
+        }
+        self.fetchYouTubeThumbnail(videoId: id) { [weak self] data in
+            guard let self = self else { return }
+            guard let data = data, !data.isEmpty else {
+                self.beginVerifiedSearch(clean: clean, cleanArt: cleanArt, album: album,
+                                         duration: duration, cacheKey: cacheKey, completion: completion)
+                return
+            }
+            DispatchQueue.global(qos: .utility).async {
+                let square = MediaService.squareCropped(data)
+                self.artStore(ytKey, square)
+                self.artStore(cacheKey, square)
+                completion(square)
+            }
+        }
+    }
+
+    /// YouTube Music memberi URL gambar kecil (mis. `=w60-h60-l90-rj`). Naikkan ke 600px.
+    private static func upgradedArtworkURL(_ s: String) -> String {
+        guard s.contains("googleusercontent.com") || s.contains("ggpht.com") else { return s }
+        return s.replacingOccurrences(of: #"=(?:w\d+-h\d+|s\d+)[-\w]*$"#, with: "=w600-h600-l90-rj", options: .regularExpression)
+    }
+
+    /// Potong tengah jadi persegi. Thumbnail 4:3 (hqdefault) dibuang dulu garis hitam atas-bawahnya.
+    private static func squareCropped(_ data: Data) -> Data {
+        guard let img = NSImage(data: data),
+              let cg = img.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return data }
+        let w = cg.width, h = cg.height
+        guard w > 0, h > 0, w != h else { return data }
+
+        let ratio = Double(w) / Double(h)
+        let letterboxed = ratio > 1.30 && ratio < 1.36          // 4:3 berisi video 16:9 + bar hitam
+        let contentH = letterboxed ? Int(Double(w) * 9.0 / 16.0) : h
+        let contentY = (h - contentH) / 2
+        let side = min(w, contentH)
+        let rect = CGRect(x: (w - side) / 2, y: contentY + (contentH - side) / 2, width: side, height: side)
+
+        guard let cropped = cg.cropping(to: rect) else { return data }
+        let rep = NSBitmapImageRep(cgImage: cropped)
+        return rep.representation(using: .jpeg, properties: [.compressionFactor: 0.9]) ?? data
     }
     
     // MARK: - Native Spotify Official CDN Resolver (Zero Guesswork)
@@ -432,73 +561,119 @@ public class MediaService {
         }, completion: completion)
     }
     
-    // MARK: - Native YouTube / YouTube Music Video ID Extractor (Multi-Browser Support)
-    public static func extractActiveYouTubeVideoId(matching trackTitle: String) -> String? {
-        let browserBundleIDs: [(bundleID: String, appName: String, titleProp: String)] = [
-            ("com.google.Chrome", "Google Chrome", "title"),
-            ("com.apple.Safari", "Safari", "name"),
-            ("company.thebrowser.Arc", "Arc", "title"),
-            ("com.brave.Browser", "Brave Browser", "title"),
-            ("com.microsoft.edgemac", "Microsoft Edge", "title"),
-            ("com.google.Chrome.canary", "Google Chrome Canary", "title")
-        ]
-        
+    // MARK: - YouTube / YouTube Music tab reader (Chrome, Brave, Arc, Edge, Safari)
+    private static let browsers: [(bundleID: String, appName: String, titleProp: String, isSafari: Bool)] = [
+        ("com.google.Chrome", "Google Chrome", "title", false),
+        ("com.apple.Safari", "Safari", "name", true),
+        ("company.thebrowser.Arc", "Arc", "title", false),
+        ("com.brave.Browser", "Brave Browser", "title", false),
+        ("com.microsoft.edgemac", "Microsoft Edge", "title", false),
+        ("com.google.Chrome.canary", "Google Chrome Canary", "title", false)
+    ]
+    
+    private static let sessionJS = "(function(){var m=navigator.mediaSession&&navigator.mediaSession.metadata;var v=document.querySelector('video');var a=m&&m.artwork&&m.artwork.length?m.artwork[m.artwork.length-1].src:'';return JSON.stringify({t:m?m.title:'',art:a,pl:v?!v.paused:false})})()"
+    
+    private static func parseSession(_ json: String) -> YouTubeSession? {
+        let trimmed = json.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              let data = trimmed.data(using: .utf8),
+              let o = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        let art = o["art"] as? String ?? ""
+        return YouTubeSession(
+            title: o["t"] as? String ?? "",
+            artworkURL: art.hasPrefix("http") ? art : nil,
+            isPlaying: o["pl"] as? Bool ?? false
+        )
+    }
+    
+    private static func videoId(from url: URL) -> String? {
+        if let comps = URLComponents(url: url, resolvingAgainstBaseURL: false),
+           let v = comps.queryItems?.first(where: { $0.name == "v" })?.value, !v.isEmpty {
+            return v
+        }
+        if url.host?.contains("youtu.be") == true {
+            let id = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            return id.isEmpty ? nil : id
+        }
+        if url.path.hasPrefix("/shorts/") {
+            let id = url.path.replacingOccurrences(of: "/shorts/", with: "")
+            return id.isEmpty ? nil : id
+        }
+        return nil
+    }
+    
+    static func findYouTubeTab(matching trackTitle: String) -> YouTubeTab? {
         let want = TitleMatching.core(trackTitle)
+        guard !want.isEmpty else { return nil }
         
-        for browser in browserBundleIDs {
-            guard !NSRunningApplication.runningApplications(withBundleIdentifier: browser.bundleID).isEmpty else { continue }
+        for b in browsers {
+            guard !NSRunningApplication.runningApplications(withBundleIdentifier: b.bundleID).isEmpty else { continue }
+            
+            let runJS = b.isSafari
+                ? "do JavaScript \"\(sessionJS)\" in (tab i of w)"
+                : "execute (tab i of w) javascript \"\(sessionJS)\""
             
             let script = """
-            tell application "\(browser.appName)"
+            tell application "\(b.appName)"
                 set out to ""
                 repeat with w in windows
                     set urls to URL of tabs of w
-                    set titles to \(browser.titleProp) of tabs of w
+                    set titles to \(b.titleProp) of tabs of w
                     repeat with i from 1 to count of urls
                         set u to item i of urls
                         if u contains "youtube.com" or u contains "youtu.be" then
-                            set out to out & u & tab & (item i of titles) & linefeed
+                            set js to ""
+                            try
+                                set js to \(runJS)
+                            end try
+                            if js is missing value then set js to ""
+                            set out to out & u & tab & (item i of titles) & tab & js & linefeed
                         end if
                     end repeat
                 end repeat
                 return out
             end tell
             """
+            
             var error: NSDictionary?
             guard let appleScript = NSAppleScript(source: script) else { continue }
             let output = appleScript.executeAndReturnError(&error).stringValue ?? ""
             if error != nil || output.isEmpty { continue }
-
+            
+            var tabs: [YouTubeTab] = []
             for line in output.components(separatedBy: "\n") {
                 let parts = line.components(separatedBy: "\t")
                 guard parts.count >= 2, let url = URL(string: parts[0]) else { continue }
-                
-                var videoID: String? = nil
-                if let comps = URLComponents(url: url, resolvingAgainstBaseURL: false) {
-                    videoID = comps.queryItems?.first(where: { $0.name == "v" })?.value
+                tabs.append(YouTubeTab(
+                    videoId: videoId(from: url),
+                    isMusic: url.host?.contains("music.youtube.com") == true,
+                    tabTitle: parts[1],
+                    session: parts.count >= 3 ? parseSession(parts[2]) : nil
+                ))
+            }
+            if tabs.isEmpty { continue }
+            if tabs.allSatisfy({ $0.session == nil }) {
+                NSLog("[Media] Tab YouTube ditemukan di %@ tapi data mediaSession kosong. Aktifkan 'Allow JavaScript from Apple Events' di menu browser.", b.appName)
+            }
+            
+            let verified = tabs.filter { t in
+                if let s = t.session {
+                    return TitleMatching.core(s.title) == want || TitleMatching.normalize(s.title).contains(want)
                 }
-                if videoID == nil && url.host?.contains("youtu.be") == true {
-                    let pathId = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-                    if !pathId.isEmpty { videoID = pathId }
-                }
-                
-                guard let v = videoID, !v.isEmpty else { continue }
-                
-                let tabTitle = parts[1]
-                if !want.isEmpty && TitleMatching.normalize(tabTitle).contains(want) {
-                    return v
-                }
-                // Fallback for single YouTube tab where tab title is "YouTube Music" or "YouTube"
-                if tabTitle.lowercased().contains("youtube") {
-                    return v
-                }
+                return TitleMatching.normalize(t.tabTitle).contains(want)
+            }
+            if let best = verified.first(where: { $0.session?.isPlaying == true }) ?? verified.first {
+                return best
             }
         }
         return nil
     }
     
+    public static func extractActiveYouTubeVideoId(matching trackTitle: String) -> String? {
+        findYouTubeTab(matching: trackTitle)?.videoId
+    }
+    
     public func fetchYouTubeThumbnail(videoId: String, completion: @escaping (Data?) -> Void) {
-        // First try HD maxresdefault, fallback to hqdefault
         let maxresUrl = URL(string: "https://img.youtube.com/vi/\(videoId)/maxresdefault.jpg")!
         let hqUrl = URL(string: "https://img.youtube.com/vi/\(videoId)/hqdefault.jpg")!
         
@@ -534,8 +709,6 @@ public class MediaService {
         completion: @escaping (Data?) -> Void
     ) {
         guard index < candidates.count else {
-            // Both Deezer and iTunes exhausted without verified match: return nil.
-            // Better to show no cover than an embarrassing wrong thumbnail.
             DispatchQueue.main.async { completion(nil) }
             return
         }
@@ -583,7 +756,6 @@ public class MediaService {
                     guard (normalTitleMatch && normalArtistMatch) || (invertedTitleMatch && invertedArtistMatch) else { continue }
                     
                     let ms = (item["trackTimeMillis"] as? Double) ?? 0
-                    // Relax tolerance to 75s when artist is verified, allowing music videos with cinematic intros/outros
                     let tolerance: Double = isGenericArtist ? 10 : 75
                     if duration > 0, ms > 0, abs(ms / 1000 - duration) > tolerance { continue }
                     if isGenericArtist && duration <= 0 { continue }
@@ -592,7 +764,6 @@ public class MediaService {
                 }
             }
             
-            // TIDAK ADA fallback "artis ATAU judul cocok, ambil hasil pertama". Cover kosong lebih baik daripada cover lagu lain.
             guard let item = matchedItem, let artUrlStr = item["artworkUrl100"] as? String else {
                 self.searchVerifiedArtwork(candidates: candidates, index: index + 1, cleanTitle: cleanTitle, cleanArt: cleanArt, album: album, duration: duration, cacheKey: cacheKey, completion: completion)
                 return
@@ -657,11 +828,9 @@ public class MediaService {
                 let artistDict = item["artist"] as? [String: Any]
                 let artistName = artistDict?["name"] as? String ?? ""
                 
-                // Normal match: trackName == cleanTitle AND artist == cleanArt
                 let normalTitleMatch = (itemCoreTitle == wantTitle)
                 let normalArtistMatch = isGenericArtist ? true : TitleMatching.artistsMatch(artistName, cleanArt)
                 
-                // Inverted match: trackName == cleanArt AND artist == cleanTitle (handles "Title - Artist" uploads)
                 let invertedTitleMatch = !isGenericArtist && (itemCoreTitle == wantArtist)
                 let invertedArtistMatch = !isGenericArtist && TitleMatching.artistsMatch(artistName, cleanTitle)
                 
@@ -669,7 +838,6 @@ public class MediaService {
                 
                 let trackDur = item["duration"] as? Double ?? 0
                 if duration > 0, trackDur > 0 {
-                    // Relax tolerance to 75s when artist is verified, allowing music videos with cinematic intros/outros
                     let tolerance: Double = isGenericArtist ? 10 : 75
                     if abs(trackDur - duration) > tolerance { continue }
                 }
