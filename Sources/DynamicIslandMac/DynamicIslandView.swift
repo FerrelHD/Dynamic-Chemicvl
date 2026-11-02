@@ -614,7 +614,6 @@ public struct DynamicIslandView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
     
-    // MARK: - Chat Notification Content (Matching Dynamic Island Reference)
     // MARK: - Chat Notification Content (iOS Pill HUD Architecture, Zero Clipping)
     private func chatNotificationContent(chat: ChatNotification) -> some View {
         Button(action: {
@@ -2071,7 +2070,7 @@ public struct DynamicIslandView: View {
                 
                 // Weekday Labels
                 HStack(spacing: 0) {
-                    ForEach(["M", "T", "W", "T", "F", "S", "S"], id: \.self) { day in
+                    ForEach(Array(["M", "T", "W", "T", "F", "S", "S"].enumerated()), id: \.offset) { _, day in
                         Text(day)
                             .font(.system(size: 8, weight: .bold, design: .rounded))
                             .foregroundColor(.white.opacity(0.40))
@@ -2085,7 +2084,8 @@ public struct DynamicIslandView: View {
                     ForEach(0..<6, id: \.self) { row in
                         HStack(spacing: 0) {
                             ForEach(0..<7, id: \.self) { col in
-                                let dateOpt = days[row * 7 + col]
+                                let idx = row * 7 + col
+                                let dateOpt = idx < days.count ? days[idx] : nil
                                 if let date = dateOpt {
                                     let isToday = Calendar.current.isDateInToday(date)
                                     let isSelected = Calendar.current.isDate(state.calendarSelectedDate, inSameDayAs: date)
@@ -2263,41 +2263,61 @@ public struct DynamicIslandView: View {
         }
     }
     
+    private enum DateFormatters {
+        static let shortTime: DateFormatter = {
+            let f = DateFormatter()
+            f.dateFormat = "HH:mm"
+            return f
+        }()
+        static let monthYear: DateFormatter = {
+            let f = DateFormatter()
+            f.dateFormat = "MMMM yyyy"
+            return f
+        }()
+        static let dayMonth: DateFormatter = {
+            let f = DateFormatter()
+            f.dateFormat = "EEEE, d MMM"
+            return f
+        }()
+        static let shortDayMonth: DateFormatter = {
+            let f = DateFormatter()
+            f.dateFormat = "d MMM"
+            return f
+        }()
+        static let liveClock: DateFormatter = {
+            let f = DateFormatter()
+            f.dateFormat = "HH:mm:ss"
+            return f
+        }()
+    }
+
     private func monthYearString(from date: Date) -> String {
-        let f = DateFormatter()
-        f.dateFormat = "MMMM yyyy"
-        return f.string(from: date)
+        DateFormatters.monthYear.string(from: date)
     }
     
     private func selectedDateHeaderString(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.dateFormat = "EEEE, d MMM"
         let isToday = Calendar.current.isDateInToday(date)
-        return isToday ? "TODAY • \(f.string(from: date))" : f.string(from: date)
+        let str = DateFormatters.dayMonth.string(from: date)
+        return isToday ? "TODAY • \(str)" : str
     }
     
     private func shortDateString(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.dateFormat = "d MMM"
-        let isToday = Calendar.current.isDateInToday(date)
-        return isToday ? "Today" : f.string(from: date)
+        Calendar.current.isDateInToday(date) ? "Today" : DateFormatters.shortDayMonth.string(from: date)
     }
     
     private func todayDateHeaderString() -> String {
-        let f = DateFormatter()
-        f.dateFormat = "EEEE, d MMM"
-        return f.string(from: Date())
+        DateFormatters.dayMonth.string(from: Date())
     }
     
     private func liveClockString(from date: Date) -> String {
-        let f = DateFormatter()
-        f.dateFormat = "HH:mm:ss"
-        return f.string(from: date)
+        DateFormatters.liveClock.string(from: date)
     }
     
     private func calendarDaysForMonth(_ monthDate: Date) -> [Date?] {
         let cal = Calendar.current
-        guard let monthInterval = cal.dateInterval(of: .month, for: monthDate) else { return [] }
+        guard let monthInterval = cal.dateInterval(of: .month, for: monthDate) else {
+            return Array(repeating: nil, count: 42)
+        }
         let firstDay = monthInterval.start
         let weekday = cal.component(.weekday, from: firstDay)
         let mondayOffset = (weekday + 5) % 7
@@ -2764,9 +2784,7 @@ public struct DynamicIslandView: View {
     }
     
     private var currentShortTime: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
-        return formatter.string(from: Date())
+        DateFormatters.shortTime.string(from: Date())
     }
 }
 

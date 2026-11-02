@@ -155,19 +155,10 @@ public class NotificationListenerService {
     }
     
     private func locateNotificationCenterDatabase() -> String? {
-        let base = "/var/folders"
-        let fm = FileManager.default
-        guard let subdirs1 = try? fm.contentsOfDirectory(atPath: base) else { return nil }
-        
-        for dir1 in subdirs1 {
-            let path1 = "\(base)/\(dir1)"
-            guard let subdirs2 = try? fm.contentsOfDirectory(atPath: path1) else { continue }
-            for dir2 in subdirs2 {
-                let candidate = "\(path1)/\(dir2)/0/com.apple.notificationcenter/db2/db"
-                if fm.fileExists(atPath: candidate) {
-                    return candidate
-                }
-            }
+        let userDir = (NSTemporaryDirectory() as NSString).deletingLastPathComponent
+        let candidate = (userDir as NSString).appendingPathComponent("0/com.apple.notificationcenter/db2/db")
+        if FileManager.default.fileExists(atPath: candidate) {
+            return candidate
         }
         return nil
     }

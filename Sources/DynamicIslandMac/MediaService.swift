@@ -13,7 +13,7 @@ public class MediaService {
     private var sendCommandPtr: MRSendCommandFn?
     private var setElapsedTimePtr: MRSetElapsedTimeFn?
     
-    private var isPolling = false
+    private var pollingTimer: DispatchSourceTimer?
     private let queryQueue = DispatchQueue(label: "com.dynamicisland.mediaquery", qos: .utility)
     private var onlineArtworkCache: [String: Data] = [:]
     private let artCacheLock = NSLock()
@@ -208,19 +208,20 @@ public class MediaService {
     }
     
     public func startMonitoring(onChange: @escaping (UniversalMediaInfo) -> Void) {
-        guard !isPolling else { return }
-        isPolling = true
+        guard pollingTimer == nil else { return }
         
-        queryQueue.async { [weak self] in
-            while self?.isPolling == true {
-                self?.fetchMediaInfo(completion: onChange)
-                Thread.sleep(forTimeInterval: 1.0)
-            }
+        let timer = DispatchSource.makeTimerSource(queue: queryQueue)
+        timer.schedule(deadline: .now(), repeating: 1.0, leeway: .milliseconds(100))
+        timer.setEventHandler { [weak self] in
+            self?.fetchMediaInfo(completion: onChange)
         }
+        timer.resume()
+        self.pollingTimer = timer
     }
     
     public func stopMonitoring() {
-        isPolling = false
+        pollingTimer?.cancel()
+        pollingTimer = nil
     }
     
     public func fetchMediaInfo(completion: @escaping (UniversalMediaInfo) -> Void) {

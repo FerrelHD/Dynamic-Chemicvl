@@ -314,6 +314,8 @@ public class IslandState: ObservableObject {
             updateWaveformTimer()
             if activeTab == .devices {
                 refreshConnectedDevices()
+            } else if activeTab == .shelf {
+                ensureAirDropMonitoring()
             } else if activeTab == .stats && mode == .expanded {
                 startSystemStatsTimer()
             } else {
@@ -733,10 +735,6 @@ public class IslandState: ObservableObject {
             if self.isMascotEnabled && self.isLaunchGreetingEnabled && self.idleLeadingIcon == .mascot && !self.isPlaying && !self.isTimerRunning && self.mode == .compact {
                 self.mascotModel.triggerGreetingSequence()
             }
-        }
-        
-        DispatchQueue.global(qos: .utility).async { [weak self] in
-            self?.startAirDropMonitoring()
         }
         
         DispatchQueue.main.async { [weak self] in
@@ -1932,6 +1930,13 @@ public class IslandState: ObservableObject {
     private var downloadsFolderSource: DispatchSourceFileSystemObject?
     private var lastKnownDownloadsFiles: Set<String> = []
     
+    public func ensureAirDropMonitoring() {
+        guard downloadsFolderSource == nil else { return }
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            self?.startAirDropMonitoring()
+        }
+    }
+    
     public func startAirDropMonitoring() {
         guard let downloadsURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first else { return }
         
@@ -2248,17 +2253,19 @@ public class IslandState: ObservableObject {
     @Published public var newCalendarEventTime: String = ""
     private let calendarEventsStorageKey = "DynamicIsland_QuickCalendarEvents"
     
-    public var selectedDateString: String {
+    private static let yyyyMMddFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
-        return f.string(from: calendarSelectedDate)
+        return f
+    }()
+    
+    public var selectedDateString: String {
+        Self.yyyyMMddFormatter.string(from: calendarSelectedDate)
     }
     
     public var eventsForSelectedDate: [QuickCalendarEvent] {
         let target = selectedDateString
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        let todayStr = f.string(from: Date())
+        let todayStr = Self.yyyyMMddFormatter.string(from: Date())
         return quickCalendarEvents.filter { ev in
             if ev.dateString.isEmpty {
                 return target == todayStr
@@ -2268,9 +2275,7 @@ public class IslandState: ObservableObject {
     }
     
     public func hasEvents(on date: Date) -> Bool {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        let dStr = f.string(from: date)
+        let dStr = Self.yyyyMMddFormatter.string(from: date)
         return quickCalendarEvents.contains { $0.dateString == dStr }
     }
     
@@ -2279,9 +2284,7 @@ public class IslandState: ObservableObject {
            let events = try? JSONDecoder().decode([QuickCalendarEvent].self, from: data) {
             self.quickCalendarEvents = events
         } else {
-            let f = DateFormatter()
-            f.dateFormat = "yyyy-MM-dd"
-            let todayStr = f.string(from: Date())
+            let todayStr = Self.yyyyMMddFormatter.string(from: Date())
             self.quickCalendarEvents = [
                 QuickCalendarEvent(title: "NotchFlow v1.4 Review", dateString: todayStr, timeString: "19:00", isDone: false)
             ]
