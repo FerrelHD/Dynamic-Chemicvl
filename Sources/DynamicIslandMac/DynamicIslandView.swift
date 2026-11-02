@@ -1113,7 +1113,7 @@ public struct DynamicIslandView: View {
                 .padding(.bottom, 14)
                 .zIndex(2)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(width: islandWidth, height: islandHeight, alignment: .top)
         .contentShape(Rectangle())
     }
     
@@ -1130,7 +1130,7 @@ public struct DynamicIslandView: View {
                         .frame(width: isCurrent ? 14 : 5, height: 5)
                         .shadow(color: isCurrent ? Color.white.opacity(0.35) : Color.clear, radius: 2)
                         .animation(state.animationStyle.springAnimation, value: isCurrent)
-                        .frame(width: isCurrent ? 20 : 16, height: 18)
+                        .frame(width: 18, height: 18)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -2150,8 +2150,9 @@ public struct DynamicIslandView: View {
                     }
                 }
             }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
             .frame(width: 204, height: 160)
-            .padding(8)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color.white.opacity(0.06))
@@ -2265,8 +2266,9 @@ public struct DynamicIslandView: View {
                     }
                 }
             }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
             .frame(width: 204, height: 160)
-            .padding(8)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color.white.opacity(0.06))
@@ -2636,7 +2638,7 @@ public struct DynamicIslandView: View {
                     .foregroundColor(.white.opacity(0.50))
             }
         }
-        .frame(height: 96)
+        .frame(height: 118)
     }
     
     private func clipboardItemRow(item: String, idx: Int) -> some View {
@@ -2645,6 +2647,10 @@ public struct DynamicIslandView: View {
         let clipIcon = isUrl ? "link" : (isCode ? "chevron.left.forwardslash.chevron.right" : "doc.text")
         let iconColor = isUrl ? Color(red: 0.20, green: 0.60, blue: 1.0) : (isCode ? Color.orange : Color.white.opacity(0.50))
         let isCopied = state.copiedClipIndex == idx
+        
+        let suctionY = max(12.0, 129.0 - (CGFloat(idx) * 30.5 + 26.0))
+        let reverseIdx = max(0, min(5, (state.clipboardHistory.count - 1) - idx))
+        let staggerDelay = Double(reverseIdx) * 0.02
         
         return Button(action: {
             state.copyClip(at: idx)
@@ -2672,17 +2678,17 @@ public struct DynamicIslandView: View {
         }
         .buttonStyle(.plain)
         .scaleEffect(
-            x: isGenieClearingClipboard ? 0.04 : 1.0,
+            x: isGenieClearingClipboard ? 0.02 : 1.0,
             y: isGenieClearingClipboard ? 0.02 : 1.0,
-            anchor: .bottomTrailing
+            anchor: UnitPoint(x: 0.88, y: 1.0)
         )
         .offset(
-            x: isGenieClearingClipboard ? 165 : 0,
-            y: isGenieClearingClipboard ? CGFloat(50 + (6 - min(idx, 6)) * 6) : 0
+            x: 0,
+            y: isGenieClearingClipboard ? suctionY : 0
         )
         .opacity(isGenieClearingClipboard ? 0.0 : 1.0)
         .animation(
-            .easeInOut(duration: 0.26).delay(Double(min(idx, 6)) * 0.025),
+            .easeInOut(duration: 0.24).delay(staggerDelay),
             value: isGenieClearingClipboard
         )
     }
@@ -2699,7 +2705,7 @@ public struct DynamicIslandView: View {
                         }
                     }
                 }
-                .frame(height: 72)
+                .frame(height: 118)
                 
                 HStack {
                     Text("\(state.clipboardHistory.count)/20 items in history")
@@ -2731,11 +2737,11 @@ public struct DynamicIslandView: View {
         }
         
         // Phase 2: Suction into trash mouth
-        withAnimation(.easeInOut(duration: 0.28).delay(0.04)) {
+        withAnimation(.easeInOut(duration: 0.24).delay(0.04)) {
             isGenieClearingClipboard = true
         }
         
-        let totalDelay = 0.32 + Double(min(state.clipboardHistory.count, 6)) * 0.025
+        let totalDelay = 0.30 + Double(min(state.clipboardHistory.count, 6)) * 0.02
         DispatchQueue.main.asyncAfter(deadline: .now() + totalDelay) {
             state.clearClipboard()
             isGenieClearingClipboard = false
