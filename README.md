@@ -2,6 +2,19 @@
 
 A native macOS status bar and notch companion built with Swift, AppKit, and SwiftUI. It runs without Electron, web views, or external dependencies.
 
+![NotchFlow Preview](Resources/preview.png)
+
+## About
+
+NotchFlow turns the MacBook display notch into an active hardware companion. Rather than treating the bezel notch as dead screen space, NotchFlow anchors live system telemetry, media controls, synchronized lyrics, timers, reminders, and peripheral battery levels directly to the bezel without stealing keyboard focus or interrupting the active workspace.
+
+### Specifications
+- **Runtime**: Swift 5.10, AppKit, and SwiftUI
+- **Memory Footprint**: Under 30 MB resident RAM
+- **Idle CPU Load**: 0% via Darwin Mach kernel C APIs (`host_statistics64`, `sysctl`)
+- **Display Motion**: 120 Hz ProMotion spring physics
+- **Dependencies**: Zero. Pure Apple platform frameworks
+
 ---
 
 ## Features
