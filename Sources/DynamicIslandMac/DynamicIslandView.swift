@@ -2329,22 +2329,30 @@ public struct DynamicIslandView: View {
                 }
                 
                 // Add Quick Event input for Selected Date
-                HStack(spacing: 5) {
-                    TextField("Event for \(shortDateString(state.calendarSelectedDate))...", text: $state.newCalendarEventTitle, onCommit: {
-                        state.addQuickCalendarEvent()
-                    })
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundColor(.white)
+                HStack(alignment: .center, spacing: 6) {
+                    AutoWrapTextField(
+                        placeholder: "Event for \(shortDateString(state.calendarSelectedDate))...",
+                        text: $state.newCalendarEventTitle,
+                        fontSize: 11,
+                        fontWeight: .medium,
+                        maxLines: 2,
+                        onCommit: {
+                            state.addQuickCalendarEvent()
+                        }
+                    )
+                    .frame(minHeight: 20, maxHeight: 34)
                     
                     Button(action: {
                         state.addQuickCalendarEvent()
                     }) {
-                        Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundColor(Color(red: 0.0, green: 0.48, blue: 1.0))
-                            .frame(width: 22, height: 22)
-                            .contentShape(Circle())
+                        Image(systemName: "plus")
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                            .frame(width: 20, height: 20)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .fill(state.newCalendarEventTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.white.opacity(0.12) : Color(red: 0.0, green: 0.48, blue: 1.0))
+                            )
                     }
                     .buttonStyle(.plain)
                     .disabled(state.newCalendarEventTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
