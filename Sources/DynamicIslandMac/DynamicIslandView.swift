@@ -2178,8 +2178,8 @@ public struct DynamicIslandView: View {
         HStack(spacing: 8) {
             // Left Column: Interactive Month Grid (Standardized 6 Weeks x 7 Days)
             VStack(spacing: 3) {
-                // Month Header (< Month YYYY >)
-                HStack {
+                // Month Header (< Month YYYY [Today] >)
+                HStack(spacing: 4) {
                     Button(action: {
                         state.previousCalendarMonth()
                         state.triggerHaptic(.generic)
@@ -2187,7 +2187,7 @@ public struct DynamicIslandView: View {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundColor(.white.opacity(0.80))
-                            .frame(width: 22, height: 22)
+                            .frame(width: 20, height: 20)
                             .background(Circle().fill(Color.white.opacity(0.10)))
                             .contentShape(Circle())
                     }
@@ -2195,9 +2195,32 @@ public struct DynamicIslandView: View {
                     
                     Spacer()
                     
-                    Text(monthYearString(from: state.calendarDisplayedMonth))
-                        .font(.system(size: 12.5, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
+                    HStack(spacing: 6) {
+                        Text(monthYearString(from: state.calendarDisplayedMonth))
+                            .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                        
+                        let isShowingToday = Calendar.current.isDate(state.calendarDisplayedMonth, equalTo: Date(), toGranularity: .month) && Calendar.current.isDateInToday(state.calendarSelectedDate)
+                        if !isShowingToday {
+                            Button(action: {
+                                withAnimation(.easeInOut(duration: 0.20)) {
+                                    state.calendarDisplayedMonth = Date()
+                                    state.calendarSelectedDate = Date()
+                                }
+                                state.triggerHaptic(.generic)
+                            }) {
+                                Text("Today")
+                                    .font(.system(size: 8.5, weight: .bold, design: .rounded))
+                                    .foregroundColor(Color(red: 0.0, green: 0.48, blue: 1.0))
+                                    .padding(.horizontal, 5.5)
+                                    .padding(.vertical, 2)
+                                    .background(Color(red: 0.0, green: 0.48, blue: 1.0).opacity(0.18))
+                                    .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .transition(.scale.combined(with: .opacity))
+                        }
+                    }
                     
                     Spacer()
                     
@@ -2208,7 +2231,7 @@ public struct DynamicIslandView: View {
                         Image(systemName: "chevron.right")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundColor(.white.opacity(0.80))
-                            .frame(width: 22, height: 22)
+                            .frame(width: 20, height: 20)
                             .background(Circle().fill(Color.white.opacity(0.10)))
                             .contentShape(Circle())
                     }
