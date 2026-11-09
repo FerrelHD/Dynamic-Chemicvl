@@ -2161,24 +2161,28 @@ public struct DynamicIslandView: View {
                                     }) {
                                         ZStack(alignment: .center) {
                                             if isToday && isSelected {
-                                                Circle()
+                                                RoundedRectangle(cornerRadius: 5.5, style: .continuous)
                                                     .fill(Color(red: 0.0, green: 0.48, blue: 1.0))
-                                                    .frame(width: 20, height: 20)
+                                                    .frame(width: 22, height: 16)
                                                     .overlay(
-                                                        Circle()
-                                                            .stroke(Color.white, lineWidth: 1.4)
+                                                        RoundedRectangle(cornerRadius: 5.5, style: .continuous)
+                                                            .stroke(Color.white, lineWidth: 1.2)
                                                     )
                                             } else if isToday {
-                                                Circle()
+                                                RoundedRectangle(cornerRadius: 5.5, style: .continuous)
                                                     .fill(Color(red: 0.0, green: 0.48, blue: 1.0))
-                                                    .frame(width: 20, height: 20)
+                                                    .frame(width: 22, height: 16)
                                             } else if isSelected {
-                                                Circle()
-                                                    .stroke(Color.white.opacity(0.85), lineWidth: 1.3)
-                                                    .frame(width: 20, height: 20)
+                                                RoundedRectangle(cornerRadius: 5.5, style: .continuous)
+                                                    .fill(Color.white.opacity(0.18))
+                                                    .frame(width: 22, height: 16)
+                                                    .overlay(
+                                                        RoundedRectangle(cornerRadius: 5.5, style: .continuous)
+                                                            .stroke(Color.white.opacity(0.65), lineWidth: 1.0)
+                                                    )
                                             }
                                             
-                                            VStack(spacing: 0) {
+                                            VStack(spacing: 0.5) {
                                                 Text("\(dayNum)")
                                                     .font(.system(size: 10.5, weight: (isToday || isSelected) ? .bold : .medium, design: .rounded))
                                                     .foregroundColor(isToday ? .white : (isSelected ? .white : .white.opacity(0.90)))
