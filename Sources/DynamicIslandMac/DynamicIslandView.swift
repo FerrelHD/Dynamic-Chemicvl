@@ -2336,7 +2336,7 @@ public struct DynamicIslandView: View {
             // Right Column: Selected Date's Live Clock & Focus Agenda
             VStack(alignment: .leading, spacing: 5) {
                 // Date & Live Clock Header
-                HStack(alignment: .firstTextBaseline) {
+                HStack(alignment: .center) {
                     VStack(alignment: .leading, spacing: 1) {
                         Text(selectedDateHeaderString(state.calendarSelectedDate))
                             .font(.system(size: 9.5, weight: .bold, design: .rounded))
@@ -2353,6 +2353,17 @@ public struct DynamicIslandView: View {
                     }
                     
                     Spacer()
+                    
+                    let count = state.eventsForSelectedDate.count
+                    if count > 0 {
+                        Text("\(count) event\(count == 1 ? "" : "s")")
+                            .font(.system(size: 9, weight: .bold, design: .rounded))
+                            .foregroundColor(.white.opacity(0.60))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2.5)
+                            .background(Color.white.opacity(0.10))
+                            .clipShape(Capsule())
+                    }
                 }
                 
                 // Add Quick Event input for Selected Date
@@ -2420,14 +2431,26 @@ public struct DynamicIslandView: View {
                                     }
                                     .buttonStyle(.plain)
                                     
-                                    Text(ev.title)
-                                        .font(.system(size: 10.5, weight: .medium, design: .rounded))
-                                        .foregroundColor(ev.isDone ? .white.opacity(0.40) : .white)
-                                        .strikethrough(ev.isDone, color: .white.opacity(0.40))
-                                        .lineLimit(3)
-                                        .multilineTextAlignment(.leading)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                        .padding(.top, 1.5)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(ev.title)
+                                            .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                                            .foregroundColor(ev.isDone ? .white.opacity(0.40) : .white)
+                                            .strikethrough(ev.isDone, color: .white.opacity(0.40))
+                                            .lineLimit(3)
+                                            .multilineTextAlignment(.leading)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                        
+                                        if !ev.timeString.isEmpty && ev.timeString != "All Day" {
+                                            Text(ev.timeString)
+                                                .font(.system(size: 8, weight: .semibold, design: .rounded))
+                                                .foregroundColor(Color(red: 0.0, green: 0.48, blue: 1.0))
+                                                .padding(.horizontal, 4)
+                                                .padding(.vertical, 1)
+                                                .background(Color(red: 0.0, green: 0.48, blue: 1.0).opacity(0.15))
+                                                .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+                                        }
+                                    }
+                                    .padding(.top, 1.5)
                                     
                                     Spacer(minLength: 0)
                                     
