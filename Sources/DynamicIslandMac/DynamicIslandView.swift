@@ -291,6 +291,7 @@ public struct DynamicIslandView: View {
     @State private var lastUserLyricScroll: Date = Date.distantPast
     @State private var lyricScrollMonitor: Any? = nil
     @State private var isHoveringLyrics: Bool = false
+    @State private var showOnlyActiveTodos: Bool = false
     
     public init(state: IslandState = .shared) {
         self.state = state
@@ -2090,57 +2091,71 @@ public struct DynamicIslandView: View {
             )
             
             // Scrollable List
+            let displayedTodos = showOnlyActiveTodos ? state.todos.filter { !$0.isDone } : state.todos
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 4.5) {
-                    ForEach(state.todos) { todo in
-                        HStack(alignment: .top, spacing: 8) {
-                            // Full-width clickable toggle area (Checkmark icon + Text + Spacer)
-                            Button(action: {
-                                state.toggleTodo(id: todo.id)
-                            }) {
-                                HStack(alignment: .top, spacing: 8) {
-                                    Image(systemName: todo.isDone ? "checkmark.circle.fill" : "circle")
-                                        .font(.system(size: 14.5, weight: .bold, design: .rounded))
-                                        .foregroundColor(todo.isDone ? Color(red: 0.0, green: 0.48, blue: 1.0) : Color.white.opacity(0.50))
-                                        .frame(width: 26, height: 26)
-                                    
-                                    Text(todo.text)
-                                        .font(.system(size: 11.5, weight: .medium, design: .rounded))
-                                        .foregroundColor(todo.isDone ? .white.opacity(0.45) : .white)
-                                        .strikethrough(todo.isDone, color: .white.opacity(0.45))
-                                        .lineLimit(3)
-                                        .multilineTextAlignment(.leading)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                        .padding(.vertical, 4.5)
-                                    
-                                    Spacer(minLength: 0)
-                                }
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            
-                            // Dedicated Trash Button with 30x30 hit target and active hover pill
-                            Button(action: { state.deleteTodo(id: todo.id) }) {
-                                Image(systemName: "trash")
-                                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                    .foregroundColor(hoveredTrashId == todo.id ? Color.red : Color.white.opacity(0.45))
-                                    .frame(width: 30, height: 30)
-                                    .background(
-                                        Circle()
-                                            .fill(hoveredTrashId == todo.id ? Color.red.opacity(0.20) : Color.white.opacity(0.001))
-                                    )
-                                    .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .onHover { isHovered in
-                                hoveredTrashId = isHovered ? todo.id : nil
-                            }
+                    if displayedTodos.isEmpty {
+                        VStack(spacing: 2) {
+                            Text(showOnlyActiveTodos ? "All tasks completed! 🎉" : "No reminders yet")
+                                .font(.system(size: 10, weight: .medium, design: .rounded))
+                                .foregroundColor(.white.opacity(0.45))
+                            Text("Type above to add a task")
+                                .font(.system(size: 8.5, weight: .regular, design: .rounded))
+                                .foregroundColor(.white.opacity(0.25))
                         }
-                        .padding(.leading, 8)
-                        .padding(.trailing, 4)
-                        .padding(.vertical, 2)
-                        .background(Color.white.opacity(0.07))
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 16)
+                    } else {
+                        ForEach(displayedTodos) { todo in
+                            HStack(alignment: .top, spacing: 8) {
+                                // Full-width clickable toggle area (Checkmark icon + Text + Spacer)
+                                Button(action: {
+                                    state.toggleTodo(id: todo.id)
+                                }) {
+                                    HStack(alignment: .top, spacing: 8) {
+                                        Image(systemName: todo.isDone ? "checkmark.circle.fill" : "circle")
+                                            .font(.system(size: 14.5, weight: .bold, design: .rounded))
+                                            .foregroundColor(todo.isDone ? Color(red: 0.0, green: 0.48, blue: 1.0) : Color.white.opacity(0.50))
+                                            .frame(width: 26, height: 26)
+                                        
+                                        Text(todo.text)
+                                            .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                                            .foregroundColor(todo.isDone ? .white.opacity(0.45) : .white)
+                                            .strikethrough(todo.isDone, color: .white.opacity(0.45))
+                                            .lineLimit(3)
+                                            .multilineTextAlignment(.leading)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                            .padding(.vertical, 4.5)
+                                        
+                                        Spacer(minLength: 0)
+                                    }
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                
+                                // Dedicated Trash Button with 30x30 hit target and active hover pill
+                                Button(action: { state.deleteTodo(id: todo.id) }) {
+                                    Image(systemName: "trash")
+                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                        .foregroundColor(hoveredTrashId == todo.id ? Color.red : Color.white.opacity(0.45))
+                                        .frame(width: 30, height: 30)
+                                        .background(
+                                            Circle()
+                                                .fill(hoveredTrashId == todo.id ? Color.red.opacity(0.20) : Color.white.opacity(0.001))
+                                        )
+                                        .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .onHover { isHovered in
+                                    hoveredTrashId = isHovered ? todo.id : nil
+                                }
+                            }
+                            .padding(.leading, 8)
+                            .padding(.trailing, 4)
+                            .padding(.vertical, 2)
+                            .background(Color.white.opacity(0.07))
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        }
                     }
                 }
             }
@@ -2151,18 +2166,53 @@ public struct DynamicIslandView: View {
                 .padding(.vertical, 2)
             
             // Footer Info
-            HStack {
+            HStack(spacing: 8) {
+                // Filter Toggle: All vs Active
+                HStack(spacing: 0) {
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.16)) {
+                            showOnlyActiveTodos = false
+                        }
+                    }) {
+                        Text("All")
+                            .font(.system(size: 9, weight: !showOnlyActiveTodos ? .bold : .medium, design: .rounded))
+                            .foregroundColor(!showOnlyActiveTodos ? .white : .white.opacity(0.45))
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 2.5)
+                            .background(!showOnlyActiveTodos ? Color.white.opacity(0.18) : Color.clear)
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.16)) {
+                            showOnlyActiveTodos = true
+                        }
+                    }) {
+                        Text("Active")
+                            .font(.system(size: 9, weight: showOnlyActiveTodos ? .bold : .medium, design: .rounded))
+                            .foregroundColor(showOnlyActiveTodos ? .white : .white.opacity(0.45))
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 2.5)
+                            .background(showOnlyActiveTodos ? Color.white.opacity(0.18) : Color.clear)
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .background(Color.white.opacity(0.07))
+                .clipShape(Capsule())
+                
                 let remaining = state.todos.filter { !$0.isDone }.count
-                Text("\(remaining) task\(remaining == 1 ? "" : "s") remaining")
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .foregroundColor(.white.opacity(0.60))
+                Text("• \(remaining) remaining")
+                    .font(.system(size: 9.5, weight: .medium, design: .rounded))
+                    .foregroundColor(.white.opacity(0.50))
                 
                 Spacer()
                 
                 if state.todos.contains(where: { $0.isDone }) {
                     Button(action: { state.clearCompletedTodos() }) {
                         Text("Clear Completed")
-                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .font(.system(size: 9.5, weight: .bold, design: .rounded))
                             .foregroundColor(Color.orange)
                     }
                     .buttonStyle(.plain)
