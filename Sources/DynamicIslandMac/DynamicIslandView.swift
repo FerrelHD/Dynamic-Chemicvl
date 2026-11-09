@@ -2246,38 +2246,42 @@ public struct DynamicIslandView: View {
                                         state.triggerHaptic(.generic)
                                     }) {
                                         ZStack(alignment: .center) {
-                                            if isToday && isSelected {
-                                                RoundedRectangle(cornerRadius: 5.5, style: .continuous)
-                                                    .fill(Color(red: 0.0, green: 0.48, blue: 1.0))
-                                                    .frame(width: 22, height: 16)
-                                                    .overlay(
-                                                        RoundedRectangle(cornerRadius: 5.5, style: .continuous)
-                                                            .stroke(Color.white, lineWidth: 1.2)
-                                                    )
-                                            } else if isToday {
-                                                RoundedRectangle(cornerRadius: 5.5, style: .continuous)
-                                                    .fill(Color(red: 0.0, green: 0.48, blue: 1.0))
-                                                    .frame(width: 22, height: 16)
-                                            } else if isSelected {
-                                                RoundedRectangle(cornerRadius: 5.5, style: .continuous)
-                                                    .fill(Color.white.opacity(0.18))
-                                                    .frame(width: 22, height: 16)
-                                                    .overlay(
-                                                        RoundedRectangle(cornerRadius: 5.5, style: .continuous)
-                                                            .stroke(Color.white.opacity(0.65), lineWidth: 1.0)
-                                                    )
-                                            }
-                                            
-                                            VStack(spacing: 0.5) {
+                                            // 1. Date Number Badge (Strictly Centered on Number Only)
+                                            ZStack {
+                                                if isToday && isSelected {
+                                                    RoundedRectangle(cornerRadius: 5.5, style: .continuous)
+                                                        .fill(Color(red: 0.0, green: 0.48, blue: 1.0))
+                                                        .overlay(
+                                                            RoundedRectangle(cornerRadius: 5.5, style: .continuous)
+                                                                .stroke(Color.white, lineWidth: 1.2)
+                                                        )
+                                                } else if isToday {
+                                                    RoundedRectangle(cornerRadius: 5.5, style: .continuous)
+                                                        .fill(Color(red: 0.0, green: 0.48, blue: 1.0))
+                                                } else if isSelected {
+                                                    RoundedRectangle(cornerRadius: 5.5, style: .continuous)
+                                                        .fill(Color.white.opacity(0.18))
+                                                        .overlay(
+                                                            RoundedRectangle(cornerRadius: 5.5, style: .continuous)
+                                                                .stroke(Color.white.opacity(0.65), lineWidth: 1.0)
+                                                        )
+                                                }
+                                                
                                                 Text("\(dayNum)")
                                                     .font(.system(size: 10.5, weight: (isToday || isSelected) ? .bold : .medium, design: .rounded))
                                                     .foregroundColor(isToday ? .white : (isSelected ? .white : .white.opacity(0.90)))
-                                                
-                                                if hasEvent && !isToday {
+                                            }
+                                            .frame(width: 23, height: 15.5)
+                                            
+                                            // 2. Event Dot (Positioned strictly outside & below badge, zero text shifting)
+                                            if hasEvent {
+                                                VStack {
+                                                    Spacer()
                                                     Circle()
-                                                        .fill(Color(red: 0.0, green: 0.48, blue: 1.0))
-                                                        .frame(width: 2.5, height: 2.5)
+                                                        .fill(isToday ? Color.white : (isSelected ? Color(red: 0.20, green: 0.65, blue: 1.0) : Color(red: 0.0, green: 0.48, blue: 1.0)))
+                                                        .frame(width: 2.2, height: 2.2)
                                                 }
+                                                .frame(height: 18)
                                             }
                                         }
                                         .frame(maxWidth: .infinity, maxHeight: .infinity)
