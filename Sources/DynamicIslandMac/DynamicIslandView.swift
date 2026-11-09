@@ -2283,7 +2283,7 @@ public struct DynamicIslandView: View {
                             .padding(.top, 10)
                         } else {
                             ForEach(events) { ev in
-                                HStack(spacing: 6) {
+                                HStack(alignment: .top, spacing: 6) {
                                     Button(action: {
                                         state.toggleQuickCalendarEvent(id: ev.id)
                                     }) {
@@ -2299,7 +2299,10 @@ public struct DynamicIslandView: View {
                                         .font(.system(size: 10.5, weight: .medium, design: .rounded))
                                         .foregroundColor(ev.isDone ? .white.opacity(0.40) : .white)
                                         .strikethrough(ev.isDone, color: .white.opacity(0.40))
-                                        .lineLimit(1)
+                                        .lineLimit(3)
+                                        .multilineTextAlignment(.leading)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                        .padding(.top, 1.5)
                                     
                                     Spacer(minLength: 0)
                                     
