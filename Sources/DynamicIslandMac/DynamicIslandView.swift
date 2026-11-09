@@ -292,6 +292,7 @@ public struct DynamicIslandView: View {
     @State private var lyricScrollMonitor: Any? = nil
     @State private var isHoveringLyrics: Bool = false
     @State private var showOnlyActiveTodos: Bool = false
+    @State private var lastTabSwipeTime: Date = Date.distantPast
     
     public init(state: IslandState = .shared) {
         self.state = state
@@ -1258,6 +1259,26 @@ public struct DynamicIslandView: View {
         }
         .frame(width: islandWidth, height: islandHeight, alignment: .top)
         .contentShape(Rectangle())
+        .gesture(
+            DragGesture(minimumDistance: 25)
+                .onEnded { value in
+                    let dx = value.translation.width
+                    let dy = value.translation.height
+                    guard abs(dx) > abs(dy) * 1.25 else { return }
+                    
+                    let now = Date()
+                    guard now.timeIntervalSince(lastTabSwipeTime) > 0.30 else { return }
+                    lastTabSwipeTime = now
+                    
+                    if dx < -35 {
+                        state.nextTab()
+                        state.triggerHaptic(.generic)
+                    } else if dx > 35 {
+                        state.previousTab()
+                        state.triggerHaptic(.generic)
+                    }
+                }
+        )
     }
     
     // MARK: - Apple-Style Minimal Page Dots Indicator
