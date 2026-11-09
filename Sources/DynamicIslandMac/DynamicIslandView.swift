@@ -2007,12 +2007,12 @@ public struct DynamicIslandView: View {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 4.5) {
                     ForEach(state.todos) { todo in
-                        HStack(spacing: 8) {
+                        HStack(alignment: .top, spacing: 8) {
                             // Full-width clickable toggle area (Checkmark icon + Text + Spacer)
                             Button(action: {
                                 state.toggleTodo(id: todo.id)
                             }) {
-                                HStack(spacing: 8) {
+                                HStack(alignment: .top, spacing: 8) {
                                     Image(systemName: todo.isDone ? "checkmark.circle.fill" : "circle")
                                         .font(.system(size: 14.5, weight: .bold, design: .rounded))
                                         .foregroundColor(todo.isDone ? Color(red: 0.0, green: 0.48, blue: 1.0) : Color.white.opacity(0.50))
@@ -2022,7 +2022,10 @@ public struct DynamicIslandView: View {
                                         .font(.system(size: 11.5, weight: .medium, design: .rounded))
                                         .foregroundColor(todo.isDone ? .white.opacity(0.45) : .white)
                                         .strikethrough(todo.isDone, color: .white.opacity(0.45))
-                                        .lineLimit(1)
+                                        .lineLimit(3)
+                                        .multilineTextAlignment(.leading)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                        .padding(.vertical, 4.5)
                                     
                                     Spacer(minLength: 0)
                                 }
