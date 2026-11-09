@@ -184,6 +184,97 @@ public struct GenieCurvedModifier: AnimatableModifier {
     }
 }
 
+// MARK: - Auto-Wrapping Multiline TextField with Enter-to-Submit (macOS 12+ Compatible)
+public struct AutoWrapTextField: NSViewRepresentable {
+    public var placeholder: String
+    @Binding public var text: String
+    public var fontSize: CGFloat = 12
+    public var fontWeight: NSFont.Weight = .semibold
+    public var maxLines: Int = 2
+    public var onCommit: () -> Void
+
+    public init(
+        placeholder: String,
+        text: Binding<String>,
+        fontSize: CGFloat = 12,
+        fontWeight: NSFont.Weight = .semibold,
+        maxLines: Int = 2,
+        onCommit: @escaping () -> Void
+    ) {
+        self.placeholder = placeholder
+        self._text = text
+        self.fontSize = fontSize
+        self.fontWeight = fontWeight
+        self.maxLines = maxLines
+        self.onCommit = onCommit
+    }
+
+    public func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    public func makeNSView(context: Context) -> NSTextField {
+        let tf = NSTextField()
+        tf.isBezeled = false
+        tf.drawsBackground = false
+        tf.focusRingType = .none
+        tf.font = .systemFont(ofSize: fontSize, weight: fontWeight)
+        tf.textColor = .white
+        tf.cell?.wraps = true
+        tf.cell?.isScrollable = false
+        tf.lineBreakMode = .byWordWrapping
+        tf.maximumNumberOfLines = maxLines
+        
+        let attrs: [NSAttributedString.Key: Any] = [
+            .foregroundColor: NSColor.white.withAlphaComponent(0.55),
+            .font: NSFont.systemFont(ofSize: fontSize, weight: .medium)
+        ]
+        tf.placeholderAttributedString = NSAttributedString(string: placeholder, attributes: attrs)
+        
+        tf.delegate = context.coordinator
+        tf.target = context.coordinator
+        tf.action = #selector(Coordinator.commitAction)
+        return tf
+    }
+
+    public func updateNSView(_ nsView: NSTextField, context: Context) {
+        if nsView.stringValue != text {
+            nsView.stringValue = text
+        }
+        let attrs: [NSAttributedString.Key: Any] = [
+            .foregroundColor: NSColor.white.withAlphaComponent(0.55),
+            .font: NSFont.systemFont(ofSize: fontSize, weight: .medium)
+        ]
+        nsView.placeholderAttributedString = NSAttributedString(string: placeholder, attributes: attrs)
+    }
+
+    public class Coordinator: NSObject, NSTextFieldDelegate {
+        var parent: AutoWrapTextField
+
+        init(_ parent: AutoWrapTextField) {
+            self.parent = parent
+        }
+
+        public func controlTextDidChange(_ obj: Notification) {
+            if let tf = obj.object as? NSTextField {
+                parent.text = tf.stringValue
+            }
+        }
+
+        @objc func commitAction() {
+            parent.onCommit()
+        }
+
+        public func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+            if commandSelector == #selector(NSResponder.insertNewline(_:)) {
+                parent.onCommit()
+                return true
+            }
+            return false
+        }
+    }
+}
+
 public struct DynamicIslandView: View {
     @ObservedObject var state: IslandState
     @State private var isDropTargeted = false
@@ -1954,23 +2045,18 @@ public struct DynamicIslandView: View {
     private var notesTabView: some View {
         VStack(spacing: 7) {
             // Input field with Dark Elegant Container & Pure White Text
-            HStack(spacing: 8) {
-                ZStack(alignment: .leading) {
-                    if state.newTodoText.isEmpty {
-                        Text("Add a reminder or note...")
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
-                            .foregroundColor(.white.opacity(0.55))
-                    }
-                    
-                    TextField("", text: $state.newTodoText, onCommit: {
+            HStack(alignment: .center, spacing: 8) {
+                AutoWrapTextField(
+                    placeholder: "Add a reminder or note...",
+                    text: $state.newTodoText,
+                    fontSize: 12,
+                    fontWeight: .medium,
+                    maxLines: 2,
+                    onCommit: {
                         state.addTodo()
-                    })
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundColor(.white)
-                    .accentColor(.white)
-                    .tint(.white)
-                }
+                    }
+                )
+                .frame(minHeight: 22, maxHeight: 38)
                 
                 Button(action: {
                     state.addTodo()
