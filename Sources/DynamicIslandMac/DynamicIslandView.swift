@@ -2266,32 +2266,9 @@ public struct DynamicIslandView: View {
                     
                     Spacer()
                     
-                    HStack(spacing: 6) {
-                        Text(monthYearString(from: state.calendarDisplayedMonth))
-                            .font(.system(size: 12.5, weight: .bold, design: .rounded))
-                            .foregroundColor(.white)
-                        
-                        let isShowingToday = Calendar.current.isDate(state.calendarDisplayedMonth, equalTo: Date(), toGranularity: .month) && Calendar.current.isDateInToday(state.calendarSelectedDate)
-                        if !isShowingToday {
-                            Button(action: {
-                                withAnimation(.easeInOut(duration: 0.20)) {
-                                    state.calendarDisplayedMonth = Date()
-                                    state.calendarSelectedDate = Date()
-                                }
-                                state.triggerHaptic(.generic)
-                            }) {
-                                Text("Today")
-                                    .font(.system(size: 8.5, weight: .bold, design: .rounded))
-                                    .foregroundColor(Color(red: 0.0, green: 0.48, blue: 1.0))
-                                    .padding(.horizontal, 5.5)
-                                    .padding(.vertical, 2)
-                                    .background(Color(red: 0.0, green: 0.48, blue: 1.0).opacity(0.18))
-                                    .clipShape(Capsule())
-                            }
-                            .buttonStyle(.plain)
-                            .transition(.scale.combined(with: .opacity))
-                        }
-                    }
+                    Text(monthYearString(from: state.calendarDisplayedMonth))
+                        .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
                     
                     Spacer()
                     
@@ -2409,11 +2386,34 @@ public struct DynamicIslandView: View {
                 // Date & Live Clock Header
                 HStack(alignment: .center) {
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(selectedDateHeaderString(state.calendarSelectedDate))
-                            .font(.system(size: 9.5, weight: .bold, design: .rounded))
-                            .foregroundColor(Color(red: 0.0, green: 0.48, blue: 1.0))
-                            .textCase(.uppercase)
-                            .lineLimit(1)
+                        HStack(spacing: 5) {
+                            Text(selectedDateHeaderString(state.calendarSelectedDate))
+                                .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                                .foregroundColor(Color(red: 0.0, green: 0.48, blue: 1.0))
+                                .textCase(.uppercase)
+                                .lineLimit(1)
+                            
+                            let isShowingToday = Calendar.current.isDate(state.calendarDisplayedMonth, equalTo: Date(), toGranularity: .month) && Calendar.current.isDateInToday(state.calendarSelectedDate)
+                            if !isShowingToday {
+                                Button(action: {
+                                    withAnimation(.easeInOut(duration: 0.20)) {
+                                        state.calendarDisplayedMonth = Date()
+                                        state.calendarSelectedDate = Date()
+                                    }
+                                    state.triggerHaptic(.generic)
+                                }) {
+                                    Text("Today")
+                                        .font(.system(size: 8.5, weight: .bold, design: .rounded))
+                                        .foregroundColor(Color(red: 0.0, green: 0.48, blue: 1.0))
+                                        .padding(.horizontal, 5.5)
+                                        .padding(.vertical, 1.5)
+                                        .background(Color(red: 0.0, green: 0.48, blue: 1.0).opacity(0.18))
+                                        .clipShape(Capsule())
+                                }
+                                .buttonStyle(.plain)
+                                .transition(.scale.combined(with: .opacity))
+                            }
+                        }
                         
                         TimelineView(.periodic(from: .now, by: 1.0)) { timeline in
                             Text(liveClockString(from: timeline.date))
