@@ -2397,13 +2397,17 @@ extension NSImage {
             totalSamples += 1
             
             let color = NSColor(red: r, green: g, blue: b, alpha: 1.0)
-            let hue = color.hueComponent
             let sat = color.saturationComponent
             let bri = color.brightnessComponent
             
-            // Filter extreme black noise (< 0.08) and pure washed-out white/grey (< 0.10 sat at > 0.92 bri)
-            if bri < 0.08 || (sat < 0.10 && bri > 0.92) { continue }
+            // Filter extreme black noise (< 0.08) and pure washed-out white (< 0.08 sat at > 0.94 bri)
+            if bri < 0.08 || (sat < 0.08 && bri > 0.94) { continue }
             
+            // Only bucket pixels that possess authentic chromatic hue (saturation >= 0.12)
+            // Neutral / monochrome pixels contribute to fallback average but must not pollute hue bins with false tints
+            guard sat >= 0.12 else { continue }
+            
+            let hue = color.hueComponent
             let bin = min(numBins - 1, max(0, Int(hue * CGFloat(numBins))))
             buckets[bin].count += 1
             buckets[bin].totalR += r
@@ -2436,10 +2440,18 @@ extension NSImage {
             let avgB = winner.totalB / CGFloat(winner.count)
             let rawColor = NSColor(red: avgR, green: avgG, blue: avgB, alpha: 1.0)
             
-            // Calibrate for OLED Jet-Black MacBook Notch: keep authentic hue, clamp brightness to prevent text washout
+            // Calibrate for OLED Jet-Black MacBook Notch: keep authentic hue, allow natural brightness & saturation
             let h = rawColor.hueComponent
-            let s = min(0.80, max(0.45, rawColor.saturationComponent * 1.10))
-            let br = min(0.50, max(0.35, rawColor.brightnessComponent))
+            let rawSat = rawColor.saturationComponent
+            let s: CGFloat
+            if rawSat < 0.06 {
+                s = 0.0
+            } else if rawSat < 0.18 {
+                s = rawSat
+            } else {
+                s = min(0.85, max(0.22, rawSat * 1.05))
+            }
+            let br = min(0.65, max(0.22, rawColor.brightnessComponent))
             return NSColor(hue: h, saturation: s, brightness: br, alpha: 1.0)
         }
         
@@ -2450,10 +2462,17 @@ extension NSImage {
                 blue: fallbackB / totalSamples,
                 alpha: 1.0
             )
-            let h = fallbackColor.hueComponent
-            let s = min(0.80, max(0.45, fallbackColor.saturationComponent))
-            let br = min(0.50, max(0.35, fallbackColor.brightnessComponent))
-            return NSColor(hue: h, saturation: s, brightness: br, alpha: 1.0)
+            let rawSat = fallbackColor.saturationComponent
+            let s: CGFloat
+            if rawSat < 0.06 {
+                s = 0.0
+            } else if rawSat < 0.18 {
+                s = rawSat
+            } else {
+                s = min(0.85, max(0.22, rawSat * 1.05))
+            }
+            let br = min(0.65, max(0.22, fallbackColor.brightnessComponent))
+            return NSColor(hue: fallbackColor.hueComponent, saturation: s, brightness: br, alpha: 1.0)
         }
         
         return nil
