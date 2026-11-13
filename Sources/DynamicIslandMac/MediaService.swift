@@ -413,7 +413,7 @@ public class MediaService {
     ) {
         MediaService.appleScriptQueue.async { [weak self] in
             guard let self = self else { return }
-            let tab = MediaService.findYouTubeTab(matching: clean)
+            let tab = MediaService.findYouTubeTab(matching: clean, artist: cleanArt)
 
             let fallback: () -> Void = { [weak self] in
                 self?.thumbnailOrSearch(tab: tab, clean: clean, cleanArt: cleanArt, album: album,
@@ -602,9 +602,13 @@ public class MediaService {
         return nil
     }
     
-    static func findYouTubeTab(matching trackTitle: String) -> YouTubeTab? {
-        let want = TitleMatching.core(trackTitle)
-        guard !want.isEmpty else { return nil }
+    static func findYouTubeTab(matching trackTitle: String, artist: String = "") -> YouTubeTab? {
+        let wantTitle = TitleMatching.core(trackTitle)
+        guard !wantTitle.isEmpty else { return nil }
+        let wantArtist = TitleMatching.normalize(artist)
+        let isGenericArtist = MediaService.isGenericArtistName(artist)
+        
+        let delim = "::NOTCH_DELIM::"
         
         for b in browsers {
             guard !NSRunningApplication.runningApplications(withBundleIdentifier: b.bundleID).isEmpty else { continue }
@@ -627,7 +631,7 @@ public class MediaService {
                                 set js to \(runJS)
                             end try
                             if js is missing value then set js to ""
-                            set out to out & u & tab & (item i of titles) & tab & js & linefeed
+                            set out to out & u & "\(delim)" & (item i of titles) & "\(delim)" & js & linefeed
                         end if
                     end repeat
                 end repeat
@@ -642,7 +646,7 @@ public class MediaService {
             
             var tabs: [YouTubeTab] = []
             for line in output.components(separatedBy: "\n") {
-                let parts = line.components(separatedBy: "\t")
+                let parts = line.components(separatedBy: delim)
                 guard parts.count >= 2, let url = URL(string: parts[0]) else { continue }
                 tabs.append(YouTubeTab(
                     videoId: videoId(from: url),
@@ -658,12 +662,34 @@ public class MediaService {
             
             let verified = tabs.filter { t in
                 if let s = t.session {
-                    return TitleMatching.core(s.title) == want || TitleMatching.normalize(s.title).contains(want)
+                    let sCore = TitleMatching.core(s.title)
+                    let sNorm = TitleMatching.normalize(s.title)
+                    return sCore == wantTitle || sNorm.contains(wantTitle)
                 }
-                return TitleMatching.normalize(t.tabTitle).contains(want)
+                let normTab = TitleMatching.normalize(t.tabTitle)
+                if normTab.contains(wantTitle) || (!wantTitle.isEmpty && wantTitle.contains(normTab)) {
+                    return true
+                }
+                if !isGenericArtist && !wantArtist.isEmpty && normTab.contains(wantArtist) {
+                    return true
+                }
+                return false
             }
             if let best = verified.first(where: { $0.session?.isPlaying == true }) ?? verified.first {
                 return best
+            }
+            
+            // Fallback for background / minimized tabs where title is generic (e.g. "YouTube Music" or "YouTube")
+            let genericTitles = ["youtube music", "youtube"]
+            let genericTabs = tabs.filter { t in
+                let norm = TitleMatching.normalize(t.tabTitle)
+                return genericTitles.contains(norm) && t.videoId != nil
+            }
+            if let musicTab = genericTabs.first(where: { $0.isMusic }) {
+                return musicTab
+            }
+            if tabs.count == 1, let single = tabs.first, single.videoId != nil {
+                return single
             }
         }
         return nil
