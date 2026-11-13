@@ -805,7 +805,7 @@ public class IslandState: ObservableObject {
                     }
                 }
             } else if trackChanged || self.artworkImage == nil {
-                self.scheduleArtworkLookup(token: token, title: info.title, artist: info.artist, album: info.album, delay: 1.0)
+                self.scheduleArtworkLookup(token: token, title: info.title, artist: info.artist, album: info.album, delay: 0.15)
             }
             
             // Sync anchor if track changed, stopped, or drifted more than 0.6s
@@ -1523,7 +1523,7 @@ public class IslandState: ObservableObject {
                 if let data = data, let img = NSImage(data: data) {
                     self.artworkImage = img
                 } else if self.artworkAttempt < 2 {
-                    self.scheduleArtworkLookup(token: token, title: title, artist: artist, album: album, delay: 4.0)
+                    self.scheduleArtworkLookup(token: token, title: title, artist: artist, album: album, delay: 2.0)
                 }
             }
         }

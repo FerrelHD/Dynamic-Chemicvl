@@ -707,7 +707,7 @@ public class MediaService {
         req.timeoutInterval = 3.0
         
         URLSession.shared.dataTask(with: req) { data, resp, _ in
-            if let http = resp as? HTTPURLResponse, http.statusCode == 200, let data = data, !data.isEmpty {
+            if let http = resp as? HTTPURLResponse, http.statusCode == 200, let data = data, data.count > 1000 {
                 DispatchQueue.main.async { completion(data) }
             } else {
                 var hqReq = URLRequest(url: hqUrl)
