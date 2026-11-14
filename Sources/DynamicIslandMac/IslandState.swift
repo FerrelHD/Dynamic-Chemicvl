@@ -1517,8 +1517,15 @@ public class IslandState: ObservableObject {
         guard !title.isEmpty, title != "No Media Playing", self.artworkAttempt < 2 else { return }
         let work = DispatchWorkItem { [weak self] in
             guard let self = self, self.currentTrackToken == token, self.artworkImage == nil else { return }
+            let isRetry = self.artworkAttempt > 0
             self.artworkAttempt += 1
-            MediaService.shared.fetchOnlineArtwork(title: title, artist: artist, album: album, duration: self.totalDurationSeconds) { [weak self] data in
+            MediaService.shared.fetchOnlineArtwork(
+                title: title,
+                artist: artist,
+                album: album,
+                duration: self.totalDurationSeconds,
+                ignoreMissCache: isRetry
+            ) { [weak self] data in
                 guard let self = self, self.currentTrackToken == token else { return }
                 if let data = data, let img = NSImage(data: data) {
                     self.artworkImage = img

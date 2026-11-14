@@ -3,10 +3,12 @@ import AppKit
 
 // MARK: - YouTube tab models (hasil baca tab browser)
 
-/// Metadata yang diisi YouTube / YouTube Music sendiri lewat navigator.mediaSession.
+/// Metadata yang diisi YouTube / YouTube Music sendiri lewat navigator.mediaSession & DOM player.
 struct YouTubeSession {
     let title: String
+    let artist: String
     let artworkURL: String?
+    let videoId: String?
     let isPlaying: Bool
 }
 
@@ -346,6 +348,7 @@ public class MediaService {
         artist: String,
         album: String = "",
         duration: Double = 0,
+        ignoreMissCache: Bool = false,
         completion: @escaping (Data?) -> Void
     ) {
         let (cleanArt, clean) = MediaService.splitArtistAndTitle(rawTitle: title, rawArtist: artist)
@@ -355,7 +358,7 @@ public class MediaService {
 
         self.artStateLock.lock()
         self.latestArtKey = cacheKey
-        if let until = self.artMissUntil[cacheKey], until > Date() {
+        if !ignoreMissCache, let until = self.artMissUntil[cacheKey], until > Date() {
             self.artStateLock.unlock()
             completion(nil)
             return
@@ -542,34 +545,32 @@ public class MediaService {
         completion: @escaping (Data?) -> Void
     ) {
         var candidates: [String] = []
+        func appendCandidate(_ q: String) {
+            let trimmed = q.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty, !candidates.contains(where: { $0.caseInsensitiveCompare(trimmed) == .orderedSame }) else { return }
+            candidates.append(trimmed)
+        }
+
         let hasValidArtist = !cleanArt.isEmpty && !MediaService.isGenericArtistName(cleanArt)
-        
-        if hasValidArtist {
-            candidates.append("\(cleanArt) \(clean)")
-            candidates.append("\(clean) \(cleanArt)")
-        }
-        
-        // Clean out any feat./ft. tags for a focused search query candidate
         let strippedFeat = clean.replacingOccurrences(of: "(?i)\\s*(?:ft|feat|featuring)\\.?\\s+.*", with: "", options: .regularExpression).trimmingCharacters(in: .whitespaces)
-        if strippedFeat != clean && !strippedFeat.isEmpty {
-            if hasValidArtist {
-                candidates.append("\(cleanArt) \(strippedFeat)")
-            }
-            candidates.append(strippedFeat)
+        let coreTitle = TitleMatching.core(clean)
+
+        if hasValidArtist {
+            appendCandidate("\(cleanArt) \(clean)")
+            if !strippedFeat.isEmpty { appendCandidate("\(cleanArt) \(strippedFeat)") }
+            appendCandidate("\(clean) \(cleanArt)")
         }
-        
         if !album.isEmpty && album != "System Audio" {
-            if hasValidArtist {
-                candidates.append("\(cleanArt) \(clean) \(album)")
-            }
-            candidates.append("\(clean) \(album)")
+            if hasValidArtist { appendCandidate("\(cleanArt) \(clean) \(album)") }
+            appendCandidate("\(clean) \(album)")
         }
-        
-        candidates.append(clean)
-        
+        appendCandidate(clean)
+        if !strippedFeat.isEmpty { appendCandidate(strippedFeat) }
+        if !coreTitle.isEmpty { appendCandidate(coreTitle) }
+
         // Tier A: Official Deezer Music Catalog (Ultra-fast, zero auth, covers Spotify & Apple Music catalog)
-        searchDeezerArtwork(cleanTitle: clean, cleanArt: cleanArt, album: album, duration: duration, cacheKey: cacheKey, onMiss: { [weak self] in
-            // Tier B: Fallback to verified strict iTunes search
+        searchDeezerArtwork(candidates: candidates, index: 0, cleanTitle: clean, cleanArt: cleanArt, duration: duration, cacheKey: cacheKey, onMiss: { [weak self] in
+            // Tier B: Fallback to verified iTunes search
             self?.searchVerifiedArtwork(candidates: candidates, index: 0, cleanTitle: clean, cleanArt: cleanArt, album: album, duration: duration, cacheKey: cacheKey, completion: completion)
         }, completion: completion)
     }
@@ -584,7 +585,8 @@ public class MediaService {
         ("com.google.Chrome.canary", "Google Chrome Canary", "title", false)
     ]
     
-    private static let sessionJS = "(function(){var m=navigator.mediaSession&&navigator.mediaSession.metadata;var v=document.querySelector('video');var a=m&&m.artwork&&m.artwork.length?m.artwork[m.artwork.length-1].src:'';return JSON.stringify({t:m?m.title:'',art:a,pl:v?!v.paused:false})})()"
+    // Catatan: gunakan single-quote saja di dalam JS agar aman di-embed ke string AppleScript.
+    private static let sessionJS = "(function(){var m=navigator.mediaSession&&navigator.mediaSession.metadata;var v=document.querySelector('video');var a=m&&m.artwork&&m.artwork.length?m.artwork[m.artwork.length-1].src:'';if(!a){var yi=document.querySelector('ytmusic-player-bar img.image');if(yi&&yi.src&&yi.src.indexOf('http')===0)a=yi.src;}var u='';try{var qs=new URLSearchParams(location.search);u=qs.get('v')||'';}catch(e){}if(!u){var tl=document.querySelector('ytmusic-player-bar a.ytp-title-link,a.ytp-title-link');if(tl&&tl.href){var x=tl.href.match(/[?&]v=([^&#]+)/);if(x)u=x[1];}}if(!u){var wf=document.querySelector('ytd-watch-flexy');if(wf)u=wf.getAttribute('video-id')||'';}return JSON.stringify({t:m?m.title:'',ar:m?m.artist:'',art:a,vid:u,pl:v?!v.paused:false})})()"
     
     private static func parseSession(_ json: String) -> YouTubeSession? {
         let trimmed = json.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -592,9 +594,12 @@ public class MediaService {
               let data = trimmed.data(using: .utf8),
               let o = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
         let art = o["art"] as? String ?? ""
+        let vid = (o["vid"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         return YouTubeSession(
             title: o["t"] as? String ?? "",
+            artist: o["ar"] as? String ?? "",
             artworkURL: art.hasPrefix("http") ? art : nil,
+            videoId: vid.isEmpty ? nil : vid,
             isPlaying: o["pl"] as? Bool ?? false
         )
     }
@@ -661,11 +666,12 @@ public class MediaService {
             for line in output.components(separatedBy: "\n") {
                 let parts = line.components(separatedBy: delim)
                 guard parts.count >= 2, let url = URL(string: parts[0]) else { continue }
+                let session = parts.count >= 3 ? parseSession(parts[2]) : nil
                 tabs.append(YouTubeTab(
-                    videoId: videoId(from: url),
+                    videoId: videoId(from: url) ?? session?.videoId,
                     isMusic: url.host?.contains("music.youtube.com") == true,
                     tabTitle: parts[1],
-                    session: parts.count >= 3 ? parseSession(parts[2]) : nil
+                    session: session
                 ))
             }
             if tabs.isEmpty { continue }
@@ -677,7 +683,12 @@ public class MediaService {
                 if let s = t.session {
                     let sCore = TitleMatching.core(s.title)
                     let sNorm = TitleMatching.normalize(s.title)
-                    return sCore == wantTitle || sNorm.contains(wantTitle)
+                    let titleOk = (sCore == wantTitle || sNorm.contains(wantTitle))
+                    if titleOk {
+                        if isGenericArtist || wantArtist.isEmpty || s.artist.isEmpty { return true }
+                        return TitleMatching.artistsMatch(s.artist, artist) || TitleMatching.normalize(t.tabTitle).contains(wantArtist)
+                    }
+                    return false
                 }
                 let normTab = TitleMatching.normalize(t.tabTitle)
                 if normTab.contains(wantTitle) || (!wantTitle.isEmpty && wantTitle.contains(normTab)) {
@@ -696,12 +707,16 @@ public class MediaService {
             let genericTitles = ["youtube music", "youtube"]
             let genericTabs = tabs.filter { t in
                 let norm = TitleMatching.normalize(t.tabTitle)
-                return genericTitles.contains(norm) && t.videoId != nil
+                let hasMedia = (t.videoId != nil || t.session?.artworkURL != nil)
+                return genericTitles.contains(norm) && hasMedia
             }
-            if let musicTab = genericTabs.first(where: { $0.isMusic }) {
-                return musicTab
+            if let playingMusic = genericTabs.first(where: { $0.isMusic && $0.session?.isPlaying == true })
+                ?? genericTabs.first(where: { $0.isMusic }) {
+                return playingMusic
             }
-            if tabs.count == 1, let single = tabs.first, single.videoId != nil {
+            if tabs.count == 1, let single = tabs.first,
+               (single.videoId != nil || single.session?.artworkURL != nil),
+               (single.session?.isPlaying == true || single.isMusic || isGenericArtist) {
                 return single
             }
         }
@@ -736,6 +751,51 @@ public class MediaService {
         }.resume()
     }
     
+    private struct CatalogCandidate {
+        let title: String
+        let artist: String
+        let durationSeconds: Double
+        let artworkURL: String
+    }
+
+    private static func pickCatalogArtworkURL(
+        from items: [CatalogCandidate],
+        cleanTitle: String,
+        cleanArt: String,
+        duration: Double
+    ) -> String? {
+        let wantTitle = TitleMatching.core(cleanTitle)
+        guard !wantTitle.isEmpty else { return nil }
+        let wantArtist = TitleMatching.normalize(cleanArt)
+        let isGenericArtist = MediaService.isGenericArtistName(cleanArt)
+
+        // Pass 1: Cocok judul + artis (atau generic artist dengan durasi terverifikasi)
+        for item in items where !item.artworkURL.isEmpty {
+            let itemCoreTitle = TitleMatching.core(item.title)
+            let normalTitleMatch = (itemCoreTitle == wantTitle)
+            let normalArtistMatch = isGenericArtist ? true : TitleMatching.artistsMatch(item.artist, cleanArt)
+            let invertedTitleMatch = !isGenericArtist && (itemCoreTitle == wantArtist)
+            let invertedArtistMatch = !isGenericArtist && TitleMatching.artistsMatch(item.artist, cleanTitle)
+
+            guard (normalTitleMatch && normalArtistMatch) || (invertedTitleMatch && invertedArtistMatch) else { continue }
+            if isGenericArtist && duration <= 0 { continue }
+
+            let tolerance: Double = isGenericArtist ? 10 : 75
+            if duration > 0, item.durationSeconds > 0, abs(item.durationSeconds - duration) > tolerance { continue }
+            return item.artworkURL
+        }
+
+        // Pass 2: Fallback saat artist berasal dari channel uploader YouTube (wajib judul inti persis + durasi sangat ketat)
+        if !isGenericArtist && duration > 0 {
+            for item in items where !item.artworkURL.isEmpty && item.durationSeconds > 0 {
+                if TitleMatching.core(item.title) == wantTitle && abs(item.durationSeconds - duration) <= 4.0 {
+                    return item.artworkURL
+                }
+            }
+        }
+        return nil
+    }
+
     // MARK: - Verified Strict iTunes Matcher (Rejects Mismatched Songs)
     private func searchVerifiedArtwork(
         candidates: [String],
@@ -759,7 +819,7 @@ public class MediaService {
             
         let encoded = TitleMatching.urlQueryEncode(query)
         guard !encoded.isEmpty,
-              let url = URL(string: "https://itunes.apple.com/search?term=\(encoded)&entity=song&limit=5") else {
+              let url = URL(string: "https://itunes.apple.com/search?term=\(encoded)&entity=song&limit=8") else {
             self.searchVerifiedArtwork(candidates: candidates, index: index + 1, cleanTitle: cleanTitle, cleanArt: cleanArt, album: album, duration: duration, cacheKey: cacheKey, completion: completion)
             return
         }
@@ -775,138 +835,100 @@ public class MediaService {
                 self?.searchVerifiedArtwork(candidates: candidates, index: index + 1, cleanTitle: cleanTitle, cleanArt: cleanArt, album: album, duration: duration, cacheKey: cacheKey, completion: completion)
                 return
             }
-            
-            let wantTitle = TitleMatching.core(cleanTitle)
-            let wantArtist = TitleMatching.normalize(cleanArt)
-            let isGenericArtist = MediaService.isGenericArtistName(cleanArt)
 
-            var matchedItem: [String: Any]?
-            if !wantTitle.isEmpty {
-                for item in results {
-                    let trackName = item["trackName"] as? String ?? ""
-                    let itemCoreTitle = TitleMatching.core(trackName)
-                    let artistName = item["artistName"] as? String ?? ""
-                    
-                    let normalTitleMatch = (itemCoreTitle == wantTitle)
-                    let normalArtistMatch = isGenericArtist ? true : TitleMatching.artistsMatch(artistName, cleanArt)
-                    
-                    let invertedTitleMatch = !isGenericArtist && (itemCoreTitle == wantArtist)
-                    let invertedArtistMatch = !isGenericArtist && TitleMatching.artistsMatch(artistName, cleanTitle)
-                    
-                    guard (normalTitleMatch && normalArtistMatch) || (invertedTitleMatch && invertedArtistMatch) else { continue }
-                    
-                    let ms = (item["trackTimeMillis"] as? Double) ?? 0
-                    let tolerance: Double = isGenericArtist ? 10 : 75
-                    if duration > 0, ms > 0, abs(ms / 1000 - duration) > tolerance { continue }
-                    if isGenericArtist && duration <= 0 { continue }
-                    matchedItem = item
-                    break
-                }
+            let mapped: [CatalogCandidate] = results.compactMap { item in
+                guard let artUrlStr = item["artworkUrl100"] as? String, !artUrlStr.isEmpty else { return nil }
+                return CatalogCandidate(
+                    title: item["trackName"] as? String ?? "",
+                    artist: item["artistName"] as? String ?? "",
+                    durationSeconds: ((item["trackTimeMillis"] as? Double) ?? 0) / 1000.0,
+                    artworkURL: artUrlStr.replacingOccurrences(of: "100x100bb.jpg", with: "600x600bb.jpg")
+                )
             }
-            
-            guard let item = matchedItem, let artUrlStr = item["artworkUrl100"] as? String else {
+
+            guard let hdArtUrlStr = MediaService.pickCatalogArtworkURL(from: mapped, cleanTitle: cleanTitle, cleanArt: cleanArt, duration: duration),
+                  let hdUrl = URL(string: hdArtUrlStr) else {
                 self.searchVerifiedArtwork(candidates: candidates, index: index + 1, cleanTitle: cleanTitle, cleanArt: cleanArt, album: album, duration: duration, cacheKey: cacheKey, completion: completion)
                 return
             }
             
-            let hdArtUrlStr = artUrlStr.replacingOccurrences(of: "100x100bb.jpg", with: "600x600bb.jpg")
-            guard let hdUrl = URL(string: hdArtUrlStr) else {
-                self.searchVerifiedArtwork(candidates: candidates, index: index + 1, cleanTitle: cleanTitle, cleanArt: cleanArt, album: album, duration: duration, cacheKey: cacheKey, completion: completion)
-                return
-            }
-            
-            URLSession.shared.dataTask(with: hdUrl) { [weak self] imgData, _, _ in
+            self.downloadImage(hdUrl) { [weak self] imgData in
                 guard let self = self else { return }
-                if let imgData = imgData, !imgData.isEmpty {
+                if let imgData = imgData {
                     self.artStore(cacheKey, imgData)
                     DispatchQueue.main.async { completion(imgData) }
                 } else {
                     self.searchVerifiedArtwork(candidates: candidates, index: index + 1, cleanTitle: cleanTitle, cleanArt: cleanArt, album: album, duration: duration, cacheKey: cacheKey, completion: completion)
                 }
-            }.resume()
+            }
         }.resume()
     }
     
     // MARK: - Official Deezer Music Catalog Search (Zero API Key, High-Accuracy Covers)
     private func searchDeezerArtwork(
+        candidates: [String],
+        index: Int,
         cleanTitle: String,
         cleanArt: String,
-        album: String,
         duration: Double,
         cacheKey: String,
         onMiss: @escaping () -> Void,
         completion: @escaping (Data?) -> Void
     ) {
-        let hasArtist = !cleanArt.isEmpty && !MediaService.isGenericArtistName(cleanArt)
-        let query = hasArtist ? "\(cleanArt) \(cleanTitle)" : cleanTitle
+        guard index < candidates.count else {
+            onMiss()
+            return
+        }
+
+        let query = candidates[index]
         let encoded = TitleMatching.urlQueryEncode(query)
         guard !encoded.isEmpty,
               let url = URL(string: "https://api.deezer.com/search?q=\(encoded)&limit=10") else {
-            onMiss()
+            self.searchDeezerArtwork(candidates: candidates, index: index + 1, cleanTitle: cleanTitle, cleanArt: cleanArt, duration: duration, cacheKey: cacheKey, onMiss: onMiss, completion: completion)
             return
         }
         
         var req = URLRequest(url: url)
         req.timeoutInterval = 3.5
         
-        URLSession.shared.dataTask(with: req) { [weak self] data, resp, _ in
+        URLSession.shared.dataTask(with: req) { [weak self] data, _, _ in
             guard let self = self,
                   let data = data,
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let items = json["data"] as? [[String: Any]], !items.isEmpty else {
-                onMiss()
+                self?.searchDeezerArtwork(candidates: candidates, index: index + 1, cleanTitle: cleanTitle, cleanArt: cleanArt, duration: duration, cacheKey: cacheKey, onMiss: onMiss, completion: completion)
                 return
             }
-            
-            let wantTitle = TitleMatching.core(cleanTitle)
-            let wantArtist = TitleMatching.normalize(cleanArt)
-            let isGenericArtist = MediaService.isGenericArtistName(cleanArt)
-            
-            var matchedCoverUrl: String?
-            for item in items {
-                let trackName = item["title"] as? String ?? ""
-                let itemCoreTitle = TitleMatching.core(trackName)
+
+            let mapped: [CatalogCandidate] = items.compactMap { item in
                 let artistDict = item["artist"] as? [String: Any]
-                let artistName = artistDict?["name"] as? String ?? ""
-                
-                let normalTitleMatch = (itemCoreTitle == wantTitle)
-                let normalArtistMatch = isGenericArtist ? true : TitleMatching.artistsMatch(artistName, cleanArt)
-                
-                let invertedTitleMatch = !isGenericArtist && (itemCoreTitle == wantArtist)
-                let invertedArtistMatch = !isGenericArtist && TitleMatching.artistsMatch(artistName, cleanTitle)
-                
-                guard (normalTitleMatch && normalArtistMatch) || (invertedTitleMatch && invertedArtistMatch) else { continue }
-                
-                let trackDur = item["duration"] as? Double ?? 0
-                if duration > 0, trackDur > 0 {
-                    let tolerance: Double = isGenericArtist ? 10 : 75
-                    if abs(trackDur - duration) > tolerance { continue }
-                }
-                
                 let albumDict = item["album"] as? [String: Any]
-                if let coverXl = albumDict?["cover_xl"] as? String, !coverXl.isEmpty {
-                    matchedCoverUrl = coverXl
-                    break
-                } else if let coverBig = albumDict?["cover_big"] as? String, !coverBig.isEmpty {
-                    matchedCoverUrl = coverBig
-                    break
-                }
+                let cover = (albumDict?["cover_xl"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+                    ?? (albumDict?["cover_big"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+                guard let coverStr = cover else { return nil }
+                return CatalogCandidate(
+                    title: item["title"] as? String ?? "",
+                    artist: artistDict?["name"] as? String ?? "",
+                    durationSeconds: item["duration"] as? Double ?? 0,
+                    artworkURL: coverStr
+                )
             }
-            
-            guard let coverStr = matchedCoverUrl, let coverUrl = URL(string: coverStr) else {
-                onMiss()
+
+            guard let coverStr = MediaService.pickCatalogArtworkURL(from: mapped, cleanTitle: cleanTitle, cleanArt: cleanArt, duration: duration),
+                  let coverUrl = URL(string: coverStr) else {
+                self.searchDeezerArtwork(candidates: candidates, index: index + 1, cleanTitle: cleanTitle, cleanArt: cleanArt, duration: duration, cacheKey: cacheKey, onMiss: onMiss, completion: completion)
                 return
             }
             
-            URLSession.shared.dataTask(with: coverUrl) { [weak self] imgData, resp, _ in
+            self.downloadImage(coverUrl, timeout: 3.5) { [weak self] imgData in
                 guard let self = self else { return }
-                if let http = resp as? HTTPURLResponse, http.statusCode == 200, let imgData = imgData, !imgData.isEmpty {
+                if let imgData = imgData {
                     self.artStore(cacheKey, imgData)
                     DispatchQueue.main.async { completion(imgData) }
                 } else {
-                    onMiss()
+                    self.searchDeezerArtwork(candidates: candidates, index: index + 1, cleanTitle: cleanTitle, cleanArt: cleanArt, duration: duration, cacheKey: cacheKey, onMiss: onMiss, completion: completion)
                 }
-            }.resume()
+            }
         }.resume()
     }
 }
