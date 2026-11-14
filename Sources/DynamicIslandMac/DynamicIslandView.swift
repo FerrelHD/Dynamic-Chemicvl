@@ -1866,16 +1866,30 @@ public struct DynamicIslandView: View {
         GeometryReader { geo in
             ScrollViewReader { proxy in
                 ScrollView(.vertical, showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 14) {
-                        // Dynamic top space agar baris pertama bisa berada di anchor 0.38
-                        Color.clear.frame(height: max(20, geo.size.height * 0.38))
+                    VStack(alignment: .leading, spacing: state.isLyricsSynced ? 14 : 10) {
+                        if state.isLyricsSynced {
+                            // Dynamic top space agar baris pertama bisa berada di anchor 0.38
+                            Color.clear.frame(height: max(20, geo.size.height * 0.38))
+                        } else {
+                            Text("Unsynced lyrics")
+                                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                                .foregroundColor(.white.opacity(0.48))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Capsule().fill(Color.white.opacity(0.10)))
+                                .padding(.top, 4)
+                        }
                         
                         ForEach(state.lyricsLines.indices, id: \.self) { idx in
                             lyricRowButton(line: state.lyricsLines[idx], idx: idx, proxy: proxy)
                         }
                         
-                        // Dynamic bottom space agar baris terakhir bisa berada di anchor 0.38
-                        Color.clear.frame(height: max(40, geo.size.height * 0.62))
+                        if state.isLyricsSynced {
+                            // Dynamic bottom space agar baris terakhir bisa berada di anchor 0.38
+                            Color.clear.frame(height: max(40, geo.size.height * 0.62))
+                        } else {
+                            Color.clear.frame(height: 20)
+                        }
                     }
                     .padding(.horizontal, 6)
                 }
@@ -1931,35 +1945,47 @@ public struct DynamicIslandView: View {
         }
     }
     
+    @ViewBuilder
     private func lyricRowButton(line: LyricLine, idx: Int, proxy: ScrollViewProxy) -> some View {
-        let active = state.currentLyricIndex
-        let isCurrent = (active == idx)
-        let distance = active.map { abs($0 - idx) } ?? 4
-        let blur: CGFloat = isCurrent ? 0 : min(CGFloat(distance), 4) * 0.7
-        
-        return Button(action: {
-            lastUserLyricScroll = .distantPast // Reset manual scroll timer so it jumps immediately
-            state.seekTo(line.timestamp)
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
-                proxy.scrollTo(idx, anchor: UnitPoint(x: 0.5, y: 0.38))
-            }
-        }) {
+        if !state.isLyricsSynced {
             Text(line.text)
-                .font(.system(size: 15, weight: .bold, design: .rounded))
-                .foregroundColor(.white)
+                .font(.system(size: 13.5, weight: .semibold, design: .rounded))
+                .foregroundColor(.white.opacity(0.88))
                 .multilineTextAlignment(.leading)
-                .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.trailing, 22)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
-                .opacity(isCurrent ? 1.0 : 0.38)
-                .blur(radius: blur)
-                .scaleEffect(isCurrent ? 1.0 : 0.92, anchor: .leading)
-                .animation(.spring(response: 0.45, dampingFraction: 0.8), value: isCurrent)
+                .id(idx)
+        } else {
+            let active = state.currentLyricIndex
+            let isCurrent = (active == idx)
+            let distance = active.map { abs($0 - idx) } ?? 4
+            let blur: CGFloat = isCurrent ? 0 : min(CGFloat(distance), 4) * 0.7
+            
+            Button(action: {
+                lastUserLyricScroll = .distantPast // Reset manual scroll timer so it jumps immediately
+                state.seekTo(line.timestamp)
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) {
+                    proxy.scrollTo(idx, anchor: UnitPoint(x: 0.5, y: 0.38))
+                }
+            }) {
+                Text(line.text)
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.trailing, 22)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                    .opacity(isCurrent ? 1.0 : 0.38)
+                    .blur(radius: blur)
+                    .scaleEffect(isCurrent ? 1.0 : 0.92, anchor: .leading)
+                    .animation(.spring(response: 0.45, dampingFraction: 0.8), value: isCurrent)
+            }
+            .buttonStyle(.plain)
+            .id(idx)
         }
-        .buttonStyle(.plain)
-        .id(idx)
     }
     
     // MARK: - Apple Music Mini Player Scrubber Bar (Thumbless, Thick Capsule with Spring Expansion)

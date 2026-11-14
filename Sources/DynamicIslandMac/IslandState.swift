@@ -544,6 +544,7 @@ public class IslandState: ObservableObject {
         didSet { updateWaveformTimer() }
     }
     @Published public var lyricsLines: [LyricLine] = []
+    @Published public var isLyricsSynced: Bool = true
     @Published public var currentLyricIndex: Int? = nil
     @Published public var isLoadingLyrics: Bool = false
     @Published public var lyricsErrorMessage: String? = nil
@@ -791,6 +792,7 @@ public class IslandState: ObservableObject {
                 self.lyricsDebounce?.cancel()
                 self.lyricsDebounce = nil
                 self.lyricsLines = []
+                self.isLyricsSynced = true
                 self.currentLyricIndex = nil
                 self.lyricsErrorMessage = nil
                 self.isLoadingLyrics = false
@@ -1564,12 +1566,18 @@ public class IslandState: ObservableObject {
                 guard let self = self, self.lyricsRequestID == requestID else { return }
                 self.isLoadingLyrics = false
                 switch result {
-                case .success(let lines):
-                    self.lyricsLines = lines
+                case .success(let res):
+                    self.lyricsLines = res.lines
+                    self.isLyricsSynced = res.isSynced
                     self.lyricsErrorMessage = nil
-                    self.updateActiveLyricIndex(for: self.currentPositionSeconds)
+                    if res.isSynced {
+                        self.updateActiveLyricIndex(for: self.currentPositionSeconds)
+                    } else {
+                        self.currentLyricIndex = nil
+                    }
                 case .failure:
                     self.lyricsLines = []
+                    self.isLyricsSynced = true
                     self.lyricsErrorMessage = "No lyrics found for this track"
                 }
             }
@@ -1577,7 +1585,7 @@ public class IslandState: ObservableObject {
     }
     
     public func updateActiveLyricIndex(for position: Double) {
-        guard !lyricsLines.isEmpty else {
+        guard isLyricsSynced, !lyricsLines.isEmpty else {
             if currentLyricIndex != nil { currentLyricIndex = nil }
             return
         }
