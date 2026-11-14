@@ -1,6 +1,14 @@
 import Foundation
 
 public enum TitleMatching {
+    // CharacterSet unreserved RFC 3986 (menjamin '&', '+', '#' ter-encode aman dan tidak memotong query URL)
+    private static let unreserved = CharacterSet(charactersIn:
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~")
+
+    public static func urlQueryEncode(_ s: String) -> String {
+        s.addingPercentEncoding(withAllowedCharacters: unreserved) ?? ""
+    }
+
     /// Lowercase, buang diakritik, pertahankan huruf/angka dari SEMUA aksara
     /// (Latin, Hangul, Kana, dll). Jangan pakai [^a-z0-9]: judul non-Latin akan
     /// menjadi string kosong dan semuanya cocok satu sama lain.
@@ -12,11 +20,16 @@ public enum TitleMatching {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// Inti judul: buang isi tanda kurung/siku dan "feat ...", buang separator noise (| // • ~), lalu normalisasi.
+    /// Inti judul: buang isi tanda kurung/siku, "feat ...", separator noise (| // • ~),
+    /// dan suffix edisi/versi bertanda hubung, lalu normalisasi.
     public static func core(_ s: String) -> String {
         var t = s.replacingOccurrences(of: #"[\(\[][^\)\]]*[\)\]]"#, with: " ", options: .regularExpression)
         t = t.replacingOccurrences(of: #"(?i)\s+(feat|ft|featuring)\.?\s.*$"#, with: "", options: .regularExpression)
         t = t.replacingOccurrences(of: #"(?i)\s*(?:[|•~]|\/{1,2})\s*.*$"#, with: "", options: .regularExpression)
+        t = t.replacingOccurrences(
+            of: #"(?i)\s*[-–—]\s*(?:(?:\d{4}\s+)?remaster(?:ed)?(?:\s+\d{4})?|single\s+version|radio\s+edit|album\s+version|taylor'?s\s+version|explicit|clean|mono|stereo|acoustic(?:\s+version)?|live(?:\s+.*)?|demo|slowed.*|sped\s*up.*|speed\s*up.*|remix.*|instrumental|karaoke|from\s+.*)$"#,
+            with: "", options: .regularExpression
+        )
         let c = normalize(t)
         return c.isEmpty ? normalize(s) : c
     }

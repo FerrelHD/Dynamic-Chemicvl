@@ -109,23 +109,20 @@ public class MediaService {
             }
         }
         
-        // 3. Remove separator noise tags: |, //, •, ~ followed by video/audio descriptors
-        let sepNoise = #"(?i)\s*(?:[|•~]|\/{1,2})\s*(?:official|music|video|audio|lyric|lyrics|lirik|visualizer|mv|m\/v|klip|live|session|acoustic).*$"#
+        // 3. Remove separator noise tags: |, //, •, ~ followed by descriptors
+        let sepNoise = #"(?i)\s*(?:[|•~]|\/{1,2})\s*(?:official|music|video|audio|lyric|lyrics|lirik|visualizer|mv|m\/v|klip|live|session|acoustic|slowed|sped\s*up|speed\s*up|nightcore|cover|unreleased|terjemahan|sub\s*(?:indo|eng)).*$"#
         s = s.replacingOccurrences(of: sepNoise, with: "", options: .regularExpression)
         
         // 4. Remove bracketed / parenthesized noise descriptors
-        let bracketNoise = #"(?i)\s*[\(\[]\s*(?:official\s+)?(?:music\s+)?(?:video|audio|visualizer|lyric(?:s)?|lirik|mv|m\/v|hd|4k|remastered|live|session|acoustic|clip|klip).*?[\)\]]"#
+        let bracketNoise = #"(?i)\s*[\(\[]\s*(?:official\s+)?(?:(?:music|lyric|lyrics|performance|special)\s+)?(?:video|audio|visualizer|lyric(?:s)?|lirik|mv|m\/v|hd|4k(?:\s*60fps)?|remastered(?:\s+\d{4})?|live|session|acoustic|clip|klip|sped\s*up|speed\s*up|slowed(?:\s*[+&]\s*reverb)?|reverb|nightcore|8d(?:\s+audio)?|bass\s*boosted|cover(?:\s+by\b.*)?|unreleased|demo|full\s+(?:version|audio)|color\s+coded.*|terjemahan.*|(?:indo|eng)\s+sub.*|sub\s+(?:indo|eng).*|instrumental|karaoke|prod\.?\s*(?:by\b)?.*|tiktok(?:\s+version)?|remix(?:\s+.*)?).*?[\)\]]"#
         s = s.replacingOccurrences(of: bracketNoise, with: "", options: .regularExpression)
         
         // 5. Remove standalone trailing noise tags
-        let trailingNoise = #"(?i)\s+(?:official\s+)?(?:music\s+)?(?:video|audio|visualizer|lyric\s+video|lyrics\s+video|video\s+klip|lirik)$"#
+        let trailingNoise = #"(?i)\s+(?:(?:official\s+)?(?:music\s+)?(?:video|audio|visualizer|lyric(?:s)?\s+video|video\s+klip|lirik)|slowed\s*(?:[+&]\s*reverb)?|sped\s*up|speed\s*up|nightcore)$"#
         s = s.replacingOccurrences(of: trailingNoise, with: "", options: .regularExpression)
         
         // 6. Common tags
         let noiseTags = [
-            "(Tiktok Version)", "[Tiktok Version]", "(Speed Up)", "[Speed Up]",
-            "(Slowed + Reverb)", "[Slowed + Reverb]", "(Slowed and Reverb)", "[Slowed and Reverb]",
-            "(Remix)", "[Remix]", "(HD)", "[HD]", "(4K)", "[4K]", "(4K 60FPS)", "[4K 60FPS]",
             "| VEVO", "(VEVO)", "[VEVO]"
         ]
         for tag in noiseTags {
@@ -134,6 +131,11 @@ public class MediaService {
             }
         }
         return s.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func isEditionSuffix(_ s: String) -> Bool {
+        let pattern = #"(?i)^(?:(?:\d{4}\s+)?remaster(?:ed)?(?:\s+\d{4})?|single\s+version|radio\s+edit|album\s+version|taylor'?s\s+version|explicit|clean|mono|stereo|acoustic(?:\s+version)?|live(?:\s+.*)?|demo|slowed.*|sped\s*up.*|speed\s*up.*|remix.*|instrumental|karaoke|intro|outro|interlude|p(?:ar)?t\.?\s*\d+.*|from\s+.*|ost\b.*)$"#
+        return s.trimmingCharacters(in: .whitespacesAndNewlines).range(of: pattern, options: .regularExpression) != nil
     }
 
     public static func cleanArtistName(_ raw: String) -> String {
@@ -184,22 +186,33 @@ public class MediaService {
                     let aPart = cleanArtistName(cleanVideoTitle(parts[0]))
                     let tPart = cleanVideoTitle(parts[1...].joined(separator: sep))
                     if !aPart.isEmpty && !tPart.isEmpty {
-                        title = tPart
-                        artist = aPart
-                        found = true
+                        if !isGenericArtist && isEditionSuffix(tPart) {
+                            // Jangan pecah judul resmi seperti "Love Story - Taylor's Version" saat artis sudah valid
+                            found = true
+                        } else if !isGenericArtist && TitleMatching.artistsMatch(aPart, artist) {
+                            title = tPart
+                            found = true
+                        } else if !isGenericArtist && TitleMatching.artistsMatch(tPart, artist) {
+                            title = aPart
+                            found = true
+                        } else {
+                            title = tPart
+                            artist = aPart
+                            found = true
+                        }
                         break
                     }
                 }
             }
         }
         
-        // Format 2: "Song Title by Artist"
+        // Format 2: "Song Title by Artist" (hanya jika artis generik atau cocok dengan sisi kanan, agar judul seperti "Stand by Me" aman)
         if !found && title.contains(" by ") {
             let parts = title.components(separatedBy: " by ")
             if parts.count >= 2 {
                 let tPart = cleanVideoTitle(parts[0])
                 let aPart = cleanArtistName(cleanVideoTitle(parts[1...].joined(separator: " by ")))
-                if !tPart.isEmpty && !aPart.isEmpty {
+                if !tPart.isEmpty && !aPart.isEmpty && (isGenericArtist || TitleMatching.artistsMatch(aPart, artist)) {
                     title = tPart
                     artist = aPart
                 }
@@ -744,7 +757,8 @@ public class MediaService {
             .replacingOccurrences(of: " – ", with: " ")
             .replacingOccurrences(of: " — ", with: " ")
             
-        guard let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+        let encoded = TitleMatching.urlQueryEncode(query)
+        guard !encoded.isEmpty,
               let url = URL(string: "https://itunes.apple.com/search?term=\(encoded)&entity=song&limit=5") else {
             self.searchVerifiedArtwork(candidates: candidates, index: index + 1, cleanTitle: cleanTitle, cleanArt: cleanArt, album: album, duration: duration, cacheKey: cacheKey, completion: completion)
             return
@@ -825,7 +839,8 @@ public class MediaService {
     ) {
         let hasArtist = !cleanArt.isEmpty && !MediaService.isGenericArtistName(cleanArt)
         let query = hasArtist ? "\(cleanArt) \(cleanTitle)" : cleanTitle
-        guard let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+        let encoded = TitleMatching.urlQueryEncode(query)
+        guard !encoded.isEmpty,
               let url = URL(string: "https://api.deezer.com/search?q=\(encoded)&limit=10") else {
             onMiss()
             return
