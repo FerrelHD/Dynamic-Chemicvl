@@ -89,17 +89,15 @@ public class MediaService {
         public let isTransientSocial: Bool
     }
     
-    // MARK: - Metadata Sanitizers & KeyNotch YouTube Engine
+    // MARK: - Metadata Sanitizers
     public static func cleanVideoTitle(_ raw: String) -> String {
         var s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         
-        // 1. Remove notification badges at the beginning, e.g. "(1) ", "(2) "
         if let badgeRegex = try? NSRegularExpression(pattern: "^\\([0-9]+\\)\\s*") {
             let range = NSRange(s.startIndex..., in: s)
             s = badgeRegex.stringByReplacingMatches(in: s, options: [], range: range, withTemplate: "")
         }
         
-        // 2. Remove trailing YouTube suffixes
         let trailingSuffixes = [
             " - YouTube", " – YouTube", " — YouTube", " | YouTube",
             " - topic", " – topic", " — topic",
@@ -111,19 +109,15 @@ public class MediaService {
             }
         }
         
-        // 3. Remove separator noise tags: |, //, •, ~ followed by descriptors
         let sepNoise = #"(?i)\s*(?:[|•~]|\/{1,2})\s*(?:official|music|video|audio|lyric|lyrics|lirik|visualizer|mv|m\/v|klip|live|session|acoustic|slowed|sped\s*up|speed\s*up|nightcore|cover|unreleased|terjemahan|sub\s*(?:indo|eng)).*$"#
         s = s.replacingOccurrences(of: sepNoise, with: "", options: .regularExpression)
         
-        // 4. Remove bracketed / parenthesized noise descriptors
         let bracketNoise = #"(?i)\s*[\(\[]\s*(?:official\s+)?(?:(?:music|lyric|lyrics|performance|special)\s+)?(?:video|audio|visualizer|lyric(?:s)?|lirik|mv|m\/v|hd|4k(?:\s*60fps)?|remastered(?:\s+\d{4})?|live|session|acoustic|clip|klip|sped\s*up|speed\s*up|slowed(?:\s*[+&]\s*reverb)?|reverb|nightcore|8d(?:\s+audio)?|bass\s*boosted|cover(?:\s+by\b.*)?|unreleased|demo|full\s+(?:version|audio)|color\s+coded.*|terjemahan.*|(?:indo|eng)\s+sub.*|sub\s+(?:indo|eng).*|instrumental|karaoke|prod\.?\s*(?:by\b)?.*|tiktok(?:\s+version)?|remix(?:\s+.*)?).*?[\)\]]"#
         s = s.replacingOccurrences(of: bracketNoise, with: "", options: .regularExpression)
         
-        // 5. Remove standalone trailing noise tags
         let trailingNoise = #"(?i)\s+(?:(?:official\s+)?(?:music\s+)?(?:video|audio|visualizer|lyric(?:s)?\s+video|video\s+klip|lirik)|slowed\s*(?:[+&]\s*reverb)?|sped\s*up|speed\s*up|nightcore)$"#
         s = s.replacingOccurrences(of: trailingNoise, with: "", options: .regularExpression)
         
-        // 6. Common tags
         let noiseTags = [
             "| VEVO", "(VEVO)", "[VEVO]"
         ]
@@ -342,7 +336,7 @@ public class MediaService {
         }
     }
     
-    // MARK: - Cover art: Spotify -> YouTube media session -> YouTube thumbnail -> Deezer -> iTunes
+    // MARK: - Online Artwork
     public func fetchOnlineArtwork(
         title: String,
         artist: String,
@@ -515,7 +509,7 @@ public class MediaService {
         return rep.representation(using: .jpeg, properties: [.compressionFactor: 0.9]) ?? data
     }
     
-    // MARK: - Native Spotify Official CDN Resolver (Zero Guesswork)
+    // MARK: - Spotify Artwork
     public static func isSpotifyRunning() -> Bool {
         !NSRunningApplication.runningApplications(withBundleIdentifier: "com.spotify.client").isEmpty
     }
@@ -568,9 +562,7 @@ public class MediaService {
         if !strippedFeat.isEmpty { appendCandidate(strippedFeat) }
         if !coreTitle.isEmpty { appendCandidate(coreTitle) }
 
-        // Tier A: Official Deezer Music Catalog (Ultra-fast, zero auth, covers Spotify & Apple Music catalog)
         searchDeezerArtwork(candidates: candidates, index: 0, cleanTitle: clean, cleanArt: cleanArt, duration: duration, cacheKey: cacheKey, onMiss: { [weak self] in
-            // Tier B: Fallback to verified iTunes search
             self?.searchVerifiedArtwork(candidates: candidates, index: 0, cleanTitle: clean, cleanArt: cleanArt, album: album, duration: duration, cacheKey: cacheKey, completion: completion)
         }, completion: completion)
     }
@@ -796,7 +788,7 @@ public class MediaService {
         return nil
     }
 
-    // MARK: - Verified Strict iTunes Matcher (Rejects Mismatched Songs)
+    // MARK: - iTunes Search
     private func searchVerifiedArtwork(
         candidates: [String],
         index: Int,
@@ -864,7 +856,7 @@ public class MediaService {
         }.resume()
     }
     
-    // MARK: - Official Deezer Music Catalog Search (Zero API Key, High-Accuracy Covers)
+    // MARK: - Deezer Search
     private func searchDeezerArtwork(
         candidates: [String],
         index: Int,

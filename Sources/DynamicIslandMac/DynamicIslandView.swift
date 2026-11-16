@@ -26,43 +26,27 @@ public struct NotchShape: Shape {
         let b = max(0, min(bottomRadius, min((rect.width - 2 * e) / 2, rect.height)))
         
         path.move(to: CGPoint(x: rect.minX, y: rect.minY))
-        
-        // Top-left concave ear fillet (Silky Smooth Circular Tangent Fillet)
         path.addCurve(
             to: CGPoint(x: rect.minX + e, y: rect.minY + e),
             control1: CGPoint(x: rect.minX + e * 0.5523, y: rect.minY),
             control2: CGPoint(x: rect.minX + e, y: rect.minY + e * 0.4477)
         )
-        
-        // Left vertical edge
         path.addLine(to: CGPoint(x: rect.minX + e, y: rect.maxY - b))
-        
-        // Bottom-left convex squircle corner
         path.addQuadCurve(
             to: CGPoint(x: rect.minX + e + b, y: rect.maxY),
             control: CGPoint(x: rect.minX + e, y: rect.maxY)
         )
-        
-        // Bottom horizontal edge
         path.addLine(to: CGPoint(x: rect.maxX - e - b, y: rect.maxY))
-        
-        // Bottom-right convex squircle corner
         path.addQuadCurve(
             to: CGPoint(x: rect.maxX - e, y: rect.maxY - b),
             control: CGPoint(x: rect.maxX - e, y: rect.maxY)
         )
-        
-        // Right vertical edge
         path.addLine(to: CGPoint(x: rect.maxX - e, y: rect.minY + e))
-        
-        // Top-right concave ear fillet (Silky Smooth Circular Tangent Fillet)
         path.addCurve(
             to: CGPoint(x: rect.maxX, y: rect.minY),
             control1: CGPoint(x: rect.maxX - e, y: rect.minY + e * 0.4477),
             control2: CGPoint(x: rect.maxX - e * 0.5523, y: rect.minY)
         )
-        
-        // Top straight edge flush with display bezel
         path.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
         path.closeSubpath()
         return path
@@ -91,38 +75,24 @@ public struct NotchOutlineShape: Shape {
         let e = max(0, min(earRadius, rect.width / 4))
         let b = max(0, min(bottomRadius, min((rect.width - 2 * e) / 2, rect.height)))
         
-        // Leaves top bezel edge unstroked so it seamlessly flows out of the screen's black bezel
+        // Top bezel edge remains unstroked to flow out of display bezel
         path.move(to: CGPoint(x: rect.minX, y: rect.minY))
-        
-        // Top-left concave ear fillet (Silky Smooth Circular Tangent Fillet)
         path.addCurve(
             to: CGPoint(x: rect.minX + e, y: rect.minY + e),
             control1: CGPoint(x: rect.minX + e * 0.5523, y: rect.minY),
             control2: CGPoint(x: rect.minX + e, y: rect.minY + e * 0.4477)
         )
-        
-        // Left vertical edge
         path.addLine(to: CGPoint(x: rect.minX + e, y: rect.maxY - b))
-        
-        // Bottom-left convex squircle corner
         path.addQuadCurve(
             to: CGPoint(x: rect.minX + e + b, y: rect.maxY),
             control: CGPoint(x: rect.minX + e, y: rect.maxY)
         )
-        
-        // Bottom horizontal edge
         path.addLine(to: CGPoint(x: rect.maxX - e - b, y: rect.maxY))
-        
-        // Bottom-right convex squircle corner
         path.addQuadCurve(
             to: CGPoint(x: rect.maxX - e, y: rect.maxY - b),
             control: CGPoint(x: rect.maxX - e, y: rect.maxY)
         )
-        
-        // Right vertical edge
         path.addLine(to: CGPoint(x: rect.maxX - e, y: rect.minY + e))
-        
-        // Top-right concave ear fillet (Silky Smooth Circular Tangent Fillet)
         path.addCurve(
             to: CGPoint(x: rect.maxX, y: rect.minY),
             control1: CGPoint(x: rect.maxX - e, y: rect.minY + e * 0.4477),
@@ -384,8 +354,7 @@ public struct DynamicIslandView: View {
                     )
                 )
             } else {
-                // Fallback: Elegant 3-point ambient lighting when no artwork image is available
-                // 1. Point 1: Full-width vertical ambient wash (Top 38% pure jet-black OLED, zero bleed to camera/menubar)
+                // Fallback ambient wash
                 LinearGradient(
                     stops: [
                         .init(color: .clear, location: 0.38),
@@ -397,7 +366,6 @@ public struct DynamicIslandView: View {
                     endPoint: .bottom
                 )
                 
-                // 2. Point 2: Bottom-trailing corner radial anchor (KeyNotch lighting, confined to bottom corners)
                 RadialGradient(
                     colors: [
                         dominant.opacity(0.85),
@@ -409,7 +377,6 @@ public struct DynamicIslandView: View {
                     endRadius: 185
                 )
                 
-                // 3. Point 3: Bottom-leading corner radial anchor (KeyNotch lighting, confined to bottom corners)
                 RadialGradient(
                     colors: [
                         dominant.opacity(0.75),
@@ -435,7 +402,7 @@ public struct DynamicIslandView: View {
             && !state.isTallNotificationActive
         
         VStack(spacing: 0) {
-            // MARK: - OLED Jet-Black MacBook Notch (Seamless Bezel Integration & Morphing)
+            // MARK: - Notch Shell
             ZStack(alignment: .top) {
                 NotchShape(earRadius: earRadius, bottomRadius: bottomRadius)
                     .fill(Color.black)
@@ -645,7 +612,6 @@ public struct DynamicIslandView: View {
         is3DSpinning: Bool = false
     ) -> some View {
         HStack(spacing: 12) {
-            // 1. Left: Dynamic Circular Progress Ring with Center Icon
             ZStack {
                 Circle()
                     .stroke(Color.white.opacity(0.14), lineWidth: 2.8)
@@ -662,7 +628,6 @@ public struct DynamicIslandView: View {
             }
             .frame(width: 28, height: 28)
             
-            // 2. Middle: Title + Subtitle
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.system(size: 13, weight: .bold, design: .rounded))
@@ -677,7 +642,6 @@ public struct DynamicIslandView: View {
             
             Spacer(minLength: 6)
             
-            // 3. Right: Prominent Percentage or Status
             Text(trailingText)
                 .font(.system(size: 16.5, weight: .semibold, design: .rounded))
                 .foregroundColor(.white)
@@ -845,7 +809,6 @@ public struct DynamicIslandView: View {
                 }
                 .frame(width: 28, height: 28)
                 
-                // 2. Middle: Sender Name + 1-Line Message Preview
                 VStack(alignment: .leading, spacing: 2) {
                     Text(chat.sender)
                         .font(.system(size: 12.5, weight: .bold, design: .rounded))
@@ -860,7 +823,6 @@ public struct DynamicIslandView: View {
                 
                 Spacer(minLength: 6)
                 
-                // 3. Right: Timestamp Tag
                 Text(chat.timestamp)
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundColor(.white.opacity(0.48))
@@ -955,11 +917,9 @@ public struct DynamicIslandView: View {
             
             Spacer(minLength: 8)
             
-            // 3. Circular Action Buttons
             switch call.state {
             case .incoming:
                 HStack(spacing: 12) {
-                    // Decline Call (Red)
                     Button(action: { state.declineCall() }) {
                         ZStack {
                             Circle()
@@ -972,7 +932,6 @@ public struct DynamicIslandView: View {
                     }
                     .buttonStyle(.plain)
                     
-                    // Accept Call (Green)
                     Button(action: { state.acceptCall() }) {
                         ZStack {
                             Circle()
@@ -1291,7 +1250,7 @@ public struct DynamicIslandView: View {
             .padding(.bottom, 38)
             .zIndex(1)
             
-            // 2. Minimal Apple-Style Page Dots & Settings (••• ⚙️) Pinned Permanently at Bottom (Rigidly Locked)
+            // Pinned page indicator bar
             pageDotsBar
                 .frame(maxWidth: .infinity)
                 .padding(.bottom, 14)
@@ -2383,7 +2342,6 @@ public struct DynamicIslandView: View {
                                         state.triggerHaptic(.generic)
                                     }) {
                                         ZStack(alignment: .center) {
-                                            // 1. Date Number Badge (Strictly Centered on Number Only)
                                             ZStack {
                                                 if isToday && isSelected {
                                                     RoundedRectangle(cornerRadius: 5.5, style: .continuous)
@@ -2410,7 +2368,6 @@ public struct DynamicIslandView: View {
                                             }
                                             .frame(width: 23, height: 15.5)
                                             
-                                            // 2. Event Dot (Positioned strictly outside & below badge, zero text shifting)
                                             if hasEvent {
                                                 VStack {
                                                     Spacer()
