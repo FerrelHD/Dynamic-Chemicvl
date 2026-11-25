@@ -461,7 +461,7 @@ public class IslandState: ObservableObject {
         case .music:
             return (width: 480, height: 230)
         case .calendar:
-            return (width: 480, height: 230)
+            return (width: 560, height: 264) // Spacious calendar grid + unclipped day/date agenda header
         case .notes:
             return (width: 480, height: 230)
         case .shelf:

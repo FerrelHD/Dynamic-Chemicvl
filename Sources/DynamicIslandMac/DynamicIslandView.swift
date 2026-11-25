@@ -2295,7 +2295,8 @@ public struct DynamicIslandView: View {
                         .font(.system(size: 12, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.8)
+                        .minimumScaleFactor(0.85)
+                        .layoutPriority(1)
 
                     if !isShowingToday {
                         Button(action: {
@@ -2312,6 +2313,7 @@ public struct DynamicIslandView: View {
                                 .clipShape(Capsule())
                         }
                         .buttonStyle(.plain)
+                        .fixedSize()
                         .transition(.scale.combined(with: .opacity))
                     }
 
@@ -2330,9 +2332,10 @@ public struct DynamicIslandView: View {
                 HStack(spacing: 2) {
                     ForEach(Array(["M", "T", "W", "T", "F", "S", "S"].enumerated()), id: \.offset) { idx, day in
                         Text(day)
-                            .font(.system(size: 8.5, weight: .bold, design: .rounded))
+                            .font(.system(size: 9, weight: .bold, design: .rounded))
                             .foregroundColor(idx >= 5 ? .white.opacity(0.38) : .white.opacity(0.62))
                             .frame(maxWidth: .infinity)
+                            .frame(height: 13)
                     }
                 }
 
@@ -2387,13 +2390,14 @@ public struct DynamicIslandView: View {
                 // Compact Header: Selected Date + Count Badge + Inline Live Clock
                 HStack(alignment: .center, spacing: 5) {
                     Text(selectedDateHeaderString(state.calendarSelectedDate))
-                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
                         .foregroundColor(Color(red: 0.25, green: 0.65, blue: 1.0))
                         .textCase(.uppercase)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.8)
+                        .minimumScaleFactor(0.85)
+                        .layoutPriority(1)
 
-                    Spacer(minLength: 2)
+                    Spacer(minLength: 4)
 
                     if !selectedEvents.isEmpty {
                         Text("\(selectedEvents.count)")
@@ -2403,6 +2407,7 @@ public struct DynamicIslandView: View {
                             .padding(.vertical, 1.5)
                             .background(Color.white.opacity(0.11))
                             .clipShape(Capsule())
+                            .fixedSize()
                     }
 
                     TimelineView(.periodic(from: .now, by: 1.0)) { timeline in
@@ -2414,6 +2419,7 @@ public struct DynamicIslandView: View {
                             .padding(.vertical, 2)
                             .background(Color.white.opacity(0.08))
                             .clipShape(Capsule())
+                            .fixedSize()
                     }
                 }
 
@@ -3484,9 +3490,10 @@ private struct CalendarDayCellView: View {
                     )
 
                 Text("\(dayNumber)")
-                    .font(.system(size: 10, weight: (isToday || isSelected) ? .bold : .medium, design: .rounded))
+                    .font(.system(size: 10.5, weight: (isToday || isSelected) ? .bold : .medium, design: .rounded))
                     .foregroundColor(textColor)
-                    .offset(y: hasEvent ? -1.2 : 0)
+                    .lineLimit(1)
+                    .offset(y: hasEvent ? -1.5 : 0)
 
                 if hasEvent {
                     VStack {
