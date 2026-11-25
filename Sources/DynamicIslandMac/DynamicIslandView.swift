@@ -2271,8 +2271,6 @@ public struct DynamicIslandView: View {
     
     // MARK: - Tab: Calendar & Agenda (Interactive Month & Quick Focus)
     private var calendarTabView: some View {
-        let isShowingToday = Calendar.current.isDate(state.calendarDisplayedMonth, equalTo: Date(), toGranularity: .month)
-            && Calendar.current.isDateInToday(state.calendarSelectedDate)
         let days = IslandState.calendarDays(for: state.calendarDisplayedMonth)
         let selectedEvents = state.eventsForSelectedDate
         let hasNewTitle = !state.newCalendarEventTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -2280,7 +2278,7 @@ public struct DynamicIslandView: View {
         return HStack(spacing: 8) {
             // Left Column: Fluid Interactive Month Grid (6 Weeks x 7 Days)
             VStack(spacing: 4) {
-                // Month Header (< Month YYYY [Today] >)
+                // Month Header (< Month YYYY >)
                 HStack(spacing: 4) {
                     CalendarChevronButton(systemName: "chevron.left") {
                         withAnimation(.easeInOut(duration: 0.18)) {
@@ -2297,25 +2295,6 @@ public struct DynamicIslandView: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
                         .layoutPriority(1)
-
-                    if !isShowingToday {
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.20)) {
-                                state.jumpToTodayCalendar()
-                            }
-                        }) {
-                            Text("Today")
-                                .font(.system(size: 8.5, weight: .bold, design: .rounded))
-                                .foregroundColor(Color(red: 0.25, green: 0.65, blue: 1.0))
-                                .padding(.horizontal, 5.5)
-                                .padding(.vertical, 2)
-                                .background(Color(red: 0.0, green: 0.48, blue: 1.0).opacity(0.20))
-                                .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .fixedSize()
-                        .transition(.scale.combined(with: .opacity))
-                    }
 
                     Spacer(minLength: 2)
 
