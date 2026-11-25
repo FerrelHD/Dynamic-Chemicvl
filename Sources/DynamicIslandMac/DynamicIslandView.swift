@@ -2423,7 +2423,7 @@ public struct DynamicIslandView: View {
                     }
                 }
 
-                // Quick Event Input (Title + Optional Time + Add)
+                // Quick Event Input (Title + Add)
                 HStack(alignment: .center, spacing: 5) {
                     AutoWrapTextField(
                         placeholder: "Add event...",
@@ -2436,24 +2436,6 @@ public struct DynamicIslandView: View {
                         }
                     )
                     .frame(minHeight: 18, maxHeight: 30)
-
-                    AutoWrapTextField(
-                        placeholder: "HH:mm",
-                        text: $state.newCalendarEventTime,
-                        fontSize: 9.5,
-                        fontWeight: .semibold,
-                        maxLines: 1,
-                        onCommit: {
-                            state.addQuickCalendarEvent()
-                        }
-                    )
-                    .frame(width: 36, height: 18)
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 1)
-                    .background(
-                        RoundedRectangle(cornerRadius: 5, style: .continuous)
-                            .fill(Color.white.opacity(0.07))
-                    )
 
                     Button(action: {
                         state.addQuickCalendarEvent()
@@ -2493,7 +2475,7 @@ public struct DynamicIslandView: View {
                                 Text("No events for \(shortDateString(state.calendarSelectedDate))")
                                     .font(.system(size: 9.5, weight: .medium, design: .rounded))
                                     .foregroundColor(.white.opacity(0.45))
-                                Text("Type title & optional time above")
+                                Text("Type an event above")
                                     .font(.system(size: 8, weight: .regular, design: .rounded))
                                     .foregroundColor(.white.opacity(0.26))
                             }
