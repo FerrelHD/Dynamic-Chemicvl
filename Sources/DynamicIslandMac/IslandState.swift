@@ -20,6 +20,16 @@ public enum IslandTab: String, CaseIterable {
     case shelf = "Shelf"
 }
 
+public struct CalendarDaySlot: Equatable {
+    public let date: Date
+    public let isCurrentMonth: Bool
+
+    public init(date: Date, isCurrentMonth: Bool) {
+        self.date = date
+        self.isCurrentMonth = isCurrentMonth
+    }
+}
+
 public struct QuickCalendarEvent: Identifiable, Codable, Equatable {
     public let id: UUID
     public var title: String
@@ -2343,6 +2353,21 @@ public class IslandState: ObservableObject {
         triggerHaptic(.generic)
     }
     
+    public func selectCalendarDate(_ date: Date) {
+        calendarSelectedDate = date
+        if !Calendar.current.isDate(date, equalTo: calendarDisplayedMonth, toGranularity: .month) {
+            calendarDisplayedMonth = date
+        }
+        triggerHaptic(.generic)
+    }
+
+    public func jumpToTodayCalendar() {
+        let now = Date()
+        calendarDisplayedMonth = now
+        calendarSelectedDate = now
+        triggerHaptic(.generic)
+    }
+
     public func nextCalendarMonth() {
         if let next = Calendar.current.date(byAdding: .month, value: 1, to: calendarDisplayedMonth) {
             calendarDisplayedMonth = next
@@ -2352,6 +2377,25 @@ public class IslandState: ObservableObject {
     public func previousCalendarMonth() {
         if let prev = Calendar.current.date(byAdding: .month, value: -1, to: calendarDisplayedMonth) {
             calendarDisplayedMonth = prev
+        }
+    }
+
+    /// Generates a standardized 6-week (42-day) Monday-first grid including dimmed adjacent-month dates.
+    public static func calendarDays(for monthDate: Date, calendar: Calendar = .current) -> [CalendarDaySlot] {
+        guard let monthInterval = calendar.dateInterval(of: .month, for: monthDate) else {
+            return []
+        }
+        let firstDay = monthInterval.start
+        let weekday = calendar.component(.weekday, from: firstDay)
+        let mondayOffset = (weekday + 5) % 7
+        guard let gridStart = calendar.date(byAdding: .day, value: -mondayOffset, to: firstDay) else {
+            return []
+        }
+
+        return (0..<42).compactMap { offset in
+            guard let date = calendar.date(byAdding: .day, value: offset, to: gridStart) else { return nil }
+            let isCurrentMonth = calendar.isDate(date, equalTo: firstDay, toGranularity: .month)
+            return CalendarDaySlot(date: date, isCurrentMonth: isCurrentMonth)
         }
     }
 }

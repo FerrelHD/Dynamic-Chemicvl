@@ -2271,130 +2271,108 @@ public struct DynamicIslandView: View {
     
     // MARK: - Tab: Calendar & Agenda (Interactive Month & Quick Focus)
     private var calendarTabView: some View {
-        HStack(spacing: 8) {
-            // Left Column: Interactive Month Grid (Standardized 6 Weeks x 7 Days)
-            VStack(spacing: 3) {
+        let isShowingToday = Calendar.current.isDate(state.calendarDisplayedMonth, equalTo: Date(), toGranularity: .month)
+            && Calendar.current.isDateInToday(state.calendarSelectedDate)
+        let days = IslandState.calendarDays(for: state.calendarDisplayedMonth)
+        let selectedEvents = state.eventsForSelectedDate
+        let hasNewTitle = !state.newCalendarEventTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+
+        return HStack(spacing: 8) {
+            // Left Column: Fluid Interactive Month Grid (6 Weeks x 7 Days)
+            VStack(spacing: 4) {
                 // Month Header (< Month YYYY [Today] >)
                 HStack(spacing: 4) {
-                    Button(action: {
-                        state.previousCalendarMonth()
+                    CalendarChevronButton(systemName: "chevron.left") {
+                        withAnimation(.easeInOut(duration: 0.18)) {
+                            state.previousCalendarMonth()
+                        }
                         state.triggerHaptic(.generic)
-                    }) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(.white.opacity(0.80))
-                            .frame(width: 20, height: 20)
-                            .background(Circle().fill(Color.white.opacity(0.10)))
-                            .contentShape(Circle())
                     }
-                    .buttonStyle(.plain)
-                    
-                    Spacer()
-                    
+
+                    Spacer(minLength: 2)
+
                     Text(monthYearString(from: state.calendarDisplayedMonth))
-                        .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
-                    
-                    Spacer()
-                    
-                    Button(action: {
-                        state.nextCalendarMonth()
-                        state.triggerHaptic(.generic)
-                    }) {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(.white.opacity(0.80))
-                            .frame(width: 20, height: 20)
-                            .background(Circle().fill(Color.white.opacity(0.10)))
-                            .contentShape(Circle())
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+
+                    if !isShowingToday {
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.20)) {
+                                state.jumpToTodayCalendar()
+                            }
+                        }) {
+                            Text("Today")
+                                .font(.system(size: 8.5, weight: .bold, design: .rounded))
+                                .foregroundColor(Color(red: 0.25, green: 0.65, blue: 1.0))
+                                .padding(.horizontal, 5.5)
+                                .padding(.vertical, 2)
+                                .background(Color(red: 0.0, green: 0.48, blue: 1.0).opacity(0.20))
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .transition(.scale.combined(with: .opacity))
                     }
-                    .buttonStyle(.plain)
+
+                    Spacer(minLength: 2)
+
+                    CalendarChevronButton(systemName: "chevron.right") {
+                        withAnimation(.easeInOut(duration: 0.18)) {
+                            state.nextCalendarMonth()
+                        }
+                        state.triggerHaptic(.generic)
+                    }
                 }
-                .padding(.horizontal, 4)
-                
-                // Weekday Labels
-                HStack(spacing: 0) {
-                    ForEach(Array(["M", "T", "W", "T", "F", "S", "S"].enumerated()), id: \.offset) { _, day in
+                .padding(.horizontal, 2)
+
+                // Weekday Labels (Mon-Sun, subtle weekend dim)
+                HStack(spacing: 2) {
+                    ForEach(Array(["M", "T", "W", "T", "F", "S", "S"].enumerated()), id: \.offset) { idx, day in
                         Text(day)
-                            .font(.system(size: 9, weight: .bold, design: .rounded))
-                            .foregroundColor(.white.opacity(0.65))
+                            .font(.system(size: 8.5, weight: .bold, design: .rounded))
+                            .foregroundColor(idx >= 5 ? .white.opacity(0.38) : .white.opacity(0.62))
                             .frame(maxWidth: .infinity)
                     }
                 }
-                .padding(.vertical, 1)
-                
-                // Month Grid (Strictly 6 rows of 7 days = 42 cells)
-                let days = calendarDaysForMonth(state.calendarDisplayedMonth)
-                VStack(spacing: 1.5) {
+
+                // Responsive Month Grid (6 rows of 7 fluid cells)
+                VStack(spacing: 2) {
                     ForEach(0..<6, id: \.self) { row in
-                        HStack(spacing: 0) {
+                        HStack(spacing: 2) {
                             ForEach(0..<7, id: \.self) { col in
                                 let idx = row * 7 + col
-                                let dateOpt = idx < days.count ? days[idx] : nil
-                                if let date = dateOpt {
-                                    let isToday = Calendar.current.isDateInToday(date)
-                                    let isSelected = Calendar.current.isDate(state.calendarSelectedDate, inSameDayAs: date)
-                                    let hasEvent = state.hasEvents(on: date)
-                                    let dayNum = Calendar.current.component(.day, from: date)
-                                    
-                                    Button(action: {
-                                        state.calendarSelectedDate = date
-                                        state.triggerHaptic(.generic)
-                                    }) {
-                                        ZStack(alignment: .center) {
-                                            ZStack {
-                                                if isToday && isSelected {
-                                                    RoundedRectangle(cornerRadius: 5.5, style: .continuous)
-                                                        .fill(Color(red: 0.0, green: 0.48, blue: 1.0))
-                                                        .overlay(
-                                                            RoundedRectangle(cornerRadius: 5.5, style: .continuous)
-                                                                .stroke(Color.white, lineWidth: 1.2)
-                                                        )
-                                                } else if isToday {
-                                                    RoundedRectangle(cornerRadius: 5.5, style: .continuous)
-                                                        .fill(Color(red: 0.0, green: 0.48, blue: 1.0))
-                                                } else if isSelected {
-                                                    RoundedRectangle(cornerRadius: 5.5, style: .continuous)
-                                                        .fill(Color.white.opacity(0.18))
-                                                        .overlay(
-                                                            RoundedRectangle(cornerRadius: 5.5, style: .continuous)
-                                                                .stroke(Color.white.opacity(0.65), lineWidth: 1.0)
-                                                        )
-                                                }
-                                                
-                                                Text("\(dayNum)")
-                                                    .font(.system(size: 10.5, weight: (isToday || isSelected) ? .bold : .medium, design: .rounded))
-                                                    .foregroundColor(isToday ? .white : (isSelected ? .white : .white.opacity(0.90)))
-                                            }
-                                            .frame(width: 23, height: 15.5)
-                                            
-                                            if hasEvent {
-                                                VStack {
-                                                    Spacer()
-                                                    Circle()
-                                                        .fill(isToday ? Color.white : (isSelected ? Color(red: 0.20, green: 0.65, blue: 1.0) : Color(red: 0.0, green: 0.48, blue: 1.0)))
-                                                        .frame(width: 2.2, height: 2.2)
-                                                }
-                                                .frame(height: 18)
-                                            }
+                                if idx < days.count {
+                                    let slot = days[idx]
+                                    let isToday = Calendar.current.isDateInToday(slot.date)
+                                    let isSelected = Calendar.current.isDate(state.calendarSelectedDate, inSameDayAs: slot.date)
+                                    let hasEvent = state.hasEvents(on: slot.date)
+
+                                    CalendarDayCellView(
+                                        date: slot.date,
+                                        isCurrentMonth: slot.isCurrentMonth,
+                                        isToday: isToday,
+                                        isSelected: isSelected,
+                                        hasEvent: hasEvent
+                                    ) {
+                                        withAnimation(.easeInOut(duration: 0.16)) {
+                                            state.selectCalendarDate(slot.date)
                                         }
-                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                        .contentShape(Rectangle())
                                     }
-                                    .buttonStyle(.plain)
                                 } else {
                                     Color.clear
                                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                                 }
                             }
                         }
-                        .frame(height: 18)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .frame(width: 204, height: 160)
+            .padding(.vertical, 7)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color.white.opacity(0.06))
@@ -2403,77 +2381,74 @@ public struct DynamicIslandView: View {
                             .stroke(Color.white.opacity(0.08), lineWidth: 0.75)
                     )
             )
-            
-            // Right Column: Selected Date's Live Clock & Focus Agenda
-            VStack(alignment: .leading, spacing: 5) {
-                // Date & Live Clock Header
-                HStack(alignment: .center) {
-                    VStack(alignment: .leading, spacing: 1) {
-                        HStack(spacing: 5) {
-                            Text(selectedDateHeaderString(state.calendarSelectedDate))
-                                .font(.system(size: 9.5, weight: .bold, design: .rounded))
-                                .foregroundColor(Color(red: 0.0, green: 0.48, blue: 1.0))
-                                .textCase(.uppercase)
-                                .lineLimit(1)
-                            
-                            let isShowingToday = Calendar.current.isDate(state.calendarDisplayedMonth, equalTo: Date(), toGranularity: .month) && Calendar.current.isDateInToday(state.calendarSelectedDate)
-                            if !isShowingToday {
-                                Button(action: {
-                                    withAnimation(.easeInOut(duration: 0.20)) {
-                                        state.calendarDisplayedMonth = Date()
-                                        state.calendarSelectedDate = Date()
-                                    }
-                                    state.triggerHaptic(.generic)
-                                }) {
-                                    Text("Today")
-                                        .font(.system(size: 8.5, weight: .bold, design: .rounded))
-                                        .foregroundColor(Color(red: 0.0, green: 0.48, blue: 1.0))
-                                        .padding(.horizontal, 5.5)
-                                        .padding(.vertical, 1.5)
-                                        .background(Color(red: 0.0, green: 0.48, blue: 1.0).opacity(0.18))
-                                        .clipShape(Capsule())
-                                }
-                                .buttonStyle(.plain)
-                                .transition(.scale.combined(with: .opacity))
-                            }
-                        }
-                        
-                        TimelineView(.periodic(from: .now, by: 1.0)) { timeline in
-                            Text(liveClockString(from: timeline.date))
-                                .font(.system(size: 16, weight: .heavy, design: .rounded))
-                                .foregroundColor(.white)
-                                .monospacedDigit()
-                        }
+
+            // Right Column: Selected Date Agenda & Compact Live Clock
+            VStack(alignment: .leading, spacing: 6) {
+                // Compact Header: Selected Date + Count Badge + Inline Live Clock
+                HStack(alignment: .center, spacing: 5) {
+                    Text(selectedDateHeaderString(state.calendarSelectedDate))
+                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                        .foregroundColor(Color(red: 0.25, green: 0.65, blue: 1.0))
+                        .textCase(.uppercase)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+
+                    Spacer(minLength: 2)
+
+                    if !selectedEvents.isEmpty {
+                        Text("\(selectedEvents.count)")
+                            .font(.system(size: 8.5, weight: .bold, design: .rounded))
+                            .foregroundColor(.white.opacity(0.75))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 1.5)
+                            .background(Color.white.opacity(0.11))
+                            .clipShape(Capsule())
                     }
-                    
-                    Spacer()
-                    
-                    let count = state.eventsForSelectedDate.count
-                    if count > 0 {
-                        Text("\(count) event\(count == 1 ? "" : "s")")
-                            .font(.system(size: 9, weight: .bold, design: .rounded))
-                            .foregroundColor(.white.opacity(0.60))
+
+                    TimelineView(.periodic(from: .now, by: 1.0)) { timeline in
+                        Text(liveClockString(from: timeline.date))
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .foregroundColor(.white.opacity(0.90))
+                            .monospacedDigit()
                             .padding(.horizontal, 6)
-                            .padding(.vertical, 2.5)
-                            .background(Color.white.opacity(0.10))
+                            .padding(.vertical, 2)
+                            .background(Color.white.opacity(0.08))
                             .clipShape(Capsule())
                     }
                 }
-                
-                // Add Quick Event input for Selected Date
-                HStack(alignment: .center, spacing: 6) {
+
+                // Quick Event Input (Title + Optional Time + Add)
+                HStack(alignment: .center, spacing: 5) {
                     AutoWrapTextField(
-                        placeholder: "Event for \(shortDateString(state.calendarSelectedDate))...",
+                        placeholder: "Add event...",
                         text: $state.newCalendarEventTitle,
-                        fontSize: 11,
+                        fontSize: 10.5,
                         fontWeight: .medium,
                         maxLines: 2,
                         onCommit: {
                             state.addQuickCalendarEvent()
                         }
                     )
-                    .frame(minHeight: 20, maxHeight: 34)
-                    
+                    .frame(minHeight: 18, maxHeight: 30)
+
+                    AutoWrapTextField(
+                        placeholder: "HH:mm",
+                        text: $state.newCalendarEventTime,
+                        fontSize: 9.5,
+                        fontWeight: .semibold,
+                        maxLines: 1,
+                        onCommit: {
+                            state.addQuickCalendarEvent()
+                        }
+                    )
+                    .frame(width: 36, height: 18)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 1)
+                    .background(
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .fill(Color.white.opacity(0.07))
+                    )
+
                     Button(action: {
                         state.addQuickCalendarEvent()
                     }) {
@@ -2483,91 +2458,65 @@ public struct DynamicIslandView: View {
                             .frame(width: 20, height: 20)
                             .background(
                                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                    .fill(state.newCalendarEventTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Color.white.opacity(0.12) : Color(red: 0.0, green: 0.48, blue: 1.0))
+                                    .fill(hasNewTitle ? Color(red: 0.0, green: 0.48, blue: 1.0) : Color.white.opacity(0.12))
                             )
                     }
                     .buttonStyle(.plain)
-                    .disabled(state.newCalendarEventTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(!hasNewTitle)
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4.5)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 4)
                 .background(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .fill(Color.white.opacity(0.09))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(Color.white.opacity(0.12), lineWidth: 0.75)
+                        )
                 )
-                
-                // Event List Filtered for Selected Date
+
+                // Scrollable Event List for Selected Date
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 4) {
-                        let events = state.eventsForSelectedDate
-                        if events.isEmpty {
-                            VStack(spacing: 2) {
-                                Text("No events for this date")
+                        if selectedEvents.isEmpty {
+                            VStack(spacing: 3) {
+                                Image(systemName: "calendar")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.22))
+                                    .padding(.bottom, 1)
+                                Text("No events for \(shortDateString(state.calendarSelectedDate))")
                                     .font(.system(size: 9.5, weight: .medium, design: .rounded))
-                                    .foregroundColor(.white.opacity(0.40))
-                                Text("Type above & tap [+] to add")
+                                    .foregroundColor(.white.opacity(0.45))
+                                Text("Type title & optional time above")
                                     .font(.system(size: 8, weight: .regular, design: .rounded))
-                                    .foregroundColor(.white.opacity(0.25))
+                                    .foregroundColor(.white.opacity(0.26))
                             }
                             .frame(maxWidth: .infinity)
-                            .padding(.top, 10)
+                            .padding(.top, 14)
                         } else {
-                            ForEach(events) { ev in
-                                HStack(alignment: .top, spacing: 6) {
-                                    Button(action: {
-                                        state.toggleQuickCalendarEvent(id: ev.id)
-                                    }) {
-                                        Image(systemName: ev.isDone ? "checkmark.circle.fill" : "circle")
-                                            .font(.system(size: 11.5, weight: .bold))
-                                            .foregroundColor(ev.isDone ? Color(red: 0.0, green: 0.48, blue: 1.0) : Color.white.opacity(0.45))
-                                            .frame(width: 18, height: 18)
-                                            .contentShape(Rectangle())
-                                    }
-                                    .buttonStyle(.plain)
-                                    
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(ev.title)
-                                            .font(.system(size: 10.5, weight: .medium, design: .rounded))
-                                            .foregroundColor(ev.isDone ? .white.opacity(0.40) : .white)
-                                            .strikethrough(ev.isDone, color: .white.opacity(0.40))
-                                            .lineLimit(3)
-                                            .multilineTextAlignment(.leading)
-                                            .fixedSize(horizontal: false, vertical: true)
-                                        
-                                        if !ev.timeString.isEmpty && ev.timeString != "All Day" {
-                                            Text(ev.timeString)
-                                                .font(.system(size: 8, weight: .semibold, design: .rounded))
-                                                .foregroundColor(Color(red: 0.0, green: 0.48, blue: 1.0))
-                                                .padding(.horizontal, 4)
-                                                .padding(.vertical, 1)
-                                                .background(Color(red: 0.0, green: 0.48, blue: 1.0).opacity(0.15))
-                                                .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+                            ForEach(selectedEvents) { ev in
+                                CalendarEventRowView(
+                                    event: ev,
+                                    onToggle: {
+                                        withAnimation(.easeInOut(duration: 0.16)) {
+                                            state.toggleQuickCalendarEvent(id: ev.id)
+                                        }
+                                    },
+                                    onDelete: {
+                                        withAnimation(.easeInOut(duration: 0.16)) {
+                                            state.deleteQuickCalendarEvent(id: ev.id)
                                         }
                                     }
-                                    .padding(.top, 1.5)
-                                    
-                                    Spacer(minLength: 0)
-                                    
-                                    Button(action: {
-                                        state.deleteQuickCalendarEvent(id: ev.id)
-                                    }) {
-                                        Image(systemName: "xmark")
-                                            .font(.system(size: 8.5, weight: .bold))
-                                            .foregroundColor(.white.opacity(0.35))
-                                            .frame(width: 18, height: 18)
-                                            .contentShape(Rectangle())
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                                .padding(.vertical, 1)
+                                )
                             }
                         }
                     }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .frame(width: 204, height: 160)
+            .padding(.vertical, 7)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color.white.opacity(0.06))
@@ -2592,7 +2541,7 @@ public struct DynamicIslandView: View {
         }()
         static let dayMonth: DateFormatter = {
             let f = DateFormatter()
-            f.dateFormat = "EEEE, d MMM"
+            f.dateFormat = "EEE, d MMM"
             return f
         }()
         static let shortDayMonth: DateFormatter = {
@@ -2612,43 +2561,18 @@ public struct DynamicIslandView: View {
     }
     
     private func selectedDateHeaderString(_ date: Date) -> String {
-        let isToday = Calendar.current.isDateInToday(date)
-        let str = DateFormatters.dayMonth.string(from: date)
-        return isToday ? "TODAY • \(str)" : str
+        if Calendar.current.isDateInToday(date) {
+            return "TODAY • \(DateFormatters.shortDayMonth.string(from: date))"
+        }
+        return DateFormatters.dayMonth.string(from: date)
     }
     
     private func shortDateString(_ date: Date) -> String {
         Calendar.current.isDateInToday(date) ? "Today" : DateFormatters.shortDayMonth.string(from: date)
     }
     
-    private func todayDateHeaderString() -> String {
-        DateFormatters.dayMonth.string(from: Date())
-    }
-    
     private func liveClockString(from date: Date) -> String {
         DateFormatters.liveClock.string(from: date)
-    }
-    
-    private func calendarDaysForMonth(_ monthDate: Date) -> [Date?] {
-        let cal = Calendar.current
-        guard let monthInterval = cal.dateInterval(of: .month, for: monthDate) else {
-            return Array(repeating: nil, count: 42)
-        }
-        let firstDay = monthInterval.start
-        let weekday = cal.component(.weekday, from: firstDay)
-        let mondayOffset = (weekday + 5) % 7
-        
-        var days: [Date?] = Array(repeating: nil, count: mondayOffset)
-        let daysInMonth = cal.range(of: .day, in: .month, for: monthDate)?.count ?? 30
-        for d in 0..<daysInMonth {
-            if let dayDate = cal.date(byAdding: .day, value: d, to: firstDay) {
-                days.append(dayDate)
-            }
-        }
-        while days.count < 42 {
-            days.append(nil)
-        }
-        return Array(days.prefix(42))
     }
     
     // MARK: - Tab 4: Connected Devices & Battery Hub (iOS Concept Style)
@@ -3497,5 +3421,178 @@ public struct BouncyButtonStyle: ButtonStyle {
             .scaleEffect(configuration.isPressed ? 0.88 : 1.0)
             .opacity(configuration.isPressed ? 0.75 : 1.0)
             .animation(.spring(response: 0.25, dampingFraction: 0.65), value: configuration.isPressed)
+    }
+}
+
+// MARK: - Calendar Subviews (Fluid Hover-Aware Cells & Event Cards)
+private struct CalendarChevronButton: View {
+    let systemName: String
+    let action: () -> Void
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 9.5, weight: .bold))
+                .foregroundColor(.white.opacity(isHovered ? 0.95 : 0.78))
+                .frame(width: 20, height: 20)
+                .background(Circle().fill(Color.white.opacity(isHovered ? 0.18 : 0.10)))
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.12)) {
+                isHovered = hovering
+            }
+        }
+    }
+}
+
+private struct CalendarDayCellView: View {
+    let date: Date
+    let isCurrentMonth: Bool
+    let isToday: Bool
+    let isSelected: Bool
+    let hasEvent: Bool
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    private var dayNumber: Int {
+        Calendar.current.component(.day, from: date)
+    }
+
+    private var textColor: Color {
+        if isToday || isSelected { return .white }
+        return isCurrentMonth ? .white.opacity(0.90) : .white.opacity(0.24)
+    }
+
+    private var dotColor: Color {
+        if isToday { return .white }
+        if isSelected { return Color(red: 0.30, green: 0.70, blue: 1.0) }
+        return Color(red: 0.0, green: 0.48, blue: 1.0).opacity(isCurrentMonth ? 1.0 : 0.40)
+    }
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 5.5, style: .continuous)
+                    .fill(cellFill)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 5.5, style: .continuous)
+                            .stroke(cellStroke, lineWidth: isToday && isSelected ? 1.2 : 0.9)
+                    )
+
+                Text("\(dayNumber)")
+                    .font(.system(size: 10, weight: (isToday || isSelected) ? .bold : .medium, design: .rounded))
+                    .foregroundColor(textColor)
+                    .offset(y: hasEvent ? -1.2 : 0)
+
+                if hasEvent {
+                    VStack {
+                        Spacer(minLength: 0)
+                        Circle()
+                            .fill(dotColor)
+                            .frame(width: 2.5, height: 2.5)
+                            .padding(.bottom, 1.5)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.10)) {
+                isHovered = hovering
+            }
+        }
+    }
+
+    private var cellFill: Color {
+        if isToday { return Color(red: 0.0, green: 0.48, blue: 1.0) }
+        if isSelected { return Color.white.opacity(isHovered ? 0.24 : 0.18) }
+        return isHovered ? Color.white.opacity(0.11) : Color.clear
+    }
+
+    private var cellStroke: Color {
+        if isToday && isSelected { return Color.white }
+        if isSelected && !isToday { return Color.white.opacity(0.68) }
+        return Color.clear
+    }
+}
+
+private struct CalendarEventRowView: View {
+    let event: QuickCalendarEvent
+    let onToggle: () -> Void
+    let onDelete: () -> Void
+
+    @State private var isRowHovered = false
+    @State private var isTrashHovered = false
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 6) {
+            Button(action: onToggle) {
+                Image(systemName: event.isDone ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                    .foregroundColor(event.isDone ? Color(red: 0.0, green: 0.48, blue: 1.0) : .white.opacity(0.48))
+                    .frame(width: 20, height: 20)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(event.title)
+                    .font(.system(size: 10.5, weight: .medium, design: .rounded))
+                    .foregroundColor(event.isDone ? .white.opacity(0.42) : .white)
+                    .strikethrough(event.isDone, color: .white.opacity(0.42))
+                    .lineLimit(3)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if !event.timeString.isEmpty && event.timeString != "All Day" {
+                    Text(event.timeString)
+                        .font(.system(size: 8, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundColor(Color(red: 0.25, green: 0.65, blue: 1.0))
+                        .padding(.horizontal, 4.5)
+                        .padding(.vertical, 1)
+                        .background(Color(red: 0.0, green: 0.48, blue: 1.0).opacity(0.16))
+                        .clipShape(RoundedRectangle(cornerRadius: 3.5, style: .continuous))
+                }
+            }
+            .padding(.top, 2)
+
+            Spacer(minLength: 0)
+
+            Button(action: onDelete) {
+                Image(systemName: "trash")
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .foregroundColor(isTrashHovered ? Color.red : .white.opacity(isRowHovered ? 0.60 : 0.28))
+                    .frame(width: 22, height: 22)
+                    .background(
+                        Circle()
+                            .fill(isTrashHovered ? Color.red.opacity(0.20) : Color.clear)
+                    )
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .onHover { hovering in
+                withAnimation(.easeInOut(duration: 0.12)) {
+                    isTrashHovered = hovering
+                }
+            }
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color.white.opacity(isRowHovered ? 0.11 : 0.07))
+        )
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.12)) {
+                isRowHovered = hovering
+            }
+        }
     }
 }
